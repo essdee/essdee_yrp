@@ -16,7 +16,24 @@ export function inspectionResultCellTone(fieldname, value) {
 	return { Pass: "success", Fail: "danger", Hold: "warning" }[value] || ""
 }
 
+const STOCK_LEDGER_PATH = `/app/query-report/${encodeURIComponent("SD YRP Stock Ledger")}`
+
+/** Desk SD YRP Stock Ledger for a Purchase Audit row; /web has no stock ledger page. */
+export function purchaseAuditLedgerUrl(row, filters) {
+	if (row.is_total_row || !row.item_variant) return ""
+	const params = new URLSearchParams({ from_date: filters.from_date, to_date: filters.to_date, warehouse: row.warehouse, item: row.item_variant })
+	if (row.received_type) params.set("received_type", row.received_type)
+	return `${STOCK_LEDGER_PATH}?${params}`
+}
+
 export const deskReportConfig = {
+	"purchase-audit-report": {
+		title: "Purchase Audit Report", supplierWarehouse: true, ledgerUrl: purchaseAuditLedgerUrl,
+		filters: [date("from_date", "From Date"), date("to_date", "To Date"), link("supplier", "Supplier", "Supplier"),
+			{ ...link("warehouse", "Warehouse", "Warehouse"), reqd: 1 }, link("item", "Item", "Item"),
+			link("item_variant", "Item Variant", "Item"), link("item_group", "Item Group", "Item Group"),
+			link("received_type", "Received Type", "YRP Received Type")],
+	},
 	"quality-inspection-rft": {
 		title: "Quality Inspection RFT", dateDefaults: "none", cellTone: inspectionResultCellTone,
 		filters: [link("lot", "Lot", "SD YRP Lot"), link("item", "Item", "Item"),
@@ -162,6 +179,7 @@ export function departmentDeskReports(department, capabilities, allowed = true) 
 	if (department === "purchase") keys.push("purchase-order-log", "lot-purchase-summary")
 	if (["purchase", "accounts"].includes(department)) keys.push("purchase-order-itemwise")
 	if (["purchase", "fabric-store", "accessory-store", "accounts"].includes(department)) keys.push("lot-consumption-report")
+	if (department === "accounts") keys.push("purchase-audit-report")
 	if (department === "sewing") keys.push("finishing-inward-updates")
 	return keys.filter(value => capabilities?.[value.replaceAll("-", "_")]?.can_read).map(value => ({
 		key: value.replaceAll("-", "_"), value, label: deskReportConfig[value].title, icon: "pi pi-table",

@@ -173,6 +173,9 @@ def validate_filters(filters):
 		frappe.throw(_("From Date, To Date and Warehouse are required."))
 	if getdate(filters.from_date) > getdate(filters.to_date):
 		frappe.throw(_("From Date cannot be after To Date."))
+	supplier = filters.get("supplier")
+	if supplier and frappe.db.get_value("Warehouse", filters.warehouse, "supplier") != supplier:
+		frappe.throw(_("Warehouse {0} does not belong to Supplier {1}.").format(filters.warehouse, supplier))
 
 
 def get_view(filters):

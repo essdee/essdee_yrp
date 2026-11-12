@@ -188,10 +188,20 @@ class TestPurchaseAuditReport(IntegrationTestCase):
 		only_rejected = self.run_report(received_type="Rejected")
 		self.assertEqual([row["received_type"] for row in only_rejected], ["Rejected"])
 
-	def test_lot_and_supplier_filters_are_gone(self):
+	def test_lot_filter_is_gone(self):
 		receipt = self.make_voucher("YRP Stock Entry", purpose="Material Receipt")
 		self.add_entry(receipt, 5, lot=f"LOT-{self.key}")
-		self.assertEqual(len(self.run_report(lot="missing", supplier="missing")), 1)
+		self.assertEqual(len(self.run_report(lot="missing")), 1)
+
+	def test_supplier_filter_accepts_its_own_warehouse(self):
+		receipt = self.make_voucher("YRP Stock Entry", purpose="Material Receipt")
+		self.add_entry(receipt, 5)
+		self.assertEqual(len(self.run_report(supplier=self.supplier)), 1)
+
+	def test_supplier_filter_rejects_another_suppliers_warehouse(self):
+		other = self.make_supplier("Audit Other")
+		with self.assertRaisesRegex(frappe.ValidationError, "does not belong to Supplier"):
+			self.run_report(supplier=other)
 
 	def test_columns_read_opening_then_movements_then_balance(self):
 		self.make_all_movements()

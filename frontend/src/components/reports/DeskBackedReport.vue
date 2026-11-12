@@ -2,7 +2,7 @@
 	<ReportShell :actions="[{ label: 'Pick Columns', icon: 'pi pi-table', disabled: !generated || !allColumns.length, command: () => { pickerVisible = true } }, { label: 'Download', icon: 'pi pi-download', visible: isBackgroundResult, command: download }]" :title="config.title" :generated="generated" :loading="loading" :error="filterError || layoutError" :has-results="rows.length > 0" :generate-disabled="isBusy" :status-only="statusOnly" :export-source="exportSource" @generate="generate" @reset="reset">
 		<template #filters>
 			<template v-for="field in visibleFilters" :key="field.fieldname">
-				<LinkField v-if="field.fieldtype === 'Link'" v-model="filters[field.fieldname]" :doctype="field.options" :fieldname="field.fieldname" :label="field.label" :filters="field.filters" :required="Boolean(field.reqd)" :show-open-button="false" show-clear />
+				<LinkField v-if="field.fieldtype === 'Link'" v-model="filters[field.fieldname]" :doctype="field.options" :fieldname="field.fieldname" :label="field.label" :filters="fieldFilters(field)" :required="Boolean(field.reqd)" :show-open-button="false" show-clear />
 				<DateField v-else-if="field.fieldtype === 'Date'" v-model="filters[field.fieldname]" :label="field.label" :required="Boolean(field.reqd)" />
 				<label v-else-if="field.fieldtype === 'Int'" class="desk-report-field"><span>{{ field.label }}</span><InputNumber v-model="filters[field.fieldname]" :required="Boolean(field.reqd)" :use-grouping="false" :max-fraction-digits="0" fluid /></label>
 				<label v-else-if="field.fieldtype === 'Select'" class="desk-report-field"><span>{{ field.label }}</span><Select v-model="filters[field.fieldname]" :options="field.options" option-label="label" option-value="value" fluid /></label>
@@ -14,7 +14,7 @@
 			<table class="erp-data-table report-table desk-report-table" data-column-layout="results" data-column-order>
 				<thead><tr><th v-for="column in columns" :key="column.key" :class="[cellAlign(column), cellTypeClass(column)]" :style="{ minWidth: `${column.width}px` }">{{ column.label }}</th></tr><ReportFilterRow :columns="columns" :filter="inlineFilter" /></thead>
 				<tbody>
-					<tr v-for="(row, index) in renderedRows" :key="index" :class="{ 'report-total-row': row.is_total_row }"><td v-for="(column, columnIndex) in columns" :key="column.key" :class="[cellAlign(column), cellTypeClass(column), cellToneClass(row, column), { 'report-cell--last-column': columnIndex === columns.length - 1 }]">{{ stockCellValue(cellValue(row, column), column) }}</td></tr>
+					<tr v-for="(row, index) in renderedRows" :key="index" :class="{ 'report-total-row': row.is_total_row }"><td v-for="(column, columnIndex) in columns" :key="column.key" :class="[cellAlign(column), cellTypeClass(column), cellToneClass(row, column), { 'report-cell--last-column': columnIndex === columns.length - 1 }]">{{ stockCellValue(cellValue(row, column), column) }}<a v-if="column.fieldname === 'item_variant' && ledgerUrl(row)" class="desk-report-link" :href="ledgerUrl(row)" target="_blank" rel="noopener" title="Open Stock Ledger">Ledger</a></td></tr>
 					<tr v-if="unrenderedCount" ref="moreRowsSentinel" class="desk-report-more"><td class="report-cell--last-column" :colspan="columns.length"><div class="desk-report-more__inner"><span>Showing {{ renderedRows.length.toLocaleString() }} of {{ inlineFilter.filteredRows.value.length.toLocaleString() }} rows</span><Button label="Show more rows" size="small" severity="secondary" text @click="renderMoreRows" /></div></td></tr>
 				</tbody>
 			</table>
@@ -35,6 +35,7 @@ import { ROW_RENDER_STEP, useIncrementalRows } from "../../composables/useIncrem
 import { useInlineFilters } from "../../composables/useInlineFilters.js"
 import { useOrderedColumns } from "../../composables/useReportColumnLayout.js"
 import { useReportColumns } from "../../composables/useReportColumns.js"
+import { getSingleLocationOptions } from "../../composables/useSingleOptionAutofill.js"
 import { useWebReport } from "../../composables/useWebReport.js"
 import DateField from "../common/DateField.vue"
 import LinkField from "../common/LinkField.vue"
@@ -74,6 +75,22 @@ const { renderedRows, unrenderedCount, sentinel: moreRowsSentinel, renderMoreRow
 	step: config.renderedExport ? Infinity : ROW_RENDER_STEP, resetOn: [sourceRows, inlineFilter.keywords],
 })
 
+const ledgerUrl = row => config.ledgerUrl?.(row, activeFilters.value || filters) || ""
+// Supplier limits Warehouse to its own locations.
+function fieldFilters(field) {
+	if (config.supplierWarehouse && field.fieldname === "warehouse") return filters.supplier ? { supplier: filters.supplier, disabled: 0 } : { disabled: 0 }
+	return field.filters
+}
+async function onSupplierChange(supplier) {
+	if (!supplier) {
+		filters.warehouse = ""
+		return
+	}
+	const { warehouse } = await getSingleLocationOptions({ supplier }) || {}
+	if (filters.supplier === supplier && warehouse) filters.warehouse = warehouse
+	else if (filters.supplier === supplier) filters.warehouse = ""
+}
+
 function cellToneClass(row, column) {
 	const tone = config.cellTone?.(column.fieldname, cellValue(row, column))
 	return ["success", "danger", "warning"].includes(tone) ? `desk-report-cell--${tone}` : ""
@@ -97,6 +114,7 @@ function reset() {
 watch(filters, () => filtersChanged({ ...filters }), { deep: true })
 watch(activeFilters, request => { if (request) Object.assign(filters, request) }, { flush: "sync" })
 watch(() => props.supplier, () => reset())
+if (config.supplierWarehouse) watch(() => filters.supplier, (supplier, previous) => { if (supplier !== previous) onSupplierChange(supplier) })
 watch(() => route.query, () => reset(), { deep: true })
 onMounted(() => {
 	if (Object.keys(deskReportQueryFilters(props.reportKey, route.query)).length) reset()
@@ -109,6 +127,7 @@ onMounted(() => {
 .desk-report-check { display: flex; align-items: center; gap: 8px; font-size: var(--erp-font-size-caption); }
 .desk-report-table { width: max-content; min-width: 100%; }
 .desk-report-table td.report-cell--text { max-width: 18rem; white-space: pre-line; }
+.desk-report-link { margin-left: var(--erp-space-2); color: var(--erp-accent); font-weight: 650; }
 .desk-report-more__inner { position: sticky; left: 0; display: inline-flex; align-items: center; gap: var(--erp-space-3); color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
 .desk-report-table .desk-report-cell--success { color: var(--erp-success-text); font-weight: 650; }
 .desk-report-table .desk-report-cell--danger { color: var(--erp-danger); font-weight: 650; }
