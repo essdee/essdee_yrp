@@ -1,6 +1,8 @@
 const ITEM_QUERY =
 	"essdee_yrp.essdee_yrp.report.sd_yrp_purchase_audit_report.sd_yrp_purchase_audit_report.item_query";
 
+const STOCK_LEDGER = "SD YRP Stock Ledger";
+
 const get_item_filters = () => ({
 	item_group: frappe.query_report.get_filter_value("item_group") || [],
 });
@@ -22,27 +24,11 @@ frappe.query_reports["SD YRP Purchase Audit Report"] = {
 			reqd: 1,
 		},
 		{
-			fieldname: "supplier",
-			label: __("Supplier"),
-			fieldtype: "Link",
-			options: "Supplier",
-			on_change: (report) => {
-				if (report.get_filter_value("warehouse")) {
-					report.set_filter_value("warehouse", "");
-				} else {
-					report.refresh();
-				}
-			},
-		},
-		{
 			fieldname: "warehouse",
 			label: __("Warehouse"),
 			fieldtype: "Link",
 			options: "Warehouse",
-			get_query: () => {
-				const supplier = frappe.query_report.get_filter_value("supplier");
-				return supplier ? { filters: { supplier } } : {};
-			},
+			reqd: 1,
 		},
 		{
 			fieldname: "item",
@@ -85,12 +71,6 @@ frappe.query_reports["SD YRP Purchase Audit Report"] = {
 			options: "YRP Received Type",
 		},
 		{
-			fieldname: "lot",
-			label: __("Lot"),
-			fieldtype: "Link",
-			options: "SD YRP Lot",
-		},
-		{
 			fieldname: "summarized_view",
 			label: __("Summarized View"),
 			fieldtype: "Check",
@@ -110,4 +90,21 @@ frappe.query_reports["SD YRP Purchase Audit Report"] = {
 			depends_on: "eval:doc.summarized_view",
 		},
 	],
+	formatter(value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+		if (column.fieldname !== "item_variant" || !data?.item_variant) {
+			return value;
+		}
+		const params = new URLSearchParams({
+			from_date: frappe.query_report.get_filter_value("from_date"),
+			to_date: frappe.query_report.get_filter_value("to_date"),
+			warehouse: data.warehouse,
+			item: data.item_variant,
+		});
+		if (data.received_type) {
+			params.set("received_type", data.received_type);
+		}
+		const url = `/app/query-report/${encodeURIComponent(STOCK_LEDGER)}?${params}`;
+		return `${value} <a href="${url}" target="_blank" title="${__("Open Stock Ledger")}">${__("Ledger")}</a>`;
+	},
 };
