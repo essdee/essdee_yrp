@@ -23,6 +23,24 @@ def submitted_production_order():
 	return name
 
 
+def make_work_stations(action):
+	"""A default and a second Work Station for a capacity-planned `action`."""
+	frappe.db.set_value("SD YRP Action", action, "capacity_planning", 1)
+	frappe.db.set_value("YRP Work Station", {"default": 1}, "default", 0)
+	names = []
+	for is_default in (1, 0):
+		doc = frappe.get_doc(
+			{
+				"doctype": "YRP Work Station",
+				"workstation_name": f"TA-TEST-{frappe.generate_hash(length=6)}",
+				"action": action,
+				"default": is_default,
+			}
+		).insert()
+		names.append(doc.name)
+	return names
+
+
 class TestCreateTimeAndAction(TimeAndActionTestCase):
 	def setUp(self):
 		use_company_holidays(["2026-11-08", "2026-11-15"])
@@ -47,6 +65,29 @@ class TestCreateTimeAndAction(TimeAndActionTestCase):
 		preview = get_schedule_preview(self.master.name, START)
 		self.assertEqual([row["action"] for row in preview], [action for action, _lead in STEPS])
 		self.assertEqual(str(preview[-1]["date"]), "2026-11-10")
+
+	def test_preview_returns_default_work_station(self):
+		default, _other = make_work_stations("TA-TEST-CUT")
+		preview = {
+			row["action"]: row["work_station"] for row in get_schedule_preview(self.master.name, START)
+		}
+		self.assertEqual(preview["TA-TEST-CUT"], default)
+		self.assertIsNone(preview["TA-TEST-YARN"])
+
+	def test_create_honours_chosen_work_station(self):
+		default, other = make_work_stations("TA-TEST-CUT")
+		name = create_time_and_action(
+			"SD YRP Lot", make_lot(), self.master.name, START, {"TA-TEST-CUT": other, "TA-TEST-YARN": None}
+		)
+		stations = {
+			row.action: row.work_station for row in frappe.get_doc("SD YRP Time and Action", name).details
+		}
+		self.assertEqual(stations["TA-TEST-CUT"], other)
+		self.assertIsNone(stations["TA-TEST-YARN"])
+		default_name = create_time_and_action("SD YRP Lot", make_lot(), self.master.name, START)
+		self.assertEqual(
+			frappe.get_doc("SD YRP Time and Action", default_name).details[3].work_station, default
+		)
 
 	def test_second_ta_for_same_lot_is_refused(self):
 		lot = make_lot()

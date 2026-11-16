@@ -69,6 +69,7 @@ def get_schedule_preview(master: str, start_date: str) -> list[dict]:
 			"lead_time": row.lead_time,
 			"date": schedule[row.action],
 			"depends_on": dependencies.get(row.action, []),
+			"work_station": get_work_station(row.action),
 		}
 		for row in master_doc.details
 	]

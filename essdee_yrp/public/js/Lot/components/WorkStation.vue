@@ -93,11 +93,13 @@ function set_attributes() {
 function createInput(colour, action, master, work_station){
     let parent_class = "." + get_input_class(colour,action,master);
     let el = root.value
+    let fieldname = colour+"_"+action+"_"+master
+    sample_doc.value[fieldname] = work_station
     let input =  frappe.ui.form.make_control({
         parent: $(el).find(parent_class),
         df:{
             "fieldtype":"Link",
-            "fieldname": colour+"_"+action+"_"+master,
+            "fieldname": fieldname,
             "options":"YRP Work Station",
             get_query:function(){
                 return{
@@ -112,9 +114,6 @@ function createInput(colour, action, master, work_station){
     });
     $(el).find(".control-label").remove();
     $(el).find(".visually-hidden").remove();
-
-    input.set_value(work_station)
-    input.refresh()
     return input
 }
 

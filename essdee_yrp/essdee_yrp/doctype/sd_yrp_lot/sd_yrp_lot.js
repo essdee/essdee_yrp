@@ -478,7 +478,13 @@ function open_time_and_action_dialog(frm) {
 			dialog.disable_primary_action()
 			frappe.call({
 				method: "essdee_yrp.time_and_action.create.create_time_and_action",
-				args: { against: "SD YRP Lot", against_id: frm.doc.name, master: values.master, start_date: values.start_date },
+				args: {
+					against: "SD YRP Lot",
+					against_id: frm.doc.name,
+					master: values.master,
+					start_date: values.start_date,
+					work_stations: get_chosen_work_stations(dialog, values.master),
+				},
 				freeze: true,
 				freeze_message: __("Creating Time and Action..."),
 				callback: () => {
@@ -501,6 +507,8 @@ function preview_time_and_action(dialog) {
 		method: "essdee_yrp.time_and_action.create.get_schedule_preview",
 		args: { master: values.master, start_date: values.start_date },
 		callback: (response) => {
+			const chosen = get_chosen_work_stations(dialog, values.master)
+			response.message.forEach((row) => (row.work_station = chosen[row.action] || row.work_station))
 			const preview = new frappe.ui.Dialog({
 				title: __("Time and Action Preview"),
 				size: "extra-large",
@@ -510,9 +518,15 @@ function preview_time_and_action(dialog) {
 			})
 			const view = new frappe.production.ui.TimeActionPreview(preview.fields_dict.preview_html.wrapper)
 			view.load_data({ [values.master]: response.message }, values.start_date)
+			dialog.work_station_preview = { master: values.master, view }
 			preview.show()
 		},
 	})
+}
+
+function get_chosen_work_stations(dialog, master) {
+	const preview = dialog.work_station_preview
+	return preview?.master === master ? preview.view.get_work_stations() : {}
 }
 
 function mount_cloth_program(frm) {
