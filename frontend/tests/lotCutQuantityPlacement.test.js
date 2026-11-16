@@ -8,7 +8,8 @@ const tabMocks = {
 	"primevue/tab": shell, "primevue/tablist": shell, "primevue/tabpanel": shell,
 	"primevue/tabpanels": shell, "primevue/tabs": shell,
 }
-const workspaceMocks = { "./reportWorkspace.js": await import("../src/components/reports/reportWorkspace.js") }
+const reportWorkspace = await import("../src/components/reports/reportWorkspace.js")
+const workspaceMocks = { "./reportWorkspace.js": reportWorkspace, "../reports/reportWorkspace.js": reportWorkspace }
 const asyncStub = loader => {
 	const name = String(loader).match(/\/([A-Za-z]+)\.vue/)[1]
 	return props => Vue.h(name, props)
@@ -42,7 +43,7 @@ test("Lot Cut Quantity offers Copy Report", async () => {
 async function mountSewingReports(reports, tab) {
 	const component = loadComponent(new URL("../src/departments/sewing/SewingReportsWorkspace.vue", import.meta.url).pathname, {
 		...tabMocks, ...workspaceMocks, vue: vueWithStubs,
-		"vue-router": { useRoute: () => ({ path: "/sewing/reports", query: { tab } }), useRouter: () => ({ replace() {} }) },
+		"vue-router": { RouterLink: shell, useRoute: () => ({ path: "/sewing/reports", query: { tab } }), useRouter: () => ({ replace() {} }) },
 		"../../components/reports/DeskBackedReport.vue": () => null,
 		"../../components/reports/deskReportConfig.js": await import("../src/components/reports/deskReportConfig.js"),
 		"./useSewingContext.js": { useSewingContext: () => ({ supplier: Vue.ref("") }) },
@@ -81,7 +82,7 @@ test("Sewing hides Lot Cut Quantity and In-house Quantity without capability", a
 test("Finishing reports list Lot Cut Quantity", async () => {
 	const component = loadComponent(new URL("../src/departments/finishing/FinishingReports.vue", import.meta.url).pathname, {
 		...tabMocks, ...workspaceMocks, vue: vueWithStubs,
-		"vue-router": { useRoute: () => ({ path: "/finishing/reports", query: { report: "lot-cut-quantity" } }), useRouter: () => ({ replace() {} }) },
+		"vue-router": { RouterLink: shell, useRoute: () => ({ path: "/finishing/reports", query: { report: "lot-cut-quantity" } }), useRouter: () => ({ replace() {} }) },
 		"../../api/finishing.js": { getFinishingCapabilities: async () => ({ sections: { reports: { reports: {
 			packing_dpr: { label: "Packing DPR", can_read: true }, lot_cut_quantity: lotCutCapability,
 		} } } }) },
@@ -103,7 +104,7 @@ test("Finishing reports list Lot Cut Quantity", async () => {
 test("Finishing reports list In-house Quantity only with capability", async () => {
 	const mount = async (reports) => mountComponent(loadComponent(new URL("../src/departments/finishing/FinishingReports.vue", import.meta.url).pathname, {
 		...tabMocks, ...workspaceMocks, vue: vueWithStubs,
-		"vue-router": { useRoute: () => ({ path: "/finishing/reports", query: { report: "inhouse-quantity" } }), useRouter: () => ({ replace() {} }) },
+		"vue-router": { RouterLink: shell, useRoute: () => ({ path: "/finishing/reports", query: { report: "inhouse-quantity" } }), useRouter: () => ({ replace() {} }) },
 		"../../api/finishing.js": { getFinishingCapabilities: async () => ({ sections: { reports: { reports } } }) },
 		"../../components/DepartmentPage.vue": shell,
 		"../../components/reports/DeskBackedReport.vue": () => null,

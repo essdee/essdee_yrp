@@ -1,5 +1,6 @@
 <template>
 	<section
+		v-if="!reportCards"
 		class="workspace-launcher erp-workspace erp-workspace-entry"
 		:class="{ 'workspace-launcher--compact': compact }"
 		:aria-labelledby="headingId"
@@ -55,11 +56,12 @@
 
 <script setup>
 import Skeleton from "primevue/skeleton"
-import { computed, ref } from "vue"
+import { computed, inject, ref, watchEffect } from "vue"
 import { RouterLink } from "vue-router"
 import { isWorkspaceInLayout } from "../../router/departmentLock.js"
 import { canOpenList } from "../../router/listPermission.js"
 import InlinePageNavigation from "../navigation/InlinePageNavigation.vue"
+import { workspaceCardsSinkKey } from "../navigation/moduleSidebar.js"
 import { visibleWorkspaceCards } from "./workspaceSearch.js"
 import WorkspaceSearch from "./WorkspaceSearch.vue"
 
@@ -75,11 +77,13 @@ const props = defineProps({
 	reportQueryKey: { type: String, default: "report" },
 })
 const selectedCardKey = ref("")
+const reportCards = inject(workspaceCardsSinkKey, null)
 
 const visibleItems = computed(() => props.items.filter((item) => isWorkspaceInLayout(item) && canOpenList(item.to)))
 const shownItems = computed(() => visibleWorkspaceCards(visibleItems.value, selectedCardKey.value))
 const reportsCard = computed(() => visibleItems.value.find((item) => item.key === "reports"))
 const searchReports = computed(() => reportsCard.value ? props.reports : [])
+if (reportCards) watchEffect(() => reportCards(props.loading ? [] : visibleItems.value))
 const headingId = computed(() => `${props.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-workspace-title`)
 </script>
 

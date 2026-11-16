@@ -107,6 +107,7 @@ test("the launcher shows only the picked card, gives reports only with a visible
 		"../../router/listPermission.js": { canOpenList: () => true },
 		"../navigation/InlinePageNavigation.vue": stub("navigation"),
 		"./WorkspaceSearch.vue": stub("workspace-search"),
+		"../navigation/moduleSidebar.js": await import("../src/components/navigation/moduleSidebar.js"),
 	})
 	const props = Vue.reactive({ title: "Merch", items: CARDS, reports: REPORTS })
 	const root = mountComponent({ render: () => Vue.h(component, props) }, {})
