@@ -5,6 +5,7 @@ import frappe
 
 from essdee_yrp.fabric_store.documents.delivery_challan import (
 	_merge_authoritative_rows,
+	_special_source_context,
 	_validate_and_sync_party_dependencies,
 	execute_delivery_challan_command,
 	get_delivery_challan_workspace,
@@ -756,6 +757,60 @@ class TestFabricStoreDeliveryChallan(TestCase):
 		self.assertEqual(doc["items"][0].qty, 5)
 		self.assertEqual(doc["items"][0].delivered_quantity, 5)
 		doc.save.assert_called_once_with()
+
+	def save_cut_panel_draft(self, doc, browser_items):
+		refreshed = {"record": {"name": doc.name}}
+		with (
+			patch("essdee_yrp.fabric_store.documents.delivery_challan._get_delivery_challan", return_value=doc),
+			patch("essdee_yrp.fabric_store.documents.delivery_challan._validate_and_sync_party_dependencies"),
+			patch("essdee_yrp.fabric_store.documents.delivery_challan.frappe.has_permission", return_value=True),
+			patch("essdee_yrp.fabric_store.documents.delivery_challan.ungroup_items_from_ui", return_value=browser_items),
+			patch("essdee_yrp.fabric_store.documents.delivery_challan.ungroup_correction_items_from_ui", return_value=[]),
+			patch("essdee_yrp.fabric_store.documents.delivery_challan.get_delivery_challan_workspace", return_value=refreshed),
+		):
+			save_delivery_challan(
+				{"item_details": [{}], "correction_item_details": []},
+				name=doc.name,
+				expected_modified=doc.modified,
+			)
+
+	def test_cut_panel_draft_saves_secondary_quantity_but_keeps_movement_quantity(self):
+		doc = self.make_document(cut_panel_movement="CPM-1")
+		browser_items = [
+			{
+				"item_variant": "RAW-S",
+				"qty": 4,
+				"secondary_qty": 1.25,
+				"ref_doctype": "YRP Work Order Deliverables",
+				"ref_docname": "WOD-1",
+				"row_index": "matrix-0000",
+				"set_combination": {"colour": "Red"},
+			}
+		]
+
+		self.save_cut_panel_draft(doc, browser_items)
+
+		self.assertEqual(doc["items"][0].secondary_qty, 1.25)
+		self.assertEqual(doc["items"][0].qty, 5)
+		self.assertEqual(doc["items"][0].delivered_quantity, 5)
+		self.assertEqual(doc["items"][0].row_index, "0")
+		doc.save.assert_called_once_with()
+
+	def test_cut_panel_draft_rejects_secondary_quantity_outside_movement_rows(self):
+		doc = self.make_document(cut_panel_movement="CPM-1")
+		browser_items = [
+			{"item_variant": "RAW-XL", "qty": 0, "secondary_qty": 2, "ref_docname": "WOD-9", "row_index": "matrix-0000"}
+		]
+
+		with self.assertRaisesRegex(frappe.ValidationError, "Secondary quantity can only be entered"):
+			self.save_cut_panel_draft(doc, browser_items)
+		doc.save.assert_not_called()
+
+	def test_only_cut_panel_source_allows_secondary_quantity_edits(self):
+		self.assertTrue(_special_source_context({"cut_panel_movement": "CPM-1"})["secondary_qty_editable"])
+		self.assertTrue(_special_source_context({"cut_panel_movement": "CPM-1"})["read_only"])
+		self.assertFalse(_special_source_context({"cutting_bulk_lay_sheet": "CBLS-1"})["secondary_qty_editable"])
+		self.assertFalse(_special_source_context({})["secondary_qty_editable"])
 
 	def test_return_command_uses_essdee_wrapper_and_preserves_cut_panel_link(self):
 		doc = self.make_document(docstatus=1, cut_panel_movement="CPM-1")

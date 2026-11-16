@@ -108,13 +108,13 @@ test("Sewing data entry Lot filter is a Sewing Unit scoped Link field", async ()
 	assert.deepEqual(page.plans.value.map(plan => plan.name), ["PLAN-A", "PLAN-B"])
 })
 
-test("F-C04/C05: Cut Panel document routes, filtered lists, back navigation and GRN movement link", () => {
+test("F-C04/C05: Cut Panel document routes, unfiltered lists, back navigation and GRN movement link", () => {
 	for (const [doctype, slug, param] of [["YRP Delivery Challan", "delivery-challans", "deliveryChallanId"], ["YRP Goods Received Note", "goods-received-notes", "goodsReceivedNoteId"]]) {
 		assert.equal(webDocumentPath(doctype, "DOC/1", "/web/cut-panel-store/movements"), `/web/cut-panel-store/${slug}/DOC%2F1`)
 		assert.ok(read("router/index.js").includes(`path: "/cut-panel-store/${slug}/:${param}"`))
 		assert.ok(read("router/index.js").includes(`backTo: "/cut-panel-store/${slug}"`))
 	}
-	assert.match(read("departments/cut-panel-store/CutPanelDocuments.vue"), /\[\["cut_panel_movement", "is", "set"\]\]/)
+	assert.doesNotMatch(read("departments/cut-panel-store/CutPanelDocuments.vue"), /:filters=|"cut_panel_movement", "is", "set"/, "Cut Panel document lists have no hidden filter")
 	assert.match(read("departments/cut-panel-store/CutPanelMovementDialog.vue"), /router.push\(webDocumentRoute\(document.doctype, document.name, "\/web\/cut-panel-store"\)\)/)
 	assert.match(read("departments/fabric-store/GoodsReceivedNoteWorkspace.vue"), /\["Cut Panel Movement", .*"SD YRP Cut Panel Movement"\]/)
 	assert.match(read("departments/fabric-store/DeliveryChallanWorkspace.vue"), /\["Cut Panel Movement", .*"SD YRP Cut Panel Movement"\]/)

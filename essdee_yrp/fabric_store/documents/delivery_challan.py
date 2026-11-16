@@ -38,6 +38,7 @@ from essdee_yrp.fabric_store.documents.common import (
 	prepare_supplier_notification,
 	send_supplier_notification,
 )
+from essdee_yrp.item_matrix import _canonical_json
 from essdee_yrp.work_order_actions import get_delivery_challan_defaults
 
 DELIVERY_CHALLAN_FIELDS = (
@@ -286,6 +287,8 @@ def _special_source_context(doc_or_values) -> dict:
 		"active": bool(modes),
 		"modes": modes,
 		"read_only": bool(modes),
+		# A CPM fixes the moved pieces, not their weight, so the operator records it.
+		"secondary_qty_editable": modes == ["cut_panel_movement"],
 	}
 
 
@@ -395,6 +398,35 @@ def _merge_authoritative_rows(
 			frappe.throw(
 				_("The available item rows changed. Refresh the editor and enter the quantities again.")
 			)
+	return merged
+
+
+def _source_row_identity(row) -> tuple:
+	return (
+		row.get("item_variant"),
+		row.get("received_type") or "",
+		row.get("ref_doctype") or "",
+		row.get("ref_docname") or "",
+		_canonical_json(row.get("set_combination")),
+	)
+
+
+def merge_browser_secondary_quantities(authoritative, browser_rows) -> list[dict]:
+	"""Copy only Secondary Qty onto source-owned rows; display row indexes are not stable here."""
+
+	entered = {}
+	for row in browser_rows or []:
+		entered.setdefault(_source_row_identity(row), []).append(row)
+	merged = []
+	for source in authoritative or []:
+		row = _row_dict(source)
+		matches = entered.get(_source_row_identity(row)) or []
+		browser = matches.pop(0) if matches else {}
+		if "secondary_qty" in browser:
+			row["secondary_qty"] = _apply_browser_quantities({}, browser, "qty")["secondary_qty"]
+		merged.append(row)
+	if any(flt(row.get("secondary_qty")) for matches in entered.values() for row in matches):
+		frappe.throw(_("Secondary quantity can only be entered on rows prepared by the Cut Panel Movement."))
 	return merged
 
 
@@ -845,6 +877,11 @@ def save_delivery_challan(
 		# generic web matrix may display them, but it must never rewrite them.
 		items = authoritative_items
 		corrections = authoritative_corrections
+		if _special_source_context(doc)["secondary_qty_editable"] and not submitted_update:
+			items = merge_browser_secondary_quantities(
+				authoritative_items,
+				_browser_rows(values, corrections=False, fallback_rows=authoritative_items),
+			)
 	else:
 		browser_items = _browser_rows(values, corrections=False, fallback_rows=authoritative_items)
 		browser_corrections = _browser_rows(
