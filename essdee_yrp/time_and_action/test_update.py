@@ -1,7 +1,7 @@
 import json
 
 import frappe
-from frappe.utils import getdate
+from frappe.utils import get_datetime, getdate, now_datetime
 
 from essdee_yrp.time_and_action.create import create_time_and_action
 from essdee_yrp.time_and_action.test_rules import DEPENDENCIES, STEPS, set_window
@@ -204,6 +204,81 @@ class TestUpdateActualDates(TimeAndActionTestCase):
 		frappe.set_user(make_user("T & A User", "T & A Admin"))
 		revert_time_and_action(self.name)
 		self.assertFalse(frappe.db.exists(TIME_AND_ACTION, self.name))
+
+
+class TestReviseDatesLog(TimeAndActionTestCase):
+	def setUp(self):
+		use_company_holidays([], "2025-01-01", "2028-12-31")
+		set_window(3650, 3650)
+		frappe.db.set_single_value("SD YRP T and A Settings", "revised_date_approver_role", "System Manager")
+		frappe.db.set_single_value("SD YRP T and A Settings", "revising_days_limit", 5)
+		master = make_master(STEPS, DEPENDENCIES)
+		self.name = create_time_and_action("SD YRP Lot", make_lot(), master.name, "2026-11-02")
+
+	def delay_and_revise(self, action, actual_date, reason):
+		modified = str(frappe.db.get_value(TIME_AND_ACTION, self.name, "modified"))
+		update_actual_dates(self.name, [change(action, actual_date, "late")], modified)
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		expected = [
+			(row.action, row.planned_start_date, row.date, row.rescheduled_date) for row in doc.details
+		]
+		revise_dates(self.name, reason)
+		return expected
+
+	def assert_log(self, rows, revision_no, expected, reason, started):
+		for row, (action, planned, previous, frozen) in zip(rows, expected, strict=True):
+			self.assertEqual(row.revision_no, revision_no)
+			self.assertEqual(row.action, action)
+			self.assertEqual(getdate(row.planned_date), getdate(planned))
+			self.assertEqual(getdate(row.from_date), getdate(previous))
+			self.assertEqual(getdate(row.to_date), getdate(frozen))
+			self.assertEqual(row.user, "Administrator")
+			self.assertEqual(row.reason, reason)
+			self.assertGreaterEqual(get_datetime(row.revised_on), started)
+
+	def test_each_revision_appends_one_row_per_action(self):
+		started = now_datetime().replace(microsecond=0)
+		first = self.delay_and_revise("TA-TEST-YARN", "2026-11-10", "yarn late")
+		second = self.delay_and_revise("TA-TEST-KNIT", "2026-11-16", "knitting late")
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		count = len(doc.details)
+		self.assertEqual(doc.revised, 2)
+		self.assertEqual(len(doc.time_and_action_revised_dates), 2 * count)
+		self.assertNotEqual(first[-1][3], second[-1][3])
+		self.assert_log(doc.time_and_action_revised_dates[:count], 1, first, "yarn late", started)
+		self.assert_log(doc.time_and_action_revised_dates[count:], 2, second, "knitting late", started)
+		self.assertEqual(getdate(doc.details[-1].date), getdate(second[-1][3]))
+
+	def test_desk_save_cannot_change_log_row(self):
+		self.delay_and_revise("TA-TEST-YARN", "2026-11-10", "yarn late")
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		doc.time_and_action_revised_dates[0].reason = "edited"
+		with self.assertRaisesRegex(frappe.ValidationError, "Revision History"):
+			doc.save()
+
+	def test_desk_save_cannot_remove_log_row(self):
+		self.delay_and_revise("TA-TEST-YARN", "2026-11-10", "yarn late")
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		doc.time_and_action_revised_dates.pop()
+		with self.assertRaisesRegex(frappe.ValidationError, "Revision History"):
+			doc.save()
+
+	def test_desk_save_cannot_add_log_row(self):
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		doc.append("time_and_action_revised_dates", {"action": "TA-TEST-YARN", "reason": "forged"})
+		with self.assertRaisesRegex(frappe.ValidationError, "Revision History"):
+			doc.save()
+
+	def test_revise_through_frappe_call(self):
+		frappe.call(
+			"essdee_yrp.time_and_action.update.revise_dates",
+			time_and_action=self.name,
+			reason="customer moved delivery",
+		)
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		self.assertEqual(doc.revised, 1)
+		self.assertEqual({row.revision_no for row in doc.time_and_action_revised_dates}, {1})
+		self.assertEqual(len(doc.time_and_action_revised_dates), len(doc.details))
 
 
 def make_user(*roles):

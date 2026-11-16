@@ -4,7 +4,7 @@ import copy
 
 import frappe
 from frappe import _
-from frappe.utils import cint, getdate
+from frappe.utils import cint, getdate, now_datetime
 
 from essdee_yrp.time_and_action.create import TIME_AND_ACTION, get_time_and_action
 from essdee_yrp.time_and_action.derived import apply_schedule
@@ -26,6 +26,7 @@ ROW_FIELDS = (
 	"performance",
 	"actual_delay",
 )
+LOG_FIELDS = ("revised_on", "revision_no", "action", "planned_date", "from_date", "to_date", "user", "reason")
 
 
 @frappe.whitelist()
@@ -175,11 +176,16 @@ def revise_dates(time_and_action: str, reason: str) -> None:
 	doc.check_permission("write")
 	if not can_revise(doc, frappe.get_single("SD YRP T and A Settings")):
 		frappe.throw(_("You are not allowed to revise this Time and Action."), frappe.PermissionError)
+	doc.revised = cint(doc.revised) + 1
+	revised_on = now_datetime()
 	for row in doc.details:
 		doc.append(
 			"time_and_action_revised_dates",
 			{
+				"revised_on": revised_on,
+				"revision_no": doc.revised,
 				"action": row.action,
+				"planned_date": row.planned_start_date,
 				"from_date": row.date,
 				"to_date": row.rescheduled_date,
 				"user": frappe.session.user,
@@ -187,8 +193,23 @@ def revise_dates(time_and_action: str, reason: str) -> None:
 			},
 		)
 		row.date = row.rescheduled_date
-	doc.revised = cint(doc.revised) + 1
+	doc.flags.revising_dates = True
 	doc.save()
+
+
+def validate_revision_log(doc) -> None:
+	"""Revision History rows are never edited or removed; only Revise Dates appends them."""
+	before = doc.get_doc_before_save()
+	old_rows = [get_log_values(row) for row in (before.time_and_action_revised_dates if before else [])]
+	new_rows = [get_log_values(row) for row in doc.time_and_action_revised_dates]
+	kept = new_rows[: len(old_rows)] == old_rows
+	appended = len(new_rows) > len(old_rows)
+	if not kept or (appended and not doc.flags.revising_dates):
+		frappe.throw(_("Revision History rows can be added only by Revise Dates and cannot be changed."))
+
+
+def get_log_values(row) -> tuple:
+	return tuple(str(row.get(field) or "") for field in LOG_FIELDS)
 
 
 @frappe.whitelist()
@@ -197,7 +218,6 @@ def revert_time_and_action(time_and_action: str) -> None:
 	if not is_time_and_action_admin(frappe.get_single("SD YRP T and A Settings")):
 		frappe.throw(_("Only the T&A Admin role can revert a Time and Action."), frappe.PermissionError)
 	frappe.delete_doc(TIME_AND_ACTION, time_and_action)
-
 
 
 @frappe.whitelist()

@@ -27,6 +27,7 @@
   "section_break_hshs",
   "details",
   "dependent_details",
+  "revision_history_tab",
   "time_and_action_revised_dates"
  ],
  "fields": [
@@ -159,12 +160,6 @@
    "options": "SD YRP Time and Action Dependent Detail"
   },
   {
-   "fieldname": "time_and_action_revised_dates",
-   "fieldtype": "Table",
-   "label": "Time and Action Revised Dates",
-   "options": "SD YRP Time and Action Revised Date"
-  },
-  {
    "fieldname": "rescheduled_delay",
    "fieldtype": "Int",
    "label": "Rescheduled Delay",
@@ -175,12 +170,24 @@
    "fieldtype": "Int",
    "label": "Revised",
    "read_only": 1
+  },
+  {
+   "fieldname": "revision_history_tab",
+   "fieldtype": "Tab Break",
+   "label": "Revision History"
+  },
+  {
+   "fieldname": "time_and_action_revised_dates",
+   "fieldtype": "Table",
+   "label": "Revision History",
+   "options": "SD YRP Time and Action Revised Date",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-16 18:00:00.000000",
+ "modified": "2026-11-16 19:30:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Time and Action",

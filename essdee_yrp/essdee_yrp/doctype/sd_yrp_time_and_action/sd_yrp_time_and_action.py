@@ -5,6 +5,7 @@ from frappe.model.document import Document
 from essdee_yrp.time_and_action.create import set_against_details, set_rows_from_master, validate_can_create
 from essdee_yrp.time_and_action.derived import apply_schedule
 from essdee_yrp.time_and_action.rules import validate_actual_dates
+from essdee_yrp.time_and_action.update import validate_revision_log
 
 
 class SDYRPTimeandAction(Document):
@@ -20,6 +21,7 @@ class SDYRPTimeandAction(Document):
 		if self.is_new():
 			validate_can_create(self.against, self.against_id)
 		validate_actual_dates(self)
+		validate_revision_log(self)
 		apply_schedule(self)
 
 
