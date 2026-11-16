@@ -2,7 +2,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import date_diff, flt, getdate, nowdate
+from frappe.utils import cint, date_diff, flt, getdate, nowdate
 
 from essdee_yrp.time_and_action.holidays import get_company_holidays
 from essdee_yrp.time_and_action.schedule import ScheduleRow, build_schedule
@@ -33,14 +33,26 @@ def get_master_lead_time(master) -> int:
 
 
 def validate_master_steps(master) -> None:
-	"""Every dependency is an earlier row of the same master; actions are unique."""
+	"""Steps exist with Lead Time >= 1, actions are unique, every dependency is an earlier row."""
+	if not master.details:
+		frappe.throw(_("Add at least one action in Details."))
 	position = {}
 	for row in master.details:
 		if row.action in position:
 			frappe.throw(_("Action {0} appears more than once.").format(frappe.bold(row.action)))
+		validate_lead_time(row)
 		position[row.action] = row.idx
 	for row in master.action_master_dependent_details:
+		if not (row.action and row.dependent_action):
+			frappe.throw(_("Row {0}: set both Action and Dependent Action.").format(row.idx))
 		_validate_dependency(row.action, row.dependent_action, position)
+
+
+def validate_lead_time(row) -> None:
+	if cint(row.lead_time) < 1:
+		frappe.throw(
+			_("Row {0}: Lead Time of {1} must be at least 1.").format(row.idx, frappe.bold(row.action))
+		)
 
 
 def _validate_dependency(action, dependency, position):

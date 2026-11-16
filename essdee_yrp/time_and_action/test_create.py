@@ -6,6 +6,7 @@ from essdee_yrp.time_and_action.holidays import get_company_holidays
 from essdee_yrp.time_and_action.schedule import ScheduleRow, build_schedule
 from essdee_yrp.time_and_action.testing import (
 	TimeAndActionTestCase,
+	make_action,
 	make_lot,
 	make_master,
 	use_company_holidays,
@@ -146,3 +147,23 @@ class TestCreateTimeAndAction(TimeAndActionTestCase):
 	def test_master_duplicate_action_is_refused(self):
 		with self.assertRaisesRegex(frappe.ValidationError, "more than once"):
 			make_master([("TA-TEST-A", 1), ("TA-TEST-A", 2)], {})
+
+	def test_master_lead_time_zero_is_refused(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "Lead Time"):
+			make_master([("TA-TEST-A", 1), ("TA-TEST-B", 0)], {})
+
+	def test_master_without_actions_is_refused(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "at least one"):
+			make_master([], {})
+
+	def test_master_dependency_without_action_is_refused(self):
+		master = make_master([("TA-TEST-A", 1), ("TA-TEST-B", 1)], {})
+		master.append("action_master_dependent_details", {"action": "TA-TEST-B"})
+		with self.assertRaisesRegex(frappe.ValidationError, "Dependent Action"):
+			master.save()
+
+	def test_action_lead_time_zero_is_refused(self):
+		action = frappe.get_doc("SD YRP Action", make_action("TA-TEST-A"))
+		action.lead_time = 0
+		with self.assertRaisesRegex(frappe.ValidationError, "Lead Time"):
+			action.save()

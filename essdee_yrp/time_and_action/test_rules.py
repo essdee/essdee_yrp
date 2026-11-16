@@ -127,3 +127,20 @@ class TestActualDateRules(TimeAndActionTestCase):
 		doc.details[0].date = "2026-11-10"
 		with self.assertRaisesRegex(frappe.ValidationError, "Completed"):
 			doc.save()
+
+
+class TestSettingsRules(TimeAndActionTestCase):
+	def assert_refused(self, fieldname):
+		settings = frappe.get_single("SD YRP T and A Settings")
+		settings.set(fieldname, -1)
+		with self.assertRaisesRegex(frappe.ValidationError, "cannot be negative"):
+			settings.save()
+
+	def test_negative_update_last_n_dates_is_refused(self):
+		self.assert_refused("update_last_n_dates")
+
+	def test_negative_update_future_n_dates_is_refused(self):
+		self.assert_refused("update_future_n_dates")
+
+	def test_negative_revising_days_limit_is_refused(self):
+		self.assert_refused("revising_days_limit")
