@@ -44,7 +44,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-const API = "essdee_yrp.time_and_action.update."
 const items = ref([])
 const status = ref(null)
 const time_and_action = cur_frm.doc.__onload?.time_and_action
@@ -52,7 +51,7 @@ const time_and_action = cur_frm.doc.__onload?.time_and_action
 onMounted(() => {
     if (!time_and_action) return
     frappe.call({
-        method: API + "get_update_data",
+        method: "essdee_yrp.time_and_action.update.get_update_data",
         args: { time_and_action },
         callback: (r) => {
             items.value = r.message.rows
@@ -63,7 +62,7 @@ onMounted(() => {
 
 function make_complete() {
     frappe.call({
-        method: API + "complete_time_and_action",
+        method: "essdee_yrp.time_and_action.update.complete_time_and_action",
         args: { time_and_action },
         callback: () => cur_frm.reload_doc(),
     })

@@ -101,7 +101,6 @@ import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css'
 import TandARescheduledDates from "./TandARescheduledDates.vue";
 
-const API = "essdee_yrp.time_and_action.update."
 const root = ref(null)
 const data = ref(null)
 const changes = ref({})
@@ -143,7 +142,7 @@ function load_by_filter() {
         return
     }
     frappe.call({
-        method: API + "find_time_and_action",
+        method: "essdee_yrp.time_and_action.update.find_time_and_action",
         args: { against: against.get_value(), against_id: against_id.get_value() },
         callback: (r) => {
             if (r.message) return load(r.message)
@@ -155,7 +154,7 @@ function load_by_filter() {
 
 function load(name) {
     frappe.call({
-        method: API + "get_update_data",
+        method: "essdee_yrp.time_and_action.update.get_update_data",
         args: { time_and_action: name },
         callback: (r) => {
             data.value = r.message
@@ -169,7 +168,7 @@ function load(name) {
 function preview(action, change) {
     const pending = { ...changes.value, [action]: change }
     frappe.call({
-        method: API + "preview_actual_dates",
+        method: "essdee_yrp.time_and_action.update.preview_actual_dates",
         args: { time_and_action: data.value.name, changes: Object.values(pending), modified: data.value.modified },
         callback: (r) => {
             changes.value = pending
@@ -195,7 +194,7 @@ function set_reason(row) {
 
 function save() {
     frappe.call({
-        method: API + "update_actual_dates",
+        method: "essdee_yrp.time_and_action.update.update_actual_dates",
         args: { time_and_action: data.value.name, changes: Object.values(changes.value), modified: data.value.modified },
         freeze: true,
         freeze_message: __("Updating T&A"),
@@ -211,7 +210,7 @@ function revise() {
     frappe.prompt(
         { fieldname: "reason", fieldtype: "Small Text", label: __("Reason"), reqd: 1 },
         (values) => frappe.call({
-            method: API + "revise_dates",
+            method: "essdee_yrp.time_and_action.update.revise_dates",
             args: { time_and_action: data.value.name, reason: values.reason },
             callback: () => load(data.value.name),
         }),

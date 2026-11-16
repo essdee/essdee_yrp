@@ -441,12 +441,10 @@ async function setup_time_and_action(frm) {
 	frm.add_custom_button(__("Create T&A"), () => open_time_and_action_dialog(frm), __("Time and Action"))
 }
 
-const TA_API = "essdee_yrp.time_and_action."
-
 function revert_time_and_action(frm, time_and_action) {
 	frappe.confirm(__("Revert this Lot's Time and Action {0}? Its actual dates are deleted too.", [time_and_action]), () => {
 		frappe.call({
-			method: TA_API + "update.revert_time_and_action",
+			method: "essdee_yrp.time_and_action.update.revert_time_and_action",
 			args: { time_and_action },
 			freeze: true,
 			freeze_message: __("Reverting Time and Action..."),
@@ -479,7 +477,7 @@ function open_time_and_action_dialog(frm) {
 		primary_action: (values) => {
 			dialog.disable_primary_action()
 			frappe.call({
-				method: TA_API + "create.create_time_and_action",
+				method: "essdee_yrp.time_and_action.create.create_time_and_action",
 				args: { against: "SD YRP Lot", against_id: frm.doc.name, master: values.master, start_date: values.start_date },
 				freeze: true,
 				freeze_message: __("Creating Time and Action..."),
@@ -500,7 +498,7 @@ function preview_time_and_action(dialog) {
 	const values = dialog.get_values()
 	if (!values) return
 	frappe.call({
-		method: TA_API + "create.get_schedule_preview",
+		method: "essdee_yrp.time_and_action.create.get_schedule_preview",
 		args: { master: values.master, start_date: values.start_date },
 		callback: (response) => {
 			const preview = new frappe.ui.Dialog({
