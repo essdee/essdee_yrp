@@ -7,8 +7,11 @@ import { readFileSync } from "node:fs"
 
 import {
 	REPORT_COLUMNS, againstLabel, canEditRow, countStatuses, getBlockedBy, getDelay, getImpact, getNextActionChip, getPendingSummary,
-	getReviseMessage, getRowStatus, getSaveMessage, reportCell, reportTone,
+	getReviseMessage, getRowStatus, getRunningDelay, getSaveMessage, reportCell, reportTone,
 } from "../src/departments/planning/time-and-action/timeAndAction.js"
+import {
+	describeActionChanges, getDependsOnOptions, getInsertSlots, getLastDatedIndex, getRemovableActions, getRequiredByOptions,
+} from "../src/departments/planning/time-and-action/timeAndActionSteps.js"
 import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 
 test("Planning shows a Time and Action Update card after Lot", () => {
@@ -104,4 +107,45 @@ test("update page is an accordion without the Desk matrix or Rescheduled Details
 
 test("Against column shows the Desk label of the T&A's against DocType", () => {
 	assert.deepEqual(["SD YRP Lot", "YRP Production Order"].map(againstLabel), ["Lot", "Production Order"])
+})
+
+test("running delay reads the T&A delay in working days; negative is late", () => {
+	assert.deepEqual(getRunningDelay(-5), { tone: "late", text: "5 working days late" })
+	assert.deepEqual(getRunningDelay(1), { tone: "ok", text: "1 working day early" })
+	assert.deepEqual(getRunningDelay(0), { tone: "none", text: "On schedule" })
+	const directory = new URL("../src/departments/planning/time-and-action/", import.meta.url)
+	const page = readFileSync(new URL("TimeAndActionUpdate.vue", directory), "utf8")
+	assert.match(page, /<th>Running Delay<\/th>/)
+	assert.match(page, /getRunningDelay\(row\.delay\)/)
+})
+
+const STEP_ROWS = [
+	{ action: "PLANNING", actual_date: "2026-11-02" },
+	{ action: "YARN", actual_date: null },
+	{ action: "CUTTING", actual_date: "2026-11-05" },
+	{ action: "SEWING", actual_date: null },
+	{ action: "PACKING", actual_date: null },
+]
+
+test("Update Action offers slots only after the last completed action", () => {
+	assert.equal(getLastDatedIndex(STEP_ROWS), 2)
+	assert.deepEqual(getInsertSlots(STEP_ROWS).map((slot) => slot.label), ["After CUTTING", "After SEWING", "After PACKING (last)"])
+	assert.deepEqual(getInsertSlots([{ action: "A" }]).map((slot) => slot.value), [null, "A"])
+	assert.deepEqual(getRemovableActions(STEP_ROWS), ["YARN", "SEWING", "PACKING"])
+})
+
+test("Update Action dependency options: depends on anything above, must finish before only undated below", () => {
+	assert.deepEqual(getDependsOnOptions(STEP_ROWS, "SEWING"), ["PLANNING", "YARN", "CUTTING", "SEWING"])
+	assert.deepEqual(getRequiredByOptions(STEP_ROWS, "CUTTING"), ["SEWING", "PACKING"])
+	assert.deepEqual(getRequiredByOptions(STEP_ROWS, "PACKING"), [])
+})
+
+test("Update Action summary lists every add and remove", () => {
+	const adds = [{ action: "PRINTING", lead_time: 3, depends_on: ["CUTTING"], required_by: ["SEWING"] }]
+	assert.deepEqual(describeActionChanges(adds, ["YARN"]), ["Remove YARN", "Add PRINTING (3 days) after CUTTING; before SEWING"])
+	const editor = readFileSync(new URL("../src/departments/planning/time-and-action/TimeAndActionEditor.vue", import.meta.url), "utf8")
+	assert.match(editor, /label="Update Action"/)
+	assert.match(editor, /v-if="data\.can_edit_steps"/)
+	assert.doesNotMatch(editor, /label="(Add|Remove) Action"/)
+	assert.match(editor, /getRunningDelay\(data\.value\.delay\)/)
 })

@@ -6,6 +6,7 @@
             <div class="col-md-7" style="padding-top: 27px;">
                 <button class="btn btn-success" @click="load_by_filter()">Show</button>
                 <button v-if="data && data.can_revise && !is_edited" class="btn btn-default ml-3" @click="revise()">Revise Dates</button>
+                <button v-if="data && data.can_edit_steps && !is_edited" class="btn btn-default ml-3" @click="update_actions()">Update Action</button>
                 <button v-if="data && data.can_complete && !is_edited" class="btn btn-success ml-3" @click="complete()">Complete T&A</button>
                 <template v-if="is_edited">
                     <span class="indicator-pill no-indicator-dot whitespace-nowrap orange ml-3"><span>Not Saved</span></span>
@@ -26,7 +27,7 @@
                 <div><b>Qty</b> {{ data.qty }}</div>
                 <div><b>Start</b> {{ format_date(data.start_date) }}</div>
                 <div :class="{ 'text-danger': data.end_date_delay }"><b>Expected End</b> {{ format_date(data.end_date) }}</div>
-                <div><b>Delay</b> {{ data.delay }} / {{ data.rescheduled_delay }}</div>
+                <div class="running-delay" :class="running_delay_class()" title="Last action's Planned Date vs its Rescheduled or Actual Date, in working days"><b>Running Delay</b> {{ running_delay() }}</div>
                 <div><b>Performance</b> {{ data.performance }}%</div>
                 <div><b>Status</b> {{ data.status }}</div>
             </div>
@@ -104,6 +105,7 @@ import { ref, onMounted, createApp } from 'vue';
 import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css'
 import TandARescheduledDates from "./TandARescheduledDates.vue";
+import { open_update_actions } from "./TandAUpdateActions.js";
 
 const root = ref(null)
 const data = ref(null)
@@ -239,6 +241,22 @@ function revise() {
     )
 }
 
+function update_actions() {
+    open_update_actions(data.value, () => load(data.value.name))
+}
+
+function running_delay() {
+    const days = data.value.delay || 0
+    if (!days) return __("On schedule")
+    const count = Math.abs(days) === 1 ? __("1 working day") : __("{0} working days", [Math.abs(days)])
+    return days < 0 ? __("{0} late", [count]) : __("{0} early", [count])
+}
+
+function running_delay_class() {
+    const days = data.value.delay || 0
+    return days < 0 ? "text-danger" : days > 0 ? "text-success" : "text-muted"
+}
+
 function complete() {
     frappe.confirm(__("Complete {0}? Its dates are locked after this.", [data.value.name]), () => {
         frappe.call({
@@ -307,6 +325,10 @@ function format_date(value) {
     flex-wrap: wrap;
     gap: 8px 24px;
     padding: 10px 0;
+}
+.running-delay {
+    font-size: 15px;
+    font-weight: 700;
 }
 .scroll-container {
     width: 100%;

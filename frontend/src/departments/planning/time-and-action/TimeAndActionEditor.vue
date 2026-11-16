@@ -6,6 +6,7 @@
 			<header class="ta-editor__strip">
 				<div class="ta-editor__progress">
 					<span><b>{{ datedCount }}</b> of {{ rows.length }} actions dated</span>
+					<b class="ta-editor__running" :class="`ta-editor__running--${runningDelay.tone}`" title="Running delay: last action's Planned Date vs its Rescheduled or Actual Date, in working days">{{ runningDelay.text }}</b>
 					<span class="ta-editor__bar" aria-hidden="true"><i :style="{ width: `${(datedCount / (rows.length || 1)) * 100}%` }" /></span>
 					<span class="ta-editor__legend">
 						<TimeAndActionChip tone="done" :label="`${counts.done} done`" />
@@ -19,6 +20,7 @@
 					<div class="ta-editor__buttons">
 						<Button v-tooltip.left="{ value: REVISE_HELP, class: 'ta-editor__tooltip' }" icon="pi pi-info-circle" text rounded severity="secondary" size="small" aria-label="What Revise Dates does" />
 						<Button label="Revise Dates" icon="pi pi-refresh" severity="secondary" outlined size="small" :disabled="busy || !data.can_revise" :title="data.can_revise ? 'Make the current Rescheduled Dates the new Freeze Dates' : 'Only the revised-date approver can revise, a limited number of times'" @click="openRevise" />
+						<Button v-if="data.can_edit_steps" label="Update Action" icon="pi pi-list" severity="secondary" outlined size="small" :disabled="busy || unsavedCount > 0" :title="unsavedCount ? 'Save or discard your date changes first' : 'Add or remove actions'" @click="stepsVisible = true" />
 						<Button label="Complete T&A" icon="pi pi-check" size="small" :disabled="busy || !data.can_complete || counts.error > 0" @click="completeVisible = true" />
 					</div>
 					<span class="ta-editor__hint">{{ data.can_complete ? `All ${rows.length} actions are dated` : `Complete unlocks when every action is dated · ${rows.length - datedCount} left` }}</span>
@@ -79,6 +81,7 @@
 			<ul class="ta-change-list"><li v-for="row in changedRows" :key="row.action"><b>{{ row.action }}</b><span>{{ changeSummary(row) }}</span></li></ul>
 		</DocumentConfirmationDialog>
 		<DocumentConfirmationDialog v-model:visible="completeVisible" :title="`Complete ${name}?`" :message="completeMessage" confirm-label="Complete T&A" cancel-label="Cancel" severity="primary" icon="pi pi-check-circle" :busy="saving" @confirm="runComplete" />
+		<UpdateActionsDialog v-if="data" v-model:visible="stepsVisible" :name="name" :data="data" @saved="stepsSaved" />
 		<Dialog v-model:visible="reviseVisible" modal :header="`Revise Dates of ${name}`" class="erp-dialog--sm">
 			<div class="ta-editor__revise">
 				<p>{{ getReviseMessage(data) }}</p>
@@ -110,7 +113,8 @@ import DateField from "../../../components/common/DateField.vue"
 import DocumentConfirmationDialog from "../../../components/documents/DocumentConfirmationDialog.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import TimeAndActionChip from "./TimeAndActionChip.vue"
-import { REVISE_HELP, STATUS_LABELS, dayCount, getDelay, getImpact, getPendingSummary, getReviseMessage, getSaveMessage } from "./timeAndAction.js"
+import { REVISE_HELP, STATUS_LABELS, dayCount, getDelay, getImpact, getPendingSummary, getReviseMessage, getRunningDelay, getSaveMessage } from "./timeAndAction.js"
+import UpdateActionsDialog from "./UpdateActionsDialog.vue"
 import { useTimeAndActionEditor } from "./useTimeAndActionEditor.js"
 
 /** Inline editor of one open T&A: actual dates previewed by the server, sticky save bar, Revise Dates and Complete T&A. */
@@ -125,9 +129,11 @@ const saving = ref(false)
 const saveVisible = ref(false)
 const completeVisible = ref(false)
 const reviseVisible = ref(false)
+const stepsVisible = ref(false)
 const reviseReason = ref("")
 const reviseError = ref("")
 
+const runningDelay = computed(() => getRunningDelay(data.value.delay))
 const impact = computed(() => getImpact(data.value, hasChanges.value))
 const pending = computed(() => getPendingSummary({ changes: unsavedCount.value, errors: counts.value.error, missingReasons: missingReasons.value }))
 const changedRows = computed(() => rows.value.filter((row) => row.edited && !row.error))
@@ -186,6 +192,12 @@ async function runComplete() {
 	if (await run(editor.complete, () => `${props.name} completed.`)) emit("completed", props.name)
 }
 
+async function stepsSaved(lines) {
+	toast.add({ severity: "success", summary: `Updated ${props.name}: ${lines.join("; ")}.`, life: 4000 })
+	await editor.load()
+	emit("saved")
+}
+
 function openRevise() {
 	reviseReason.value = ""
 	reviseError.value = ""
@@ -218,6 +230,10 @@ editor.load()
 .ta-editor__progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 13px; }
 .ta-editor__bar { position: relative; width: 180px; height: 6px; overflow: hidden; background: var(--erp-surface-muted); border-radius: 99px; }
 .ta-editor__bar i { position: absolute; inset: 0 auto 0 0; background: var(--erp-success); border-radius: 99px; }
+.ta-editor__running { font-size: 14px; font-weight: 700; }
+.ta-editor__running--late { color: var(--erp-danger); }
+.ta-editor__running--ok { color: var(--erp-success-text); }
+.ta-editor__running--none { color: var(--erp-text-muted); }
 .ta-editor__legend { display: flex; flex-wrap: wrap; gap: 6px; }
 .ta-editor__actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; }
 .ta-editor__buttons { display: flex; align-items: center; gap: 8px; }

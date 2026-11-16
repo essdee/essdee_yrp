@@ -74,6 +74,15 @@ class TestUpdateActualDates(TimeAndActionTestCase):
 		self.assertEqual(getdate(result["delivery_date_after"]), getdate("2026-11-15"))
 		self.assertEqual(result["delivery_days_moved"], 6)
 
+	def test_running_delay_counts_working_days_late_as_negative(self):
+		use_company_holidays(["2026-11-12", "2026-11-13"], "2025-01-01", "2028-12-31")
+		update_actual_dates(self.name, [change("TA-TEST-YARN", "2026-11-10", "late")], self.modified())
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		self.assertEqual(getdate(doc.details[-1].planned_start_date), getdate("2026-11-08"))
+		self.assertEqual(getdate(doc.end_date), getdate("2026-11-16"))
+		self.assertEqual(doc.delay, -6)
+		self.assertEqual(get_update_data(self.name)["delay"], -6)
+
 	def test_preview_reports_unchanged_delivery(self):
 		result = preview_actual_dates(self.name, [change("TA-TEST-TRIMS", "2026-11-03")], self.modified())
 		self.assertEqual(getdate(result["delivery_date_before"]), getdate("2026-11-08"))

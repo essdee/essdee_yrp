@@ -51,6 +51,13 @@ export function getDelay(row) {
 	return { text: diff === 0 ? "On time" : `${dayCount(diff)} early`, tone: "ok", planned: row.actual_delay }
 }
 
+/** T&A running delay (`delay`): last action's Planned Date vs its expected or actual date, working days, negative = late. */
+export function getRunningDelay(delay) {
+	const days = Number(delay) || 0
+	if (!days) return { tone: "none", text: "On schedule" }
+	return { tone: days < 0 ? "late" : "ok", text: `${workingDayCount(Math.abs(days))} ${days < 0 ? "late" : "early"}` }
+}
+
 /** Save bar impact line from `preview_actual_dates`; days are working days, later = positive. */
 export function getImpact(data, hasChanges) {
 	const days = Number(data?.delivery_days_moved) || 0

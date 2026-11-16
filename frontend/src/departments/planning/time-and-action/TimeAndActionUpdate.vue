@@ -12,7 +12,7 @@
 					<thead>
 						<tr>
 							<th class="ta-list__chev" aria-hidden="true" /><th>T&A</th><th>Against</th><th>Against ID</th><th>Item</th><th>Start Date</th>
-							<th>Expected Delivery</th><th>Progress</th><th>Next Action</th><th class="erp-number">Delay</th><th>Status</th>
+							<th>Expected Delivery</th><th>Progress</th><th>Next Action</th><th>Running Delay</th><th>Status</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -30,7 +30,7 @@
 									<div v-if="row.next_action" class="ta-list__next"><span>{{ row.next_action }}</span><TimeAndActionChip v-bind="getNextActionChip(row)" /></div>
 									<span v-else class="ta-list__subtle">All dated</span>
 								</td>
-								<td class="erp-number ta-list__nowrap">{{ row.delay }} / {{ row.rescheduled_delay }}</td>
+								<td class="ta-list__nowrap"><b class="ta-list__delay" :class="`ta-list__delay--${getRunningDelay(row.delay).tone}`">{{ getRunningDelay(row.delay).text }}</b></td>
 								<td><TimeAndActionChip tone="info" :label="row.status" /></td>
 							</tr>
 							<tr v-if="row.name === expanded" class="ta-list__expand">
@@ -60,7 +60,7 @@ import DocumentConfirmationDialog from "../../../components/documents/DocumentCo
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import TimeAndActionChip from "./TimeAndActionChip.vue"
 import TimeAndActionEditor from "./TimeAndActionEditor.vue"
-import { againstLabel, getNextActionChip } from "./timeAndAction.js"
+import { againstLabel, getNextActionChip, getRunningDelay } from "./timeAndAction.js"
 
 /** Accordion of open (not Completed) T&As filtered by Lot and Item; one opens inline at a time for updating. */
 const route = useRoute()
@@ -152,6 +152,9 @@ load()
 .ta-list > tbody > tr.ta-list__row.is-open > td { font-weight: 600; color: var(--erp-text); background: var(--erp-accent-soft); border-bottom: 0; }
 .ta-list > tbody > tr.ta-list__row.is-open > td:first-child { box-shadow: inset 3px 0 0 var(--erp-accent); }
 .ta-list__nowrap { white-space: nowrap; }
+.ta-list__delay--late { color: var(--erp-danger); }
+.ta-list__delay--ok { color: var(--erp-success-text); }
+.ta-list__delay--none { color: var(--erp-text-muted); }
 .ta-list__chev { width: 36px; padding-right: 0 !important; color: var(--erp-text-muted); }
 .ta-list__chev i { font-size: 12px; transition: transform 160ms ease; }
 .ta-list tr.is-open .ta-list__chev i { color: var(--erp-accent); transform: rotate(180deg); }

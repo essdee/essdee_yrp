@@ -28,7 +28,9 @@
   "details",
   "dependent_details",
   "revision_history_tab",
-  "time_and_action_revised_dates"
+  "time_and_action_revised_dates",
+  "step_changes_section",
+  "step_changes"
  ],
  "fields": [
   {
@@ -137,8 +139,9 @@
   {
    "fieldname": "delay",
    "fieldtype": "Int",
-   "label": "Delay",
-   "read_only": 1
+   "label": "Running Delay",
+   "read_only": 1,
+   "description": "Working days between the last action's Planned Date and its expected or actual date; negative = late."
   },
   {
    "fieldname": "action",
@@ -182,12 +185,24 @@
    "label": "Revision History",
    "options": "SD YRP Time and Action Revised Date",
    "read_only": 1
+  },
+  {
+   "fieldname": "step_changes_section",
+   "fieldtype": "Section Break",
+   "label": "Action Changes"
+  },
+  {
+   "fieldname": "step_changes",
+   "fieldtype": "Table",
+   "label": "Action Changes",
+   "options": "SD YRP Time and Action Step Change",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-16 19:30:00.000000",
+ "modified": "2026-11-16 21:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Time and Action",

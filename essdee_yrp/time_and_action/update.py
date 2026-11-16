@@ -146,6 +146,7 @@ def get_user_context(doc) -> dict:
 		"can_revert": is_time_and_action_admin(settings),
 		"can_complete": can_complete(doc),
 		"can_reopen": doc.status == "Completed" and "System Manager" in frappe.get_roles(),
+		"can_edit_steps": doc.status == "In Progress" and has_step_editor_role(settings),
 	}
 
 
@@ -161,6 +162,13 @@ def can_revise(doc, settings) -> bool:
 		and role in frappe.get_roles()
 		and doc.revised < cint(settings.revising_days_limit)
 	)
+
+
+def has_step_editor_role(settings=None) -> bool:
+	"""Update Action (add/remove steps) is for the T&A Step Editor Role or the T & A Admin Role."""
+	settings = settings or frappe.get_single("SD YRP T and A Settings")
+	roles = {settings.step_editor_role, settings.t_and_a_admin_role} - {None, ""}
+	return bool(roles & set(frappe.get_roles()))
 
 
 def is_time_and_action_admin(settings) -> bool:
