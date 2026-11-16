@@ -57,7 +57,7 @@ const props = defineProps({
 	qty: { type: [Number, String], default: 0 },
 })
 const emit = defineEmits(["update:visible", "created"])
-const MASTER_FILTERS = { disable: 0, docstatus: ["!=", 2] }
+const MASTER_FILTERS = { disable: 0, docstatus: 1 }
 const master = ref("")
 const startDate = ref("")
 const preview = ref(null)

@@ -129,8 +129,11 @@ class TestCreateTimeAndAction(TimeAndActionTestCase):
 	def test_editing_master_does_not_change_existing_ta(self):
 		lot = make_lot()
 		name = create_time_and_action("SD YRP Lot", lot, self.master.name, START)
-		self.master.details[0].lead_time = 9
-		self.master.save()
+		self.master.cancel()
+		amended = frappe.copy_doc(self.master)
+		amended.amended_from = self.master.name
+		amended.details[0].lead_time = 9
+		amended.submit()
 		doc = frappe.get_doc("SD YRP Time and Action", name)
 		doc.save()
 		self.assertEqual(doc.details[0].lead_time, 2)
@@ -148,6 +151,28 @@ class TestCreateTimeAndAction(TimeAndActionTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "more than once"):
 			make_master([("TA-TEST-A", 1), ("TA-TEST-A", 2)], {})
 
+	def test_draft_master_is_refused_for_preview(self):
+		draft = make_master(STEPS, DEPENDENCIES, submit=False)
+		with self.assertRaisesRegex(frappe.ValidationError, "not submitted"):
+			get_schedule_preview(draft.name, START)
+
+	def test_draft_master_is_refused_for_create(self):
+		draft = make_master(STEPS, DEPENDENCIES, submit=False)
+		with self.assertRaisesRegex(frappe.ValidationError, "not submitted"):
+			create_time_and_action("SD YRP Lot", make_lot(), draft.name, START)
+
+	def test_submitted_master_is_accepted(self):
+		self.assertEqual(self.master.docstatus, 1)
+		name = create_time_and_action("SD YRP Lot", make_lot(), self.master.name, START)
+		self.assertEqual(frappe.db.get_value("SD YRP Time and Action", name, "master"), self.master.name)
+
+	def test_disabled_master_is_refused(self):
+		frappe.db.set_value("SD YRP Action Master", self.master.name, "disable", 1)
+		with self.assertRaisesRegex(frappe.ValidationError, "disabled"):
+			get_schedule_preview(self.master.name, START)
+		with self.assertRaisesRegex(frappe.ValidationError, "disabled"):
+			create_time_and_action("SD YRP Lot", make_lot(), self.master.name, START)
+
 	def test_master_lead_time_zero_is_refused(self):
 		with self.assertRaisesRegex(frappe.ValidationError, "Lead Time"):
 			make_master([("TA-TEST-A", 1), ("TA-TEST-B", 0)], {})
@@ -157,7 +182,7 @@ class TestCreateTimeAndAction(TimeAndActionTestCase):
 			make_master([], {})
 
 	def test_master_dependency_without_action_is_refused(self):
-		master = make_master([("TA-TEST-A", 1), ("TA-TEST-B", 1)], {})
+		master = make_master([("TA-TEST-A", 1), ("TA-TEST-B", 1)], {}, submit=False)
 		master.append("action_master_dependent_details", {"action": "TA-TEST-B"})
 		with self.assertRaisesRegex(frappe.ValidationError, "Dependent Action"):
 			master.save()

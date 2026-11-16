@@ -469,7 +469,7 @@ function open_time_and_action_dialog(frm) {
 				fieldtype: "Link",
 				options: "SD YRP Action Master",
 				reqd: 1,
-				get_query: () => ({ filters: { disable: 0, docstatus: ["!=", 2] } }),
+				get_query: () => ({ filters: { disable: 0, docstatus: 1 } }),
 			},
 			{ label: __("Start Date"), fieldname: "start_date", fieldtype: "Date", reqd: 1 },
 		],

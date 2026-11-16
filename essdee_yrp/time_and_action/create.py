@@ -70,8 +70,7 @@ def _validate_dependency(action, dependency, position):
 
 @frappe.whitelist()
 def get_schedule_preview(master: str, start_date: str) -> list[dict]:
-	master_doc = frappe.get_doc("SD YRP Action Master", master)
-	master_doc.check_permission("read")
+	master_doc = _get_usable_master(master)
 	schedule = get_master_schedule(master_doc, getdate(start_date))
 	dependencies = get_master_dependencies(master_doc)
 	return [
@@ -130,8 +129,10 @@ def _get_usable_master(name):
 		frappe.throw(_("Select an Action Master."))
 	master = frappe.get_doc("SD YRP Action Master", name)
 	master.check_permission("read")
-	if master.disable or master.docstatus == 2:
-		frappe.throw(_("Action Master {0} is disabled or cancelled.").format(frappe.bold(name)))
+	if master.docstatus != 1:
+		frappe.throw(_("Action Master {0} is not submitted. Submit it first.").format(frappe.bold(name)))
+	if master.disable:
+		frappe.throw(_("Action Master {0} is disabled.").format(frappe.bold(name)))
 	if not master.details:
 		frappe.throw(_("Action Master {0} has no actions.").format(frappe.bold(name)))
 	return master
