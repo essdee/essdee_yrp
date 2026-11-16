@@ -65,7 +65,7 @@ def _lot_locks(doc, ppo_mode, is_new):
 		"lot_name": not is_new,
 		"item": ppo_mode,
 		"production_order": not is_new and bool(doc.production_detail),
-		"order_details": bool(doc.lot_time_and_action_details) or bool(doc.is_transferred),
+		"order_details": bool(doc.has_time_and_action) or bool(doc.is_transferred),
 	}
 
 

@@ -27,7 +27,7 @@ BOX_LABELS = {"qty": "Qty", "ratio": "Ratio", "mrp": "MRP"}
 
 
 def is_order_locked(doc):
-	return bool(doc.get("lot_time_and_action_details") or doc.get("is_transferred"))
+	return bool(doc.has_time_and_action or doc.get("is_transferred"))
 
 
 def get_cloth_block(doc):
@@ -59,7 +59,7 @@ def get_command_blocks(doc):
 		or ("" if doc.get("lot_fabric_details") else _("No Fabric Details exist.")),
 		"calculate_bom": get_bom_block(doc),
 		"calculate_order_items": _("Time & Action exists.")
-		if doc.get("lot_time_and_action_details")
+		if doc.has_time_and_action
 		else get_cloth_block(doc),
 		"change_ppo": _("Already linked to {0}").format(doc.production_order) if doc.production_order else "",
 		"update_bom_additional_items": "" if doc.docstatus == 0 else _("The Lot must be in Draft."),

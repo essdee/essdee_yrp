@@ -7,7 +7,7 @@
                     <table class="inner-table" style="margin-bottom: 20px;">
                         <thead>
                             <tr>
-                                <th class="sticky-col col1">Colour</th>
+                                <th class="sticky-col col1">Master</th>
                                 <th class="sticky-col col2">Start Date</th>
                                 <th class="sticky-col col3">Dispatch Date</th>
                                 <th class="sticky-col col4">Activity</th>

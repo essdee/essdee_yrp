@@ -18,7 +18,7 @@
                                             <tr>
                                                 <th class="sticky-col col1">S.No</th>
                                                 <th class="sticky-col col2">Item</th>
-                                                <th class="sticky-col col3">Colour</th>
+                                                <th class="sticky-col col3">T&A</th>
                                                 <th class="sticky-col col4">Sizes</th>
                                                 <th class="sticky-col col5">Quantity</th>
                                                 <th class="sticky-col col6">Start Date</th>
@@ -34,7 +34,7 @@
                                                 <tr>
                                                     <td class="sticky-col col1" rowspan="8">{{ idx + 1 }}</td>
                                                     <td class="sticky-col col2" rowspan="8">{{ data.item }}</td>
-                                                    <td class="sticky-col col3" rowspan="8">{{ data.colour }}</td>
+                                                    <td class="sticky-col col3" rowspan="8">{{ data.name }}</td>
                                                     <td class="sticky-col col4" rowspan="8">{{ data.sizes }}</td>
                                                     <td class="sticky-col col5" rowspan="8">{{ data.qty }}</td>
                                                     <td class="sticky-col col6" rowspan="8">{{ get_date(data.start_date) }}</td>

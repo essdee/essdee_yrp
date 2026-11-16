@@ -34,7 +34,7 @@ async function revertButtons(adminRole, roles) {
 	const { context, settingReads } = loadLotScript(adminRole, roles);
 	const buttons = [];
 	const frm = {
-		doc: { name: "LOT-1", lot_time_and_action_details: [{ time_and_action: "TA-1" }] },
+		doc: { name: "LOT-1", __onload: { time_and_action: "TA-1" } },
 		fields_dict: { time_and_action_html: { wrapper: null }, time_and_action_report_html: { wrapper: null } },
 		add_custom_button(label) { buttons.push(label); },
 	};
@@ -46,12 +46,12 @@ async function revertButtons(adminRole, roles) {
 	{
 		const { buttons, settingReads } = await revertButtons("Lot Planner", ["Lot Planner"]);
 		assert.deepEqual(settingReads, [["SD YRP T and A Settings", "t_and_a_admin_role"]]);
-		assert.deepEqual(buttons, ["Revert T & A"]);
+		assert.deepEqual(buttons, ["Update T&A", "Revert T & A"]);
 	}
 
 	{
 		const { buttons } = await revertButtons("Lot Planner", ["T & A Admin"]);
-		assert.deepEqual(buttons, []);
+		assert.deepEqual(buttons, ["Update T&A"]);
 	}
 
 	console.log("SD YRP Lot Time and Action role setting tests passed");

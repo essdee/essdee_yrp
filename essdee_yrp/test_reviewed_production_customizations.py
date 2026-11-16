@@ -21,20 +21,6 @@ class TestReviewedProductionCustomizations(FrappeTestCase):
 			)
 		)
 
-	def test_lot_has_time_and_action_child_table(self):
-		field = frappe.get_meta("SD YRP Lot", cached=False).get_field("lot_time_and_action_details")
-		self.assertIsNotNone(field)
-		self.assertEqual(
-			(field.fieldtype, field.options, field.hidden),
-			("Table", "SD YRP Lot Time and Action Detail", 1),
-		)
-		self.assertFalse(
-			frappe.db.exists(
-				"Custom Field",
-				{"dt": "SD YRP Lot", "fieldname": "lot_time_and_action_details"},
-			)
-		)
-
 	def test_production_ordered_detail_matches_approved_source_fields(self):
 		meta = frappe.get_meta("YRP Production Ordered Detail", cached=False)
 		reference_doctype = meta.get_field("reference_doctype")

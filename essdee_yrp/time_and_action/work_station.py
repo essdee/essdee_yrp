@@ -2,8 +2,9 @@
 
 import frappe
 from frappe import _
-from yrp.attribute_links import value as _attribute_value
 from yrp.utils import update_if_string_instance
+
+from essdee_yrp.time_and_action.create import get_work_station
 
 
 def validate_default_action_work_station(doc, method=None):
@@ -24,52 +25,26 @@ def validate_default_action_work_station(doc, method=None):
 
 
 @frappe.whitelist()
-def get_work_stations(items, lot: str) -> dict:
-	lot_doc = frappe.get_doc("SD YRP Lot", lot)
-	lot_doc.check_permission("read")
-	result = {}
-	for link in lot_doc.lot_time_and_action_details:
-		if not link.time_and_action:
-			continue
-		doc = frappe.get_doc("SD YRP Time and Action", link.time_and_action)
-		doc.check_permission("read")
-		if doc.status == "Completed":
-			continue
-		result[_attribute_value(doc.colour)] = []
-		for row in doc.details:
-			value = row.as_dict()
-			value["master"] = doc.master
-			result[_attribute_value(doc.colour)].append(value)
-	return result
+def get_work_stations(time_and_action: str) -> dict:
+	"""Rows of one T&A keyed by its name, the shape the Work Station editor expects."""
+	doc = frappe.get_doc("SD YRP Time and Action", time_and_action)
+	doc.check_permission("read")
+	if doc.status != "In Progress":
+		return {}
+	return {doc.name: [dict(row.as_dict(), master=doc.master) for row in doc.details]}
 
 
 @frappe.whitelist()
 def update_t_and_a_ws(datas) -> None:
 	datas = update_if_string_instance(datas)
-	if not isinstance(datas, dict):
+	if not isinstance(datas, dict) or len(datas) != 1:
 		frappe.throw(_("Invalid Work Station update."))
-	seen = set()
-	for rows in datas.values():
-		if not rows:
-			continue
-		parent = rows[0].get("parent")
-		if not parent or parent in seen:
-			frappe.throw(_("Invalid Time and Action selection."))
-		doc = frappe.get_doc("SD YRP Time and Action", parent)
-		doc.check_permission("write")
-		incoming = {row.get("action"): row for row in rows}
-		if set(incoming) != {row.action for row in doc.details}:
-			frappe.throw(_("Time and Action rows changed. Refresh and try again."))
-		for row in doc.details:
-			work_station = incoming[row.action].get("work_station")
-			if work_station:
-				station_action = frappe.db.get_value("YRP Work Station", work_station, "action")
-				if station_action != row.action:
-					frappe.throw(
-						_("Work Station {0} is not configured for Action {1}.").format(
-							frappe.bold(work_station), frappe.bold(row.action)
-						)
-					)
-			row.work_station = work_station or None
-		doc.save()
-		seen.add(parent)
+	name, rows = next(iter(datas.items()))
+	doc = frappe.get_doc("SD YRP Time and Action", name)
+	doc.check_permission("write")
+	incoming = {row.get("action"): row.get("work_station") for row in rows or []}
+	if set(incoming) != {row.action for row in doc.details}:
+		frappe.throw(_("Time and Action rows changed. Refresh and try again."))
+	for row in doc.details:
+		row.work_station = get_work_station(row.action, incoming[row.action]) if incoming[row.action] else None
+	doc.save()

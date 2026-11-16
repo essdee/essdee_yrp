@@ -34,21 +34,6 @@ class TestMRPDocTypeAuditRegressions(IntegrationTestCase):
 			[("Printing", "Cut", "Cut"), ("Yolk Fusing", "Cut", "Cut"), ("Ironing", "Piece", "Piece")],
 		)
 
-	def test_lot_onload_restores_current_time_and_action_rows(self):
-		name = "C0425-26"
-		if not frappe.db.exists(
-			"SD YRP Lot Time and Action Detail",
-			{"parent": name},
-		):
-			self.skipTest(f"Time and Action Lot oracle {name} is unavailable")
-
-		doc = frappe.get_doc("SD YRP Lot", name)
-		doc.run_method("onload")
-		details = (doc.get("__onload") or {}).get("action_details") or []
-		self.assertEqual(len(details), len(doc.lot_time_and_action_details))
-		for row in details:
-			self.assertTrue({"colour", "master", "action", "department", "date", "process"} <= set(row))
-
 	def test_approved_ipd_requires_explicit_revert_before_any_save(self):
 		name = "EE-36221 SHORTS SET HALF SLEEVE (CORD)-3"
 		if not frappe.db.exists("YRP Item Production Detail", {"name": name, "approval_status": "Approved"}):

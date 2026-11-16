@@ -22,7 +22,7 @@ def get_lot(**values):
 		"production_detail": "IPD-1",
 		"production_order": None,
 		"item": "Item-1",
-		"lot_time_and_action_details": [],
+		"has_time_and_action": False,
 		"is_transferred": 0,
 		"items": [],
 		"lot_order_details": [Row(quantity=10)],
@@ -139,7 +139,7 @@ class TestMerchLotWorkspace(TestCase):
 		self.mock("lot_editor.load_writable_lot", return_value=self.doc)
 		self.mock("sd_yrp_lot.fetch_item_details", return_value=stored)
 		save = self.mock("lot_editor.save_lot")
-		for lock in ({"lot_time_and_action_details": [Row()]}, {"is_transferred": 1}):
+		for lock in ({"has_time_and_action": True}, {"is_transferred": 1}):
 			self.doc = get_lot(items=[Row()], **lock)
 			workspace.lot_editor.load_writable_lot.return_value = self.doc
 			for field in ("qty", "ratio", "mrp"):
@@ -167,7 +167,7 @@ class TestMerchLotWorkspace(TestCase):
 		for locked in (False, True):
 			self.doc = get_lot(
 				lot_order_details=[Row(quantity=10, cut_qty=4, stich_qty=3, pack_qty=2)],
-				lot_time_and_action_details=[Row()] if locked else [],
+				has_time_and_action=locked,
 			)
 			load.return_value = self.doc
 			stored = [dict(row) for row in self.doc.lot_order_details]
@@ -263,7 +263,7 @@ class TestMerchLotWorkspace(TestCase):
 	def test_document_state_disables_actions_with_reasons(self):
 		cases = [
 			({"production_order": "PPO-1"}, "change_ppo", "Already linked to PPO-1"),
-			({"lot_time_and_action_details": [Row()]}, "calculate_order_items", "Time & Action"),
+			({"has_time_and_action": True}, "calculate_order_items", "Time & Action"),
 			({"is_transferred": 1}, "build_cloth_programs", "transferred"),
 			({"lot_fabric_details": []}, "recalculate_cloth_program", "No Fabric Details"),
 			({"production_detail": None}, "calculate_bom", "Item Production Detail"),
