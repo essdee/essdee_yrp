@@ -264,23 +264,22 @@ function documentSection(basePath, { processes = async () => ["Stitching"], capa
 	return { root: mountComponent(section, props), navigations, props }
 }
 
-test("department Delivery Challan lists reuse the Cut Panel document list with the Work Order scope", async () => {
+test("department Delivery Challan lists reuse the Cut Panel document list without a hidden scope", async () => {
 	const fabric = documentSection("/fabric-store")
 	await tick()
 	const list = nodes(fabric.root, "list")[0]
 	assert.equal(list.props.doctype, "YRP Delivery Challan")
-	assert.deepEqual(list.props.filters, [], "Fabric Store Work Orders are unscoped, so its Delivery Challans are too")
+	assert.equal(list.props.filters, undefined)
 	assert.ok(list.props["default-columns"].includes("work_order"))
 	assert.ok(!list.props["default-columns"].includes("cut_panel_movement"))
 	list.props.onRowClick({ name: "DC-1" })
 	assert.deepEqual(fabric.navigations, [{ name: "fabric-delivery-challan", params: { deliveryChallanId: "DC-1" } }])
 
-	const sewing = documentSection("/sewing")
-	await tick()
-	assert.deepEqual(nodes(sewing.root, "list")[0].props.filters, [["process_name", "in", ["Stitching"]]])
-	const quality = documentSection("/quality")
-	await tick()
-	assert.deepEqual(nodes(quality.root, "list")[0].props.filters, [["docstatus", "=", 1], ["process_name", "in", ["Stitching"]]])
+	for (const basePath of ["/sewing", "/quality"]) {
+		const department = documentSection(basePath)
+		await tick()
+		assert.equal(nodes(department.root, "list")[0].props.filters, undefined, `${basePath} lists every Delivery Challan, not only its stitching processes`)
+	}
 })
 
 test("department GRN lists open the department GRN page", async () => {
@@ -294,7 +293,7 @@ test("department GRN lists open the department GRN page", async () => {
 		"../../components/common/ListView.vue": stub("list"),
 		"../../router/listDocumentNavigation.js": { openListDocument: (_router, row, _snapshot, options) => navigations.push({ name: options.routeName, params: { [options.paramName]: row.name } }) },
 	})
-	const grnRoot = mountComponent(grn, { capability: READABLE.goods_received_notes, filters: [], viewRouteName: "finishing-goods-received-note" })
+	const grnRoot = mountComponent(grn, { capability: READABLE.goods_received_notes, viewRouteName: "finishing-goods-received-note" })
 	const grnList = nodes(grnRoot, "list")[0]
 	assert.ok(grnList.props["default-columns"].includes("against_id"))
 	grnList.props.onRowClick({ name: "GRN-1" })
@@ -308,7 +307,7 @@ test("department document lists show a permission notice without read access", a
 	assert.equal(nodes(root, "message").length, 1)
 })
 
-test("the Cut Panel Store document lists keep their Cut Panel Movement scope", () => {
+test("the Cut Panel Store document lists show Work Order Delivery Challans too", () => {
 	const grn = loadComponent(resolve("frontend/src/departments/cut-panel-store/CutPanelDocuments.vue"), {
 		"primevue/button": stub("button"),
 		"vue-router": { useRouter: () => ({}) },
@@ -316,6 +315,7 @@ test("the Cut Panel Store document lists keep their Cut Panel Movement scope", (
 		"../../router/listDocumentNavigation.js": {},
 	})
 	const list = nodes(mountComponent(grn, { capability: READABLE.delivery_challans }), "list")[0]
-	assert.deepEqual(list.props.filters, [["cut_panel_movement", "is", "set"]])
+	assert.equal(list.props.filters, undefined)
 	assert.ok(list.props["default-columns"].includes("cut_panel_movement"))
+	assert.ok(list.props["default-columns"].includes("work_order"))
 })

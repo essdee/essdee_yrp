@@ -60,12 +60,12 @@ function documentList(props, pushed) {
 test("department Delivery Challan lists open a new Delivery Challan when the user can create one", () => {
 	const pushed = []
 	const capability = { doctype: "YRP Delivery Challan", can_read: true, can_create: true }
-	const root = documentList({ capability, filters: [], viewRouteName: "merch-delivery-challan", newRouteName: "merch-delivery-challan-new" }, pushed)
+	const root = documentList({ capability, viewRouteName: "merch-delivery-challan", newRouteName: "merch-delivery-challan-new" }, pushed)
 	const [button] = findNodes(root, (node) => node.type === "button")
 	assert.equal(button.props.label, "New Delivery Challan")
 	button.props.onClick()
 	assert.deepEqual(pushed, [{ name: "merch-delivery-challan-new" }])
-	const readOnly = documentList({ capability: { ...capability, can_create: false }, filters: [], newRouteName: "merch-delivery-challan-new" }, [])
+	const readOnly = documentList({ capability: { ...capability, can_create: false }, newRouteName: "merch-delivery-challan-new" }, [])
 	assert.equal(findNodes(readOnly, (node) => node.type === "button").length, 0)
 	const cutPanel = documentList({ capability }, [])
 	assert.equal(findNodes(cutPanel, (node) => node.type === "button").length, 0, "Cut Panel Movement DCs are created from their movement")
