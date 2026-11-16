@@ -19,7 +19,7 @@ frappe.query_reports["SD YRP Time and Action Delay Analysis"] = {
 			"get_query":function(){
 				return {
 					filters: {
-						"lot":frappe.query_report.get_filter_value("lot")
+						"against_id": frappe.query_report.get_filter_value("lot")
 					}
 				}
 			}

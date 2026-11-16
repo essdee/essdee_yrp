@@ -12,10 +12,26 @@ def _filters(value):
 	return frappe._dict(value or {})
 
 
+AGAINST_COLUMNS = [
+	{"fieldtype": "Link", "fieldname": "against", "options": "DocType", "label": "Against", "width": 140},
+	{
+		"fieldtype": "Dynamic Link",
+		"fieldname": "against_id",
+		"options": "against",
+		"label": "Against ID",
+		"width": 120,
+	},
+]
+
+
+def _lot_filter(filters):
+	return {"against_id": filters.lot} if filters.lot else None
+
+
 def _allowed_names(filters=None, active_only=False):
+	"""Readable T&A names; Frozen ones never appear in reports."""
 	query_filters = dict(filters or {})
-	if active_only:
-		query_filters["status"] = ["!=", "Completed"]
+	query_filters["status"] = "In Progress" if active_only else ["!=", "Frozen"]
 	return frappe.get_list(
 		"SD YRP Time and Action",
 		filters=query_filters,
@@ -31,12 +47,11 @@ def _names_or_empty(filters=None, active_only=False):
 
 def execute_cumulative_time_and_action_delay(filters=None):
 	columns = [
-		{"fieldtype": "Link", "fieldname": "lot", "options": "SD YRP Lot", "label": "Lot", "width": 120},
+		*AGAINST_COLUMNS,
 		{"fieldtype": "Link", "fieldname": "item", "options": "Item", "label": "Item", "width": 150},
 		{"fieldtype": "Int", "fieldname": "delay", "label": "Delay", "width": 80},
 		{"fieldtype": "Data", "fieldname": "sizes", "label": "Sizes", "width": 130},
 		{"fieldtype": "Float", "fieldname": "qty", "label": "Quantity", "width": 100},
-		{"fieldtype": "Data", "fieldname": "colours", "label": "Colours", "width": 150},
 		{
 			"fieldtype": "Link",
 			"fieldname": "action",
@@ -51,15 +66,11 @@ def execute_cumulative_time_and_action_delay(filters=None):
 	data = attribute_db.business_values(
 		frappe.db.sql(
 			"""
-		SELECT parent.lot, parent.item, MIN(parent.delay) AS delay,
-			MAX(parent.sizes) AS sizes, SUM(parent.qty) AS qty,
-			GROUP_CONCAT(DISTINCT parent.colour ORDER BY parent.colour SEPARATOR ', ') AS colours,
-			GROUP_CONCAT(DISTINCT parent.action ORDER BY parent.action SEPARATOR ', ') AS action
+		SELECT parent.against, parent.against_id, parent.item, parent.delay,
+			parent.sizes, parent.qty, parent.action
 		FROM `tabSD YRP Time and Action` parent
-		JOIN `tabSD YRP Time and Action Detail` detail ON detail.parent = parent.name
-		WHERE parent.name IN %(names)s AND detail.index2 = 1
-		GROUP BY parent.lot, parent.item
-		ORDER BY delay ASC, parent.lot ASC
+		WHERE parent.name IN %(names)s
+		ORDER BY parent.delay ASC, parent.against_id ASC
 		""",
 			{"names": names},
 			as_dict=True,
@@ -71,7 +82,7 @@ def execute_cumulative_time_and_action_delay(filters=None):
 def execute_live_time_and_action_delay(filters=None):
 	filters = _filters(filters)
 	columns = [
-		{"fieldtype": "Link", "fieldname": "lot", "label": "Lot", "options": "SD YRP Lot", "width": 100},
+		*AGAINST_COLUMNS,
 		{"fieldtype": "Link", "fieldname": "item", "label": "Item", "options": "Item", "width": 150},
 	]
 	if filters.show_style_summary:
@@ -88,7 +99,6 @@ def execute_live_time_and_action_delay(filters=None):
 				"options": "SD YRP Action Master",
 				"width": 120,
 			},
-			{"fieldtype": "Data", "fieldname": "colour", "label": "Colour", "width": 100},
 			{"fieldtype": "Data", "fieldname": "sizes", "label": "Sizes", "width": 130},
 			{"fieldtype": "Float", "fieldname": "qty", "label": "Qty", "width": 100},
 			{
@@ -109,8 +119,7 @@ def execute_live_time_and_action_delay(filters=None):
 			{"fieldtype": "Date", "fieldname": "rescheduled_date", "label": "Rescheduled Date", "width": 120},
 			{"fieldtype": "Int", "fieldname": "date_diff", "label": "Date Diff", "width": 90},
 		]
-	parent_filters = {"lot": filters.lot} if filters.lot else None
-	names = _names_or_empty(parent_filters, active_only=True)
+	names = _names_or_empty(_lot_filter(filters), active_only=True)
 	if not names:
 		return columns, []
 	values = {"names": names, "today": getdate(nowdate())}
@@ -118,14 +127,14 @@ def execute_live_time_and_action_delay(filters=None):
 		data = attribute_db.business_values(
 			frappe.db.sql(
 				"""
-			SELECT parent.lot, parent.item, MAX(parent.sizes) AS sizes,
+			SELECT parent.against, parent.against_id, parent.item, MAX(parent.sizes) AS sizes,
 				MIN(DATEDIFF(detail.rescheduled_date, %(today)s)) AS date_diff
 			FROM `tabSD YRP Time and Action` parent
 			JOIN `tabSD YRP Time and Action Detail` detail ON detail.parent = parent.name
 			WHERE parent.name IN %(names)s AND detail.completed = 0
 				AND detail.rescheduled_date <= %(today)s
-			GROUP BY parent.lot, parent.item
-			ORDER BY date_diff ASC, parent.lot ASC
+			GROUP BY parent.against, parent.against_id, parent.item
+			ORDER BY date_diff ASC, parent.against_id ASC
 			""",
 				values,
 				as_dict=True,
@@ -135,7 +144,7 @@ def execute_live_time_and_action_delay(filters=None):
 		data = attribute_db.business_values(
 			frappe.db.sql(
 				"""
-			SELECT parent.lot, parent.item, parent.master, parent.colour,
+			SELECT parent.against, parent.against_id, parent.item, parent.master,
 				parent.sizes, parent.qty, detail.action, detail.department,
 				detail.date, detail.rescheduled_date,
 				DATEDIFF(detail.rescheduled_date, %(today)s) AS date_diff
@@ -143,7 +152,7 @@ def execute_live_time_and_action_delay(filters=None):
 			JOIN `tabSD YRP Time and Action Detail` detail ON detail.parent = parent.name
 			WHERE parent.name IN %(names)s AND detail.completed = 0
 				AND detail.index2 = 1 AND detail.rescheduled_date <= %(today)s
-			ORDER BY date_diff ASC, parent.lot ASC
+			ORDER BY date_diff ASC, parent.against_id ASC
 			""",
 				values,
 				as_dict=True,
@@ -179,7 +188,7 @@ def execute_time_and_action_delay_analysis(filters=None):
 		return columns, [], None, _delay_chart([])
 	doc = frappe.get_doc("SD YRP Time and Action", filters.time_and_action)
 	doc.check_permission("read")
-	if doc.lot != filters.lot:
+	if doc.against_id != filters.lot:
 		frappe.throw(_("Time and Action does not belong to the selected Lot."))
 	data = frappe.db.sql(
 		"""
@@ -265,28 +274,25 @@ def _performance_chart(data, fieldname):
 def execute_time_and_action_dispatch_report(filters=None):
 	filters = _filters(filters)
 	columns = [
-		{"fieldname": "lot", "fieldtype": "Link", "label": "Lot", "options": "SD YRP Lot", "width": 200},
+		*AGAINST_COLUMNS,
 		{"fieldname": "item", "fieldtype": "Link", "label": "Item", "options": "Item", "width": 200},
 		{"fieldname": "sizes", "fieldtype": "Data", "label": "Sizes", "width": 300},
 		{"fieldname": "date", "fieldtype": "Date", "label": "Dispatch Date", "width": 200},
 		{"fieldname": "total_order_quantity", "fieldtype": "Int", "label": "Total Quantity"},
 		{"fieldname": "cumulative_delay", "fieldtype": "Int", "label": "Cumulative Delay"},
 	]
-	names = _names_or_empty({"lot": filters.lot} if filters.lot else None)
+	names = _names_or_empty(_lot_filter(filters))
 	if not names:
 		return columns, []
 	data = attribute_db.business_values(
 		frappe.db.sql(
 			"""
-		SELECT parent.lot, parent.item, MAX(parent.sizes) AS sizes,
-			MAX(detail.rescheduled_date) AS date, lot.total_order_quantity,
-			MIN(parent.delay) AS cumulative_delay
+		SELECT parent.against, parent.against_id, parent.item, parent.sizes,
+			parent.end_date AS date, parent.qty AS total_order_quantity,
+			parent.delay AS cumulative_delay
 		FROM `tabSD YRP Time and Action` parent
-		JOIN `tabSD YRP Time and Action Detail` detail ON detail.parent = parent.name
-		JOIN `tabSD YRP Lot` lot ON lot.name = parent.lot
 		WHERE parent.name IN %(names)s
-		GROUP BY parent.lot, parent.item, lot.total_order_quantity
-		ORDER BY parent.lot ASC, parent.item ASC
+		ORDER BY parent.against_id ASC, parent.item ASC
 		""",
 			{"names": names},
 			as_dict=True,
@@ -298,7 +304,7 @@ def execute_time_and_action_dispatch_report(filters=None):
 def execute_time_and_action_pending_work(filters=None):
 	filters = _filters(filters)
 	columns = [
-		{"fieldtype": "Link", "fieldname": "lot", "options": "SD YRP Lot", "label": "Lot", "width": 100},
+		*AGAINST_COLUMNS,
 		{"fieldtype": "Link", "fieldname": "item", "options": "Item", "label": "Item", "width": 150},
 		{
 			"fieldtype": "Link",
@@ -307,7 +313,6 @@ def execute_time_and_action_pending_work(filters=None):
 			"label": "Master",
 			"width": 120,
 		},
-		{"fieldtype": "Data", "fieldname": "colour", "label": "Colour", "width": 120},
 		{"fieldtype": "Data", "fieldname": "sizes", "label": "Sizes", "width": 130},
 		{"fieldtype": "Float", "fieldname": "qty", "label": "Quantity", "width": 100},
 		{
@@ -348,14 +353,14 @@ def execute_time_and_action_pending_work(filters=None):
 	data = attribute_db.business_values(
 		frappe.db.sql(
 			f"""
-		SELECT parent.lot, parent.item, parent.master, parent.colour,
+		SELECT parent.against, parent.against_id, parent.item, parent.master,
 			parent.sizes, parent.qty, detail.action, detail.department,
 			detail.date, detail.rescheduled_date,
 			DATEDIFF(detail.rescheduled_date, %(date)s) AS date_diff
 		FROM `tabSD YRP Time and Action` parent
 		JOIN `tabSD YRP Time and Action Detail` detail ON detail.parent = parent.name
 		WHERE {" AND ".join(conditions)}
-		ORDER BY date_diff ASC, parent.lot ASC, detail.idx ASC
+		ORDER BY date_diff ASC, parent.against_id ASC, detail.idx ASC
 		""",
 			values,
 			as_dict=True,
@@ -367,7 +372,7 @@ def execute_time_and_action_pending_work(filters=None):
 def execute_time_and_action_report(filters=None):
 	filters = _filters(filters)
 	columns = [
-		{"fieldtype": "Link", "fieldname": "lot", "options": "SD YRP Lot", "label": "Lot", "width": 120},
+		*AGAINST_COLUMNS,
 		{"fieldtype": "Link", "fieldname": "item", "options": "Item", "label": "Item", "width": 150},
 		{
 			"fieldtype": "Link",
@@ -376,7 +381,6 @@ def execute_time_and_action_report(filters=None):
 			"label": "Master",
 			"width": 120,
 		},
-		{"fieldtype": "Data", "fieldname": "colour", "label": "Colour", "width": 100},
 		{"fieldtype": "Data", "fieldname": "sizes", "label": "Sizes", "width": 100},
 		{"fieldtype": "Float", "fieldname": "qty", "label": "Quantity", "width": 100},
 		{"fieldtype": "Date", "fieldname": "start_date", "label": "Start Date", "width": 120},
@@ -398,20 +402,20 @@ def execute_time_and_action_report(filters=None):
 		{"fieldtype": "Date", "fieldname": "date", "label": "Planned date", "width": 120},
 		{"fieldtype": "Date", "fieldname": "rescheduled_date", "label": "Rescheduled Date", "width": 120},
 	]
-	names = _names_or_empty({"lot": filters.lot} if filters.lot else None, active_only=True)
+	names = _names_or_empty(_lot_filter(filters), active_only=True)
 	if not names:
 		return columns, []
 	all_rows = attribute_db.business_values(
 		frappe.db.sql(
 			"""
-		SELECT parent.name AS parent_name, parent.lot, parent.item, parent.master,
-			parent.colour, parent.sizes, parent.qty, parent.start_date,
+		SELECT parent.name AS parent_name, parent.against, parent.against_id, parent.item,
+			parent.master, parent.sizes, parent.qty, parent.start_date,
 			detail.action, detail.department, detail.lead_time, detail.date,
 			detail.rescheduled_date, detail.idx
 		FROM `tabSD YRP Time and Action` parent
 		JOIN `tabSD YRP Time and Action Detail` detail ON detail.parent = parent.name
 		WHERE parent.name IN %(names)s AND detail.completed = 0
-		ORDER BY parent.lot ASC, parent.name ASC, detail.idx ASC
+		ORDER BY parent.against_id ASC, parent.name ASC, detail.idx ASC
 		""",
 			{"names": names},
 			as_dict=True,
@@ -445,7 +449,7 @@ def execute_time_and_action_summary(filters=None):
 		columns.append(
 			{"fieldtype": "Date", "fieldname": "actual_date", "label": "Actual Date", "width": 200}
 		)
-	names = _names_or_empty({"lot": filters.lot} if filters.lot else None)
+	names = _names_or_empty(_lot_filter(filters))
 	if not names:
 		return columns, [], None, _summary_chart([])
 	# MRP's supported lot/no-lot plans scan parents by primary key, then
@@ -455,10 +459,10 @@ def execute_time_and_action_summary(filters=None):
 	data = frappe.db.sql(
 		"""
 		WITH ranked AS (
-			SELECT parent.lot, detail.action, detail.completed, detail.actual_date,
+			SELECT parent.against_id AS lot, detail.action, detail.completed, detail.actual_date,
 				action.default_order,
 				ROW_NUMBER() OVER (
-					PARTITION BY parent.lot, detail.action
+					PARTITION BY parent.against_id, detail.action
 					ORDER BY parent.name, detail.name
 				) AS representative_rank
 			FROM `tabSD YRP Time and Action Detail` detail

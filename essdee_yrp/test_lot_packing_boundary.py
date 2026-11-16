@@ -36,7 +36,7 @@ class FakeLot(frappe._dict):
 		self.setdefault("production_detail", "IPD-1")
 		self.setdefault("lot_order_details", [])
 		self.setdefault("items", [])
-		self.setdefault("lot_time_and_action_details", [])
+		self.setdefault("has_time_and_action", False)
 		self.setdefault("allow_write", True)
 		self.saved = False
 		self.calculated = False
@@ -306,7 +306,7 @@ class TestLotPackingBoundary(FrappeTestCase):
 		calculate.assert_not_called()
 
 	def test_order_items_cannot_be_recalculated_after_time_and_action(self):
-		lot = FakeLot(lot_time_and_action_details=[frappe._dict(time_and_action="TNA-1")])
+		lot = FakeLot(has_time_and_action=True)
 		with (
 			patch.object(frappe, "get_doc", return_value=lot),
 			self.assertRaisesRegex(frappe.ValidationError, "after Time and Action"),

@@ -3,7 +3,6 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from yrp.attribute_links import value as _attribute_value
 
 
 class SDYRPTimeandActionGanttChart(Document):
@@ -16,7 +15,8 @@ def get_chart_data(action: str, work_station: str | None = None) -> list[dict]:
 		frappe.throw(_("Select a valid Action."))
 	parents = frappe.get_list(
 		"SD YRP Time and Action",
-		fields=["name", "lot", "item", "colour"],
+		filters={"status": "In Progress"},
+		fields=["name", "against_id", "item"],
 		limit=5000,
 	)
 	if not parents:
@@ -51,7 +51,7 @@ def get_chart_data(action: str, work_station: str | None = None) -> list[dict]:
 		items.append(
 			{
 				"id": index,
-				"name": f"{parent.lot}-{parent.item}-{_attribute_value(parent.colour)}",
+				"name": f"{parent.against_id}-{parent.item}",
 				"start": row.actual_start_date if row.actual_date else row.rescheduled_start_date,
 				"end": row.actual_date or row.rescheduled_date,
 				"progress": 100,

@@ -16,6 +16,7 @@ from essdee_yrp.fabric_store.documents.goods_received_note import (
 	calculate_goods_received_note,
 	execute_goods_received_note_command,
 	get_delivery_address,
+	get_goods_received_note_allow_on_submit_fields,
 	get_goods_received_note_calculation,
 	get_goods_received_note_workspace,
 	get_supplier_address,
@@ -789,83 +790,47 @@ class TestFabricStoreGoodsReceivedNote(TestCase):
 		self.assertNotEqual(added.row_index, source["row_index"])
 		doc.save.assert_called_once()
 
-	def test_submitted_save_updates_allow_on_submit_item_tables_only(self):
+	def submitted_document_with_stock_tables(self):
 		doc = self.make_document(docstatus=1)
 		doc.meta.fields = [
 			frappe._dict(fieldname="items", fieldtype="Table", allow_on_submit=1, hidden=0, read_only=0),
 			frappe._dict(fieldname="correction_items", fieldtype="Table", allow_on_submit=1, hidden=0, read_only=0),
-			frappe._dict(fieldname="comments", fieldtype="Small Text", allow_on_submit=0, hidden=0, read_only=0),
+			frappe._dict(fieldname="purchase_invoice_name", fieldtype="Data", allow_on_submit=1, hidden=0, read_only=0),
 		]
 		doc.meta.get_field.side_effect = lambda fieldname: next(
 			(field for field in doc.meta.fields if field.fieldname == fieldname),
 			None,
 		)
-		browser_items = [dict(doc["items"][0], quantity=4), dict(doc["items"][1], quantity=2)]
-		browser_corrections = [dict(doc.correction_items[0], quantity=1)]
-		with (
-			patch("essdee_yrp.fabric_store.documents.goods_received_note._get_grn", return_value=doc),
-			patch("essdee_yrp.fabric_store.documents.goods_received_note.assert_expected_modified"),
-			patch("essdee_yrp.fabric_store.documents.goods_received_note.frappe.has_permission", return_value=True),
-			patch("essdee_yrp.fabric_store.documents.common.get_permitted_fields", return_value=["items", "correction_items", "comments"]),
-			patch("essdee_yrp.fabric_store.documents.goods_received_note.ungroup_items_from_ui", return_value=browser_items),
-			patch("essdee_yrp.fabric_store.documents.goods_received_note.ungroup_correction_items_from_ui", return_value=browser_corrections),
-			patch("essdee_yrp.fabric_store.documents.goods_received_note.get_goods_received_note_workspace", return_value={"record": {"name": doc.name}}),
-		):
-			result = save_goods_received_note(
-				{"item_details": [{"browser": True}], "correction_item_details": [{"browser": True}]},
-				name=doc.name,
-				expected_modified=doc.modified,
-			)
+		return doc
 
-		self.assertEqual(result["record"]["name"], doc.name)
-		self.assertEqual(doc["items"][0].quantity, 4)
-		self.assertEqual(doc["items"][1].quantity, 2)
-		self.assertEqual(doc.correction_items[0].quantity, 1)
-		doc.save.assert_called_once_with()
-
-	def test_submitted_po_save_rejects_lot_change_without_replacing_row(self):
-		doc = self.make_document(docstatus=1)
-		doc.against = "Purchase Order"
-		doc.against_id = "PO-1"
-		for row in doc["items"]:
-			row.ref_doctype = "Purchase Order Item"
-			row.ref_docname = "PO-ROW"
-		original = [dict(row) for row in doc["items"]]
-		browser = [dict(original[0], lot="Open Lot", quantity=99)]
-		with (
-			patch("essdee_yrp.fabric_store.documents.goods_received_note._get_grn", return_value=doc),
-			patch("essdee_yrp.fabric_store.documents.goods_received_note.assert_expected_modified"),
-			patch(
-				"essdee_yrp.fabric_store.documents.goods_received_note.get_allow_on_submit_fields",
-				return_value=["items"],
-			),
-			patch(
-				"essdee_yrp.fabric_store.documents.goods_received_note._purchase_order_lot_context",
-				return_value={
-					"lot_options": {"PO-ROW": ["LOT-1", "Open Lot"]},
-					"lot_fieldname": "lot",
-					"purchase_order": "PO-1",
-				},
-			),
-			patch(
-				"essdee_yrp.fabric_store.documents.goods_received_note._dimension_fieldnames",
-				return_value=("lot", "received_type"),
-			),
-			patch(
-				"essdee_yrp.fabric_store.documents.goods_received_note.ungroup_items_from_ui",
-				return_value=browser,
-			),
-			patch(
-				"essdee_yrp.fabric_store.documents.goods_received_note.get_goods_received_note_workspace",
-				return_value={},
-			),
+	def test_submitted_stock_tables_are_not_offered_for_edit(self):
+		doc = self.submitted_document_with_stock_tables()
+		with patch(
+			"essdee_yrp.fabric_store.documents.common.get_permitted_fields",
+			return_value=["items", "correction_items", "purchase_invoice_name"],
 		):
-			with self.assertRaisesRegex(frappe.ValidationError, "available item rows changed"):
-				save_goods_received_note(
-					{"item_details": [{"browser": True}]}, name=doc.name, expected_modified=doc.modified
-				)
-		self.assertEqual([dict(row) for row in doc["items"]], original)
-		doc.save.assert_not_called()
+			fields = get_goods_received_note_allow_on_submit_fields(doc)
+		self.assertEqual(fields, ["purchase_invoice_name"])
+
+	def test_submitted_save_rejects_item_matrix_edits(self):
+		for payload_field in ("item_details", "correction_item_details"):
+			with self.subTest(payload_field=payload_field):
+				doc = self.submitted_document_with_stock_tables()
+				original = [dict(row) for row in doc["items"]]
+				with (
+					patch("essdee_yrp.fabric_store.documents.goods_received_note._get_grn", return_value=doc),
+					patch("essdee_yrp.fabric_store.documents.goods_received_note.assert_expected_modified"),
+					patch(
+						"essdee_yrp.fabric_store.documents.common.get_permitted_fields",
+						return_value=["items", "correction_items", "purchase_invoice_name"],
+					),
+					self.assertRaisesRegex(frappe.ValidationError, "Allow on Submit"),
+				):
+					save_goods_received_note(
+						{payload_field: [{"browser": True}]}, name=doc.name, expected_modified=doc.modified
+					)
+				self.assertEqual([dict(row) for row in doc["items"]], original)
+				doc.save.assert_not_called()
 
 	def test_submitted_save_rejects_non_allow_on_submit_header(self):
 		doc = self.make_document(docstatus=1)

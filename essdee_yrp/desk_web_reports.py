@@ -30,6 +30,7 @@ DESK_REPORTS = {
 	"item_conversion_report": ("Item Conversion Report", "SD YRP Item Conversion Report"),
 	"purchase_order_itemwise": ("Purchase Order Itemwise", "SD YRP Purchase Order Itemwise"),
 	"lot_consumption_report": ("Lot Consumption Report", "SD YRP Lot Consumption Report"),
+	"purchase_audit_report": ("Purchase Audit Report", "SD YRP Purchase Audit Report"),
 }
 # Base columns for saved layouts; the report pivots one Date/Result pair per inspection.
 RFT_MAX_INSPECTIONS = 50
@@ -42,6 +43,21 @@ FI_COLUMNS = [
 	{"fieldname": "colour", "label": "Colour", "fieldtype": "Data", "width": 140},
 	{"fieldname": "part", "label": "Part", "fieldtype": "Data", "width": 140},
 	{"fieldname": "sewing_plan", "label": "Sewing Plan", "fieldtype": "Link", "options": "SD YRP Sewing Plan", "width": 180},
+]
+
+
+# The report builds bucket columns from the data; these are the fixed ones.
+PURCHASE_AUDIT_COLUMNS = [
+	{"fieldname": "item", "label": "Item", "fieldtype": "Link", "options": "Item"},
+	{"fieldname": "item_variant", "label": "Item Variant", "fieldtype": "Link", "options": "Item"},
+	{"fieldname": "item_group", "label": "Item Group", "fieldtype": "Link", "options": "Item Group"},
+	{"fieldname": "warehouse", "label": "Warehouse", "fieldtype": "Link", "options": "Warehouse"},
+	{"fieldname": "received_type", "label": "Received Type", "fieldtype": "Link", "options": "YRP Received Type"},
+	{"fieldname": "opening_stock", "label": "Opening Stock", "fieldtype": "Float"},
+	{"fieldname": "total_inward", "label": "Total Inward", "fieldtype": "Float"},
+	{"fieldname": "total_outward", "label": "Total Outward", "fieldtype": "Float"},
+	{"fieldname": "stock_balance", "label": "Stock Balance", "fieldtype": "Float"},
+	{"fieldname": "suppliers", "label": "Suppliers", "fieldtype": "Data"},
 ]
 
 
@@ -76,6 +92,8 @@ def department_report_capabilities(department, allowed):
 		keys.append("purchase_order_itemwise")
 	if department in ("purchase", "fabric-store", "accessory-store", "accounts"):
 		keys.append("lot_consumption_report")
+	if department == "accounts":
+		keys.append("purchase_audit_report")
 	reports = {
 		key: {"label": _(DESK_REPORTS[key][0]), "can_read": True, "can_report": True}
 		for key in keys if can_run_desk_report(DESK_REPORTS[key][1])
@@ -177,6 +195,12 @@ def get_reports():
 		}, po_columns(), permission_doctypes=("Purchase Order",),
 			dependency_doctypes="essdee_yrp.web_reports.purchase_order_dependency_doctypes",
 			link_sources={"supplier": "Supplier", "delivery_location": "Supplier"}),
+		_desk_entry("purchase-audit-report", "SD YRP Purchase Audit Report", {
+			"from_date": "Date", "to_date": "Date", "supplier": ("Link", "Supplier"),
+			"warehouse": ("Link", "Warehouse"), "item": ("MultiSelectList", "Item"),
+			"item_variant": ("Link", "Item"), "item_group": ("MultiSelectList", "Item Group"),
+			"received_type": ("Link", "YRP Received Type"),
+		}, PURCHASE_AUDIT_COLUMNS),
 		_desk_entry("lot-consumption-report", "SD YRP Lot Consumption Report", {
 			"lot": ("Link", "SD YRP Lot"), "start_date": "Date", "end_date": "Date",
 			"item_group": ("Link", "Item Group"),

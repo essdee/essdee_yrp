@@ -11,19 +11,23 @@ const REPORTS = [
 ]
 const tick = async () => { await new Promise(done => setImmediate(done)); await Vue.nextTick() }
 const nodes = (root, type) => findNodes(root, node => node.type === type)
-const items = root => findNodes(root, node => node.type === "button" && String(node.props.class).includes("report-workspace__item"))
+const items = root => findNodes(root, node => node.type === "router-link")
 const label = node => findNodes(node, child => child.text?.trim()).map(child => child.text).join("")
 const search = root => nodes(root, "inputtext")[0]
+const navList = root => findNodes(root, node => node.type === "nav" && String(node.props.class).includes("collapsible-nav"))[0]
 
 function mount(props, query = {}, slots) {
 	const route = Vue.reactive({ path: "/planning/reports", query, hash: "#top" })
 	const navigations = []
-	const component = loadComponent(new URL("../src/components/reports/ReportWorkspace.vue", import.meta.url).pathname, {
+	const router = { replace: to => { navigations.push(to); route.query = to.query } }
+	const modules = {
 		"primevue/inputtext": props => Vue.h("inputtext", props),
 		"primevue/select": props => Vue.h("select", props),
-		"vue-router": { useRoute: () => route, useRouter: () => ({ replace: to => { navigations.push(to); route.query = to.query } }) },
+		"vue-router": { RouterLink: (props, { slots }) => Vue.h("router-link", props, slots.default?.()), useRoute: () => route, useRouter: () => router },
 		"./reportWorkspace.js": { chooseReport, readRememberedReport, rememberReport, reportGroups, stepReport },
-	})
+		"../reports/reportWorkspace.js": { reportGroups, stepReport },
+	}
+	const component = loadComponent(new URL("../src/components/reports/ReportWorkspace.vue", import.meta.url).pathname, modules)
 	const root = mountComponent({ render: () => Vue.h(component, props, slots) }, {})
 	return { root, route, navigations }
 }
@@ -63,16 +67,18 @@ test("remembered reports survive missing or throwing storage", () => {
 })
 
 test("the list shows grouped reports, highlights the selected one and keeps the choice in the URL", async () => {
-	const { root, navigations } = mount({ reports: REPORTS, label: "Planning reports", queryKey: "report" }, { report: "daily-production", lot: "L1" })
+	const { root, route, navigations } = mount({ reports: REPORTS, label: "Planning reports", queryKey: "report" }, { report: "daily-production", lot: "L1" })
 	try {
 		assert.deepEqual(items(root).map(label), ["Work Order", "Process Pending", "Daily Production", "Stock Balance"])
-		assert.deepEqual(findNodes(root, node => node.type === "p" && node.props.class === "report-workspace__group").map(label), ["Production", "Cutting"])
+		assert.deepEqual(findNodes(root, node => node.type === "p" && node.props.class === "collapsible-nav__group").map(label), ["Production", "Cutting"])
 		assert.deepEqual(items(root).map(item => item.props["aria-current"]), [undefined, undefined, "page", undefined])
 		const report = nodes(root, "daily-report")[0]
 		assert.equal(report.props.mode, "daily")
-		items(root)[3].props.onClick()
+		assert.deepEqual(items(root)[3].props.to, { query: { report: "stock-balance", lot: "L1" }, hash: "#top" })
+		assert.equal(items(root)[3].props.replace, true)
+		navigations.push(items(root)[3].props.to)
+		route.query = items(root)[3].props.to.query
 		await tick()
-		assert.deepEqual(navigations, [{ query: { report: "stock-balance", lot: "L1" }, hash: "#top" }])
 		assert.equal(nodes(root, "stock-report").length, 1)
 		assert.equal(nodes(root, "daily-report").length, 0)
 		assert.equal(nodes(root, "select")[0].props.modelValue, "stock-balance")
@@ -95,7 +101,7 @@ test("typing filters the list, arrows move the highlight and Enter opens the rep
 		search(root).props["onUpdate:modelValue"]("zzz")
 		await tick()
 		assert.equal(items(root).length, 0)
-		assert.ok(findNodes(root, node => node.text?.includes("No report matches")).length)
+		assert.ok(findNodes(root, node => node.text?.includes("No match for")).length)
 		key("Enter")
 		assert.equal(navigations.length, 1)
 		key("Escape")
@@ -108,10 +114,26 @@ test("a single report renders full width without the picker and slots receive th
 	const single = mount({ reports: [REPORTS[0]] })
 	try {
 		assert.equal(nodes(single.root, "nav").length, 0)
+		assert.equal(items(single.root).length, 0)
 		assert.equal(nodes(single.root, "select").length, 0)
 	} finally { single.root.__vue_app__.unmount() }
 	const slotted = mount({ reports: REPORTS }, { report: "process-pending" }, { default: ({ report }) => Vue.h("slot-report", { value: report.value }) })
 	try {
 		assert.equal(nodes(slotted.root, "slot-report")[0].props.value, "process-pending")
 	} finally { slotted.root.__vue_app__.unmount() }
+})
+
+test("the report list is always open and keeps its search on mouse leave", async () => {
+	const { root } = mount({ reports: REPORTS })
+	try {
+		assert.match(String(navList(root).props.class), /is-expanded/)
+		assert.match(String(navList(root).props.class), /is-pinned/)
+		search(root).props["onUpdate:modelValue"]("stock")
+		await tick()
+		navList(root).props.onMouseleave({ currentTarget: { contains: () => false } })
+		await tick()
+		assert.match(String(navList(root).props.class), /is-expanded/)
+		assert.deepEqual(items(root).map(label), ["Stock Balance"])
+		assert.equal(nodes(root, "button").length, 0)
+	} finally { root.__vue_app__.unmount() }
 })

@@ -59,6 +59,19 @@ def get_panel_colour_combination(ipd_doc):
 
 
 class SDYRPLot(Document):
+	@property
+	def time_and_action(self):
+		"""Name of this Lot's own T&A that is not frozen."""
+		return frappe.db.get_value(
+			"SD YRP Time and Action",
+			{"against": "SD YRP Lot", "against_id": self.name, "status": ["!=", "Frozen"]},
+			"name",
+		)
+
+	@property
+	def has_time_and_action(self):
+		return bool(self.name and self.time_and_action)
+
 	def before_print(self, settings=None):
 		set_attribute_display_values(self)
 
@@ -243,11 +256,9 @@ class SDYRPLot(Document):
 				self.set("lot_order_details_json", x)
 				self.set_onload("order_item_details", items)
 
-		if self.get("lot_time_and_action_details"):
-			self.set_onload(
-				"action_details",
-				get_time_and_action_process(self.lot_time_and_action_details),
-			)
+		if self.time_and_action:
+			self.set_onload("time_and_action", self.time_and_action)
+			self.set_onload("action_details", get_time_and_action_process(self.time_and_action))
 
 		# if self.cad_detail_data:
 		# 	data = update_if_string_instance(self.cad_detail_data)
@@ -280,39 +291,19 @@ def add_ppo_lot_qty(ppo, lot, items):
 		doc.save(ignore_permissions=True)
 
 
-def get_time_and_action_process(action_details):
-	"""Return the next incomplete Time and Action step for every Lot colour."""
-	items = []
-	for item in action_details:
-		pending = frappe.get_all(
-			"SD YRP Time and Action Detail",
-			filters={
-				"parent": item.time_and_action,
-				"completed": 0,
-			},
-			fields=["*"],
-			order_by="idx asc",
-			limit=1,
-		)
-		if pending:
-			row = pending[0]
-			row["colour"] = _attribute_value(item.colour)
-			row["master"] = item.master
-			row["process"] = True
-			items.append(row)
-		else:
-			items.append(
-				{
-					"colour": _attribute_value(item.colour),
-					"master": item.master,
-					"action": "Completed",
-					"department": None,
-					"date": None,
-					"rescheduled_date": None,
-					"process": False,
-				}
-			)
-	return items
+def get_time_and_action_process(time_and_action):
+	"""Next pending step of the Lot's Time and Action."""
+	pending = frappe.get_all(
+		"SD YRP Time and Action Detail",
+		filters={"parent": time_and_action, "parenttype": "SD YRP Time and Action", "completed": 0},
+		fields=["action", "department", "date", "rescheduled_date"],
+		order_by="idx asc",
+		limit=1,
+	)
+	master = frappe.db.get_value("SD YRP Time and Action", time_and_action, "master")
+	row = pending[0] if pending else frappe._dict(action="Completed")
+	row.update({"time_and_action": time_and_action, "master": master, "process": bool(pending)})
+	return [row]
 
 
 def calculate_order_details(items, production_detail, packing_uom, final_uom):
@@ -955,7 +946,7 @@ def get_packing_attributes(ipd):
 def update_order_details(doc_name):
 	doc = frappe.get_doc("SD YRP Lot", doc_name)
 	doc.check_permission("write")
-	if doc.get("lot_time_and_action_details"):
+	if doc.has_time_and_action:
 		frappe.throw("Order Items cannot be recalculated after Time and Action is created.")
 	doc.calculate_order()
 	doc.save()

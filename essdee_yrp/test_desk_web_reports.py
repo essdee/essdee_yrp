@@ -399,7 +399,7 @@ class TestDeskWebReports(IntegrationTestCase):
 				self.assertEqual("dc_report" in reports, department in STOCK_DEPARTMENTS)
 				self.assertEqual("jobwork_issued_items" in reports, department in ("purchase", "accessory-store", "fabric-store", "accounts"))
 				self.assertEqual(department_report_capabilities(department, False), {})
-			self.assertEqual(set(department_report_capabilities("accounts", True)), {key.replace("-", "_") for key, _ in PLACEMENT_REPORTS} | {"purchase_order_itemwise", "lot_consumption_report"})
+			self.assertEqual(set(department_report_capabilities("accounts", True)), {key.replace("-", "_") for key, _ in PLACEMENT_REPORTS} | {"purchase_order_itemwise", "lot_consumption_report", "purchase_audit_report"})
 
 	def test_accounts_issued_report_keeps_existing_report_area_gate(self):
 		from essdee_yrp.accounts.web_capabilities import get_capabilities

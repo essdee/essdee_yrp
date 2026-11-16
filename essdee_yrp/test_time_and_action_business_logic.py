@@ -1,18 +1,10 @@
 import frappe
-from frappe.tests.utils import FrappeTestCase
 
-from essdee_yrp.essdee_yrp.doctype.sd_yrp_action_master.sd_yrp_action_master import (
-	get_action_master_details,
-)
-from essdee_yrp.essdee_yrp.doctype.sd_yrp_time_and_action.sd_yrp_time_and_action import (
-	get_t_and_a_preview_data,
-	get_t_and_a_update_data,
-	get_update_rescheduled_date,
-	update_t_and_a,
-)
 from essdee_yrp.essdee_yrp.doctype.sd_yrp_time_and_action_gantt_chart.sd_yrp_time_and_action_gantt_chart import (
 	get_chart_data,
 )
+from essdee_yrp.purchase.lot_editor import _lot_locks
+from essdee_yrp.time_and_action.create import create_time_and_action
 from essdee_yrp.time_and_action.reports import (
 	execute_cumulative_time_and_action_delay,
 	execute_live_time_and_action_delay,
@@ -23,136 +15,80 @@ from essdee_yrp.time_and_action.reports import (
 	execute_time_and_action_report,
 	execute_time_and_action_summary,
 )
+from essdee_yrp.time_and_action.test_rules import DEPENDENCIES, STEPS, save_actuals, set_window
+from essdee_yrp.time_and_action.testing import (
+	TimeAndActionTestCase,
+	make_lot,
+	make_master,
+	use_company_holidays,
+)
 from essdee_yrp.time_and_action.tracking import (
 	get_t_and_a_report_data,
 	get_t_and_a_review_report_data,
 )
+from essdee_yrp.time_and_action.work_station import get_work_stations
+
+PROVIDERS = (
+	execute_cumulative_time_and_action_delay,
+	execute_live_time_and_action_delay,
+	execute_time_and_action_department_performance,
+	execute_time_and_action_dispatch_report,
+	execute_time_and_action_report,
+	execute_time_and_action_summary,
+)
 
 
-class TestTimeAndActionBusinessLogic(FrappeTestCase):
-	def _require_migrated_record(self, doctype, name):
-		if not frappe.db.exists(doctype, name):
-			self.skipTest(f"{doctype} {name} is a migrated-data fixture")
-
-	def test_preview_matches_production_calendar_fixture(self):
-		self._require_migrated_record("SD YRP Action Master", "Master-00001")
-		preview = get_t_and_a_preview_data(
-			"2026-08-18",
-			[{"colour": "Test", "master": "Master-00001"}],
-		)
-		self.assertEqual(
-			[str(row["rescheduled_date"]) for row in preview["Test"]],
-			[
-				"2026-08-19",
-				"2026-08-21",
-				"2026-08-22",
-				"2026-08-23",
-				"2026-08-25",
-				"2026-09-04",
-				"2026-09-08",
-				"2026-09-09",
-				"2026-09-11",
-				"2026-09-11",
-				"2026-09-18",
-				"2026-09-21",
-				"2026-09-22",
-			],
-		)
-
-	def test_action_master_details_are_rebuilt_from_server_master(self):
-		self._require_migrated_record("SD YRP Action Master", "Master-00001")
-		result = get_action_master_details([{"colour": "Test", "master": "Master-00001"}])
-		master = frappe.get_doc("SD YRP Action Master", "Master-00001")
-		self.assertEqual(
-			[row["action"] for row in result["Test"]["details"]],
-			[row.action for row in master.details],
-		)
-
-	def test_update_payload_contains_only_lot_linked_schedules(self):
-		lot = "F0924-22"
-		self._require_migrated_record("SD YRP Lot", lot)
-		result = get_t_and_a_update_data(lot, frappe.db.get_value("SD YRP Lot", lot, "item"))
-		returned = {
-			row["t_and_a"] for master in result["data"][lot]["masters"].values() for row in master["datas"]
-		}
-		linked = set(
-			frappe.get_all(
-				"SD YRP Lot Time and Action Detail",
-				filters={"parent": lot, "parenttype": "SD YRP Lot"},
-				pluck="time_and_action",
-			)
-		)
-		self.assertTrue(returned)
-		self.assertTrue(returned.issubset(linked))
-
-	def test_update_rejects_tampered_action_definition(self):
-		lot = "F0924-22"
-		self._require_migrated_record("SD YRP Lot", lot)
-		payload = get_t_and_a_update_data(lot, frappe.db.get_value("SD YRP Lot", lot, "item"))["data"]
-		row = next(row for master in payload[lot]["masters"].values() for row in master["datas"])
-		row["actions"][0]["lead_time"] += 1
-		with self.assertRaises(frappe.ValidationError):
-			update_t_and_a(payload)
-
-	def test_gantt_query_returns_only_readable_time_and_action_rows(self):
-		rows = frappe.get_all(
-			"SD YRP Time and Action Detail",
-			filters={"completed": 0},
-			fields=["action"],
-			limit=1,
-		)
-		if not rows:
-			self.skipTest("Gantt parity requires migrated Time and Action rows")
-		row = rows[0]
-		result = get_chart_data(row.action)
-		self.assertTrue(all(set(item) == {"id", "name", "start", "end", "progress"} for item in result))
-
-	def test_tracking_and_review_providers_return_expected_contracts(self):
-		tracking = get_t_and_a_report_data()
-		self.assertEqual(set(tracking), {"row_keys", "dates", "datas"})
-		self.assertTrue({"item", "lot", "process_name", "qty"}.issubset(tracking["row_keys"]))
-		self.assertIsInstance(get_t_and_a_review_report_data(), dict)
+class TestTimeAndActionReaders(TimeAndActionTestCase):
+	def setUp(self):
+		use_company_holidays([], "2025-01-01", "2028-12-31")
+		set_window(3650, 3650)
+		self.lot = make_lot()
+		master = make_master(STEPS, DEPENDENCIES)
+		self.name = create_time_and_action("SD YRP Lot", self.lot, master.name, "2026-11-02")
+		save_actuals(self.name, {"TA-TEST-YARN": "2026-11-05"})
 
 	def test_all_time_and_action_report_providers_execute(self):
-		providers = (
-			execute_cumulative_time_and_action_delay,
-			execute_live_time_and_action_delay,
-			execute_time_and_action_delay_analysis,
-			execute_time_and_action_department_performance,
-			execute_time_and_action_dispatch_report,
-			execute_time_and_action_pending_work,
-			execute_time_and_action_report,
-			execute_time_and_action_summary,
-		)
-		for provider in providers:
-			result = provider()
-			self.assertIsInstance(result, tuple, provider.__name__)
-			self.assertIsInstance(result[0], list, provider.__name__)
-			self.assertIsInstance(result[1], list, provider.__name__)
+		for provider in PROVIDERS:
+			for filters in ({}, {"lot": self.lot}):
+				result = provider(filters)
+				self.assertIsInstance(result[1], list, provider.__name__)
+		rows = execute_time_and_action_report({"lot": self.lot})[1]
+		self.assertEqual([(row.against, row.against_id) for row in rows], [("SD YRP Lot", self.lot)])
+		pending = execute_time_and_action_pending_work({"date": "2026-12-31"})[1]
+		self.assertIn(self.lot, {row.against_id for row in pending})
+		analysis = execute_time_and_action_delay_analysis({"lot": self.lot, "time_and_action": self.name})
+		self.assertEqual([row.action for row in analysis[1]], ["TA-TEST-YARN"])
 
-	def test_rescheduled_preview_ignores_tampered_derived_values(self):
-		lot = "F0924-22"
-		self._require_migrated_record("SD YRP Lot", lot)
-		payload = get_t_and_a_update_data(lot, frappe.db.get_value("SD YRP Lot", lot, "item"))["data"]
-		master, master_data = next(iter(payload[lot]["masters"].items()))
-		row = master_data["datas"][0]
-		action = row["actions"][0]
-		action["rescheduled_date"] = "2099-12-31"
+	def test_frozen_ta_is_excluded_from_reports(self):
+		frappe.db.set_value("SD YRP Time and Action", self.name, "status", "Frozen")
+		self.assertEqual(execute_time_and_action_dispatch_report({"lot": self.lot})[1], [])
+		self.assertEqual(execute_time_and_action_summary({"lot": self.lot})[1], [])
 
-		result = get_update_rescheduled_date(
-			action.get("actual_date") or frappe.utils.nowdate(),
-			"updated" if not action.get("actual_date") else "removed",
-			action["action"],
-			0,
-			payload,
-			0,
-			lot,
-			master,
-		)
-		location = next(
-			data_row
-			for data_row in result["total_data"][lot]["masters"][master]["datas"]
-			if data_row["t_and_a"] == row["t_and_a"]
-		)
-		calculated = next(value for value in location["actions"] if value["action"] == action["action"])
-		self.assertNotEqual(str(calculated["rescheduled_date"]), "2099-12-31")
+	def test_gantt_lists_pending_rows_of_active_ta(self):
+		items = get_chart_data("TA-TEST-KNIT")
+		self.assertIn(f"{self.lot}-", " ".join(item["name"] for item in items))
+		self.assertTrue(all(set(item) == {"id", "name", "start", "end", "progress"} for item in items))
+
+	def test_tracking_and_review_providers(self):
+		tracking = get_t_and_a_report_data()
+		self.assertEqual(set(tracking), {"row_keys", "dates", "datas"})
+		review = get_t_and_a_review_report_data(lot=self.lot)
+		data = next(iter(review[self.lot].values()))
+		self.assertEqual(data["datas"][0]["name"], self.name)
+
+	def test_work_station_editor_reads_one_ta(self):
+		self.assertEqual(list(get_work_stations(self.name)), [self.name])
+
+	def test_lot_onload_shows_next_pending_step(self):
+		lot = frappe.get_doc("SD YRP Lot", self.lot)
+		self.assertEqual(lot.time_and_action, self.name)
+		self.assertTrue(lot.has_time_and_action)
+		lot.run_method("onload")
+		details = lot.get("__onload").get("action_details")
+		self.assertEqual(details[0]["action"], "TA-TEST-TRIMS")
+		self.assertEqual(lot.get("__onload").get("time_and_action"), self.name)
+
+	def test_lot_editor_locks_order_details_when_ta_exists(self):
+		lot = frappe.get_doc("SD YRP Lot", self.lot)
+		self.assertTrue(_lot_locks(lot, False, False)["order_details"])
+		self.assertFalse(_lot_locks(frappe.get_doc("SD YRP Lot", make_lot()), False, False)["order_details"])

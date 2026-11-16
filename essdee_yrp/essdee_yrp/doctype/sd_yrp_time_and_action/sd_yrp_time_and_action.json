@@ -1,17 +1,17 @@
 {
  "actions": [],
- "allow_rename": 1,
- "autoname": "format:{lot}-{master}-{colour}",
+ "allow_rename": 0,
+ "autoname": "naming_series:",
  "creation": "2024-11-08 15:41:46.634239",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "lot",
-  "colour",
+  "naming_series",
+  "against",
+  "against_id",
+  "copied_from",
   "qty",
   "delay",
-  "capacity",
-  "major_colour",
   "column_break_ayau",
   "item",
   "sizes",
@@ -31,38 +31,68 @@
  ],
  "fields": [
   {
-   "fieldname": "lot",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "TA-.YYYY.-.#####",
+   "default": "TA-.YYYY.-.#####",
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "against",
    "fieldtype": "Link",
-   "label": "Lot",
-   "options": "SD YRP Lot"
+   "label": "Against",
+   "options": "DocType",
+   "reqd": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "against_id",
+   "fieldtype": "Dynamic Link",
+   "label": "Against ID",
+   "options": "against",
+   "reqd": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "copied_from",
+   "fieldtype": "Link",
+   "label": "Copied From",
+   "options": "SD YRP Time and Action",
+   "read_only": 1
   },
   {
    "fieldname": "item",
    "fieldtype": "Link",
    "label": "Item",
-   "options": "Item"
-  },
-  {
-   "fieldname": "colour",
-   "fieldtype": "Data",
-   "label": "Colour",
+   "options": "Item",
    "read_only": 1
   },
   {
    "fieldname": "master",
    "fieldtype": "Link",
    "label": "Master",
-   "options": "SD YRP Action Master"
+   "options": "SD YRP Action Master",
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "fieldname": "sizes",
    "fieldtype": "Data",
-   "label": "Sizes"
+   "label": "Sizes",
+   "read_only": 1
   },
   {
    "fieldname": "qty",
    "fieldtype": "Float",
-   "label": "Qty"
+   "label": "Qty",
+   "read_only": 1
   },
   {
    "fieldname": "description",
@@ -90,14 +120,18 @@
   {
    "fieldname": "start_date",
    "fieldtype": "Date",
-   "label": "Start Date"
+   "label": "Start Date",
+   "reqd": 1,
+   "set_only_once": 1
   },
   {
    "default": "In Progress",
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "In Progress\nCompleted"
+   "options": "In Progress\nCompleted\nFrozen",
+   "read_only": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "delay",
@@ -115,12 +149,8 @@
   {
    "fieldname": "end_date",
    "fieldtype": "Date",
-   "label": "End Date"
-  },
-  {
-   "fieldname": "capacity",
-   "fieldtype": "Float",
-   "label": "Capacity"
+   "label": "End Date",
+   "read_only": 1
   },
   {
    "fieldname": "dependent_details",
@@ -137,28 +167,24 @@
   {
    "fieldname": "rescheduled_delay",
    "fieldtype": "Int",
-   "label": "Rescheduled Delay"
+   "label": "Rescheduled Delay",
+   "read_only": 1
   },
   {
    "fieldname": "revised",
    "fieldtype": "Int",
    "label": "Revised",
    "read_only": 1
-  },
-  {
-   "fieldname": "major_colour",
-   "fieldtype": "Data",
-   "label": "Major Colour"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-10 09:47:53.317058",
+ "modified": "2026-11-16 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Time and Action",
- "naming_rule": "Expression",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
@@ -221,5 +247,7 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1
+ "track_changes": 1,
+ "title_field": "against_id",
+ "show_title_field_in_link": 0
 }

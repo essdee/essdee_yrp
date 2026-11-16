@@ -7,7 +7,7 @@
                     <table class="inner-table" style="margin-bottom: 20px;">
                         <thead>
                             <tr>
-                                <th class="sticky-col col1">Colour</th>
+                                <th class="sticky-col col1">Master</th>
                                 <th class="sticky-col col2">Start Date</th>
                                 <th class="sticky-col col3">Dispatch Date</th>
                                 <th class="sticky-col col4">Activity</th>
@@ -16,9 +16,9 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="sticky-col col1" rowspan="4">{{ item }}</td>
-                                <td class="sticky-col col2" rowspan="4">{{ date_format(start) }}</td>
-                                <td class="sticky-col col3" rowspan="4">{{ date_format(items[item][items[item].length - 1]['date']) }}</td>
+                                <td class="sticky-col col1" rowspan="5">{{ item }}</td>
+                                <td class="sticky-col col2" rowspan="5">{{ date_format(start) }}</td>
+                                <td class="sticky-col col3" rowspan="5">{{ date_format(items[item][items[item].length - 1]['date']) }}</td>
                             </tr>
                             <tr>
                                 <td class="sticky-col col4">Lead Time</td>
@@ -38,6 +38,12 @@
                                     {{ date_format(value.date) }}
                                 </td>
                             </tr>
+                            <tr>
+                                <td class="sticky-col col4">Work Station</td>
+                                <td v-for="(value,index) in items[item]">
+                                    <div :ref="(el) => { if (el) cells[value.action] = el }"></div>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -46,13 +52,38 @@
     </div>
 </template>
 <script setup>
-import {ref} from 'vue';
+import {ref, nextTick} from 'vue';
 
 let items = ref({})
 let start = ref(null)
-function load_data(item, start_date){
+let cells = {}
+let controls = {}
+async function load_data(item, start_date){
     items.value = item
     start.value = start_date
+    await nextTick()
+    for (const rows of Object.values(item)) {
+        rows.filter((row) => row.work_station).forEach(make_work_station_control)
+    }
+}
+
+function make_work_station_control(row){
+    controls[row.action] = frappe.ui.form.make_control({
+        parent: $(cells[row.action]),
+        df: {
+            fieldtype: "Link",
+            fieldname: "work_station",
+            options: "YRP Work Station",
+            get_query: () => ({ filters: { action: row.action } }),
+        },
+        doc: { work_station: row.work_station },
+        render_input: true,
+    })
+    $(cells[row.action]).find(".control-label, .visually-hidden").remove()
+}
+
+function get_work_stations(){
+    return Object.fromEntries(Object.entries(controls).map(([action, control]) => [action, control.get_value()]))
 }
 
 function date_format(date){
@@ -64,6 +95,7 @@ function date_format(date){
 
 defineExpose({
     load_data,
+    get_work_stations,
 })
 </script>
 

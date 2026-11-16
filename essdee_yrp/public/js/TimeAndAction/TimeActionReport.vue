@@ -1,51 +1,41 @@
 <template>
-    <div ref="root">
-        <div v-if="items && items.length > 0">
+    <div v-if="items.length > 0">
+        <div style="display:flex;width:100%; justify-content: space-between;">
             <h4>Report</h4>
+            <button v-if="status == 'In Progress'" @click="make_complete()" class="btn btn-success">Complete T&A</button>
         </div>
-        <div class="row">
-            <div class="select-field col-md-5"></div>
-            <div class="col-md-6"></div>
-            <div v-if="selected_colour && status != 'Completed'" class="col-md-1 mt-4">
-                <!-- <button @click="undo_last_update()" class="btn btn-success" style="margin-right: 10px;">Undo Last</button> -->
-                <button @click="make_complete()" class="btn btn-success">Complete T&A</button>
-            </div>
-        </div>
-        <table v-if="items && items.length > 0" class="table table-sm table-bordered">
+        <table class="table table-sm table-bordered">
             <tr>
                 <th>S.No</th>
                 <th>Action</th>
                 <th>Department</th>
                 <th>Lead Time</th>
-                <th>Work_Station</th>
+                <th>Work Station</th>
                 <th>Planned Date</th>
                 <th>Freezed Date</th>
                 <th>Rescheduled Date</th>
-                <th>Actual_Date</th>
+                <th>Actual Date</th>
                 <th>Planned Delay</th>
                 <th>Rescheduled Delay</th>
                 <th>Reason</th>
                 <th>Performance</th>
             </tr>
-            <tr v-for="(i, index) in items" :key="index">
+            <tr v-for="(row, index) in items" :key="row.action">
                 <td>{{ index + 1 }}</td>
-                <td>{{ i.action }}</td>
-                <td>{{ i.department }}</td>
-                <td>{{ i.lead_time }}</td>
-                <td v-if="i.work_station">
-                    {{ i.work_station }}
+                <td>{{ row.action }}</td>
+                <td>{{ row.department }}</td>
+                <td>{{ row.lead_time }}</td>
+                <td>{{ row.work_station }}</td>
+                <td>{{ date_format(row.planned_start_date) }}</td>
+                <td>{{ date_format(row.date) }}</td>
+                <td>{{ date_format(row.rescheduled_date) }}</td>
+                <td :class="{ 'bg-red': row.actual_date && row.rescheduled_date < row.actual_date, 'bg-green': row.actual_date && row.rescheduled_date >= row.actual_date }">
+                    {{ date_format(row.actual_date) }}
                 </td>
-                <td v-else></td>
-                <td>{{ date_format(i.planned_start_date) }}</td>
-                <td>{{ date_format(i.date) }}</td>
-                <td>{{ date_format(i.rescheduled_date) }}</td>
-                <td :class="{'bg-red': i.rescheduled_date < i.actual_date, 'bg-green': i.rescheduled_date >= i.actual_date}">
-                    {{ date_format(i.actual_date) }}
-                </td>
-                <td>{{ i.actual_delay }}</td>
-                <td>{{ i.date_diff }}</td>
-                <td>{{ i.reason }}</td>
-                <td>{{ i.performance }}%</td>
+                <td>{{ row.actual_delay }}</td>
+                <td>{{ row.date_diff }}</td>
+                <td>{{ row.reason }}</td>
+                <td>{{ row.performance }}%</td>
             </tr>
         </table>
     </div>
@@ -54,72 +44,32 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-const root = ref(null);
-const items = ref([]);
-const colours = ref([]);
-const select_field = ref(null);
-const sample_doc = ref({});
-const docnames = {};
-let docname = ref(null)
-let selected_colour = ref(null)
-let status = ref(null)
+const items = ref([])
+const status = ref(null)
+const time_and_action = cur_frm.doc.__onload?.time_and_action
 
 onMounted(() => {
-    cur_frm.doc.lot_time_and_action_details.forEach(detail => {
-        colours.value.push(frappe.yrp.attribute_value(detail.colour));
-        docnames[frappe.yrp.attribute_value(detail.colour)] = detail.time_and_action;
-    });
-    const el = root.value;
-    $(el).find(".select-field").html("");
-    let label = "Select Colour"
-    if(cur_frm.doc.is_set_item){
-        label = label +" - "+cur_frm.doc.set_item_attribute
-    }
-    select_field.value = frappe.ui.form.make_control({
-        parent: $(el).find(".select-field"),
-        df: {
-            fieldtype: "Select",
-            fieldname: "select_field",
-            label: label,
-            options: colours.value,
-            onchange: () => {
-                frappe.call({
-                    method: "essdee_yrp.essdee_yrp.doctype.sd_yrp_time_and_action.sd_yrp_time_and_action.get_time_and_action_details",
-                    args: {
-                        docname: docnames[select_field.value.get_value()]
-                    },
-                    callback: function (r) {
-                        items.value = r.message.item_list;
-                        status.value = r.message.status
-                        docname.value = docnames[select_field.value.get_value()];
-                        selected_colour.value = select_field.value.get_value();
-                    }
-                });
-            }
-        },
-        doc: sample_doc.value,
-        render_input: true,
-    });
-});
-
-function make_complete(){
+    if (!time_and_action) return
     frappe.call({
-        method:"essdee_yrp.essdee_yrp.doctype.sd_yrp_time_and_action.sd_yrp_time_and_action.make_complete",
-        args: {
-            "time_and_action":docname.value,
+        method: "essdee_yrp.time_and_action.update.get_update_data",
+        args: { time_and_action },
+        callback: (r) => {
+            items.value = r.message.rows
+            status.value = r.message.status
         },
-        callback:function(){
-            cur_frm.dirty()
-            cur_frm.save()
-        }
+    })
+})
+
+function make_complete() {
+    frappe.call({
+        method: "essdee_yrp.time_and_action.update.complete_time_and_action",
+        args: { time_and_action },
+        callback: () => cur_frm.reload_doc(),
     })
 }
 
-function date_format(date){
-    if(date){
-        let arr = date.split("-")
-        return arr[2]+"-"+arr[1]+"-"+arr[0]
-    }
+function date_format(date) {
+    return date ? String(date).split("-").reverse().join("-") : ""
 }
 </script>
 <style scoped>
@@ -130,9 +80,5 @@ function date_format(date){
 .bg-green {
     background-color: #d4edda;
     color: #155724;
-}
-.bg-blue {
-    background-color: #ADD8E6;
-    color: black;
 }
 </style>

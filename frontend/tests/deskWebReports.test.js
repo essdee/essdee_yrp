@@ -382,6 +382,7 @@ test("Purchase uses one shared PO tab and store menus exclude it even if passed 
 	const component = loadComponent(new URL("../src/departments/fabric-store/FabricReports.vue", import.meta.url).pathname, {
 		"primevue/message": shell, "primevue/inputtext": () => null, "primevue/select": () => null,
 		"./reportWorkspace.js": await import("../src/components/reports/reportWorkspace.js"),
+		"../reports/reportWorkspace.js": await import("../src/components/reports/reportWorkspace.js"),
 		"../../components/reports/DeskBackedReport.vue": props => Vue.h("desk-report", props),
 		"../../components/reports/deskReportConfig.js": shared,
 		"../../components/reports/LotCutQuantityReport.vue": () => null,

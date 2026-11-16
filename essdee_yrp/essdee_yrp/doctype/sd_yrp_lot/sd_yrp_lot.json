@@ -67,7 +67,6 @@
   "bom_additional_items",
   "bom_summary_json",
   "time_and_action_tab",
-  "lot_time_and_action_details",
   "time_and_action_html",
   "section_break_cmku",
   "time_and_action_report_html",
@@ -374,13 +373,6 @@
    "label": "Time and Action"
   },
   {
-   "fieldname": "lot_time_and_action_details",
-   "fieldtype": "Table",
-   "hidden": 1,
-   "label": "Lot Time and Action Details",
-   "options": "SD YRP Lot Time and Action Detail"
-  },
-  {
    "fieldname": "time_and_action_html",
    "fieldtype": "HTML",
    "label": "Time and Action HTML"
@@ -566,7 +558,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-31 12:00:00.000000",
+ "modified": "2026-11-16 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Lot",

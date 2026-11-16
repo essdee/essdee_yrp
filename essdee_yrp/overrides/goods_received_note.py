@@ -34,6 +34,18 @@ from essdee_yrp.cloth_execution import qualifies_cloth_transaction
 from essdee_yrp.finishing.loose_piece import get_loose_piece_stock_variant
 
 QTY_TOLERANCE = 0.0001
+STOCK_ROW_TABLES = ("items", "correction_items")
+STOCK_ROW_FIELDS = (
+	"item_variant",
+	"quantity",
+	"stock_qty",
+	"conversion_factor",
+	"rate",
+	"amount",
+	"secondary_qty",
+	"received_type",
+	"freight_amount",
+)
 
 
 class EssdeeGoodsReceivedNote(GoodsReceivedNote):
@@ -113,6 +125,34 @@ class EssdeeGoodsReceivedNote(GoodsReceivedNote):
 	def cancel(self):
 		_lock_versioned_cloth_lot(self, persisted=True)
 		return super().cancel()
+
+	def before_update_after_submit(self):
+		self.validate_stock_rows_unchanged()
+
+	def validate_stock_rows_unchanged(self):
+		"""Block stock row edits after submit; the ledger and source pending were posted from them."""
+		before = self.get_doc_before_save()
+		for table in STOCK_ROW_TABLES:
+			old_rows = {row.name: row for row in before.get(table) or []}
+			new_rows = {row.name: row for row in self.get(table) or []}
+			if old_rows.keys() != new_rows.keys():
+				frappe.throw(
+					_("Rows in {0} cannot be added or removed after submission.").format(_(table)),
+					frappe.UpdateAfterSubmitError,
+				)
+			for name, row in new_rows.items():
+				changed = [
+					field
+					for field in STOCK_ROW_FIELDS
+					if row.get_value(field) != old_rows[name].get_value(field)
+				]
+				if changed:
+					frappe.throw(
+						_("Row #{0}: {1} cannot be changed after submission.").format(
+							row.idx, ", ".join(changed)
+						),
+						frappe.UpdateAfterSubmitError,
+					)
 
 	def validate(self):
 		super().validate()

@@ -49,31 +49,6 @@ class TestSDYRPSyncSetup(IntegrationTestCase):
 			"Essdee YRP",
 		)
 
-	def test_lot_time_and_action_rows_are_syncable(self):
-		filtered = filter_doc_fields(
-			{
-				"doctype": "SD YRP Lot",
-				"name": "TEST-LOT-TNA",
-				"lot_time_and_action_details": [
-					{
-						"colour": "Black",
-						"master": "Master-00001",
-						"time_and_action": "TNA-00001",
-					}
-				],
-			}
-		)
-
-		self.assertEqual(
-			filtered["lot_time_and_action_details"][0],
-			{
-				"doctype": "SD YRP Lot Time and Action Detail",
-				"colour": "Black",
-				"master": "Master-00001",
-				"time_and_action": "TNA-00001",
-			},
-		)
-
 	def test_production_ordered_row_keeps_direct_and_dynamic_lot_links(self):
 		with patch("essdee_yrp.sd_yrp_sync.validate_required_link"):
 			rows = map_production_ordered_rows(

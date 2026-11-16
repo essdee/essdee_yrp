@@ -27,14 +27,29 @@ class TestUserDecisionsReports(IntegrationTestCase):
 		clear_web_report_cache()
 
 	def test_summary_uses_mrp_first_scanned_date_instead_of_latest_or_earliest(self):
-		# Read-only source exports, including two lots with different completion dates.
-		for lot, date, count in (("C0425-01", "2025-06-25", 5), ("34178", "2024-12-18", 6), ("36224", "2024-12-16", 6)):
-			with self.subTest(lot=lot):
-				rows = execute_time_and_action_summary({"lot": lot})[1]
-				self.assertEqual(len(rows), count)
-				sewing = next(row for row in rows if row.action == "SEWING")
-				self.assertEqual(str(sewing.actual_date), date)
-				self.assertEqual(sewing.no_of_completed, 1)
+		prefix = "_Test Summary Lot-" + frappe.generate_hash(length=8)
+		actions = [prefix + suffix for suffix in ("-Cutting", "-Sewing", "-Packing")]
+		for order, action in enumerate(actions):
+			frappe.get_doc({"doctype": "SD YRP Action", "name": action, "default": 1, "default_order": 90 + order}).db_insert()
+		lots = {prefix + "-L1": ("2025-06-20", "2025-06-25"), prefix + "-L2": ("2024-12-10", "2024-12-18")}
+		for lot, (cut_date, sewing_date) in lots.items():
+			frappe.get_doc({"doctype": "SD YRP Time and Action", "name": lot + "-TNA", "against": "SD YRP Lot", "against_id": lot}).db_insert()
+			for idx, (action, date) in enumerate(zip(actions, (cut_date, sewing_date, None), strict=True), start=1):
+				frappe.get_doc({"doctype": "SD YRP Time and Action Detail", "name": lot + action, "parent": lot + "-TNA",
+					"parenttype": "SD YRP Time and Action", "parentfield": "details", "action": action, "idx": idx,
+					"actual_date": date, "completed": int(bool(date))}).db_insert()
+		try:
+			for lot, (_cut_date, sewing_date) in lots.items():
+				with self.subTest(lot=lot), patch("essdee_yrp.time_and_action.reports._allowed_names", return_value=[lot + "-TNA"]):
+					rows = execute_time_and_action_summary({"lot": lot})[1]
+					self.assertEqual([row.action for row in rows], actions)
+					sewing = rows[1]
+					self.assertEqual(str(sewing.actual_date), sewing_date)
+					self.assertEqual(sewing.no_of_completed, 1)
+					self.assertEqual(rows[2].no_of_completed, 0)
+		finally:
+			frappe.db.delete("SD YRP Time and Action Detail", {"action": ["in", actions]})
+			frappe.db.delete("SD YRP Time and Action", {"name": ["in", [lot + "-TNA" for lot in lots]]})
 
 	def test_summary_explicit_representative_with_strict_grouping_and_insertion_orders(self):
 		prefix = "_Test Summary Scan-" + frappe.generate_hash(length=8)
@@ -53,7 +68,7 @@ class TestUserDecisionsReports(IntegrationTestCase):
 			frappe.db.sql("SET SESSION sql_mode=%s", (mode + ",ONLY_FULL_GROUP_BY",))
 			for reverse in (False, True):
 				for parent, lot in reversed(parents) if reverse else parents:
-					frappe.get_doc({"doctype": "SD YRP Time and Action", "name": parent, "lot": lot}).db_insert()
+					frappe.get_doc({"doctype": "SD YRP Time and Action", "name": parent, "against": "SD YRP Lot", "against_id": lot}).db_insert()
 				for parent, detail, idx, date, completed in reversed(candidates) if reverse else candidates:
 					frappe.get_doc({"doctype": "SD YRP Time and Action Detail", "name": prefix + parent + detail,
 						"parent": prefix + parent, "parenttype": "SD YRP Time and Action", "parentfield": "details",

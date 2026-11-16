@@ -13,7 +13,6 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, flt, getdate, nowdate
 from yrp import attribute_links as attribute_db
-from yrp.attribute_links import value as _attribute_value
 
 
 def _json_value(value):
@@ -329,69 +328,46 @@ def update_wo_checkpoint(datas):
 
 @frappe.whitelist()
 def get_t_and_a_review_report_data(lot=None, item=None, report_date=None):
-	"""Return the F15 weekly-review shape for readable, Lot-linked schedules."""
-	filters = {"status": ["!=", "Completed"]}
+	"""Weekly review: active T&As grouped by Lot / Production Order, then master."""
+	filters = {"status": "In Progress"}
 	if lot:
-		filters["lot"] = lot
+		filters["against_id"] = lot
 	if item:
 		filters["item"] = item
 	if report_date:
 		filters["end_date"] = ["<", getdate(report_date)]
-	schedules = frappe.get_list(
+	names = frappe.get_list(
 		"SD YRP Time and Action",
 		filters=filters,
-		fields=[
-			"name",
-			"lot",
-			"item",
-			"master",
-			"colour",
-			"sizes",
-			"qty",
-			"start_date",
-			"delay",
-		],
-		order_by="lot asc, master asc, colour asc, name asc",
+		pluck="name",
+		order_by="against_id asc, name asc",
 		limit_page_length=0,
 	)
-	by_lot = defaultdict(list)
-	for schedule in schedules:
-		if schedule.lot:
-			by_lot[schedule.lot].append(schedule)
+	result = defaultdict(dict)
+	for name in names:
+		doc = frappe.get_doc("SD YRP Time and Action", name)
+		master_data = result[doc.against_id].setdefault(
+			doc.master, {"actions": [row.action for row in doc.details], "datas": []}
+		)
+		master_data["datas"].append(_review_row(doc))
+	return dict(result)
 
-	result = {}
-	for lot_name, lot_schedules in by_lot.items():
-		lot_doc = frappe.get_doc("SD YRP Lot", lot_name)
-		lot_doc.check_permission("read")
-		linked = {row.time_and_action for row in lot_doc.lot_time_and_action_details if row.time_and_action}
-		for schedule in lot_schedules:
-			if schedule.name not in linked:
-				continue
-			doc = frappe.get_doc("SD YRP Time and Action", schedule.name)
-			master_data = result.setdefault(lot_name, {}).setdefault(doc.master, {"actions": [], "datas": []})
-			if not master_data["actions"]:
-				master_data["actions"] = [row.action for row in doc.details]
-			master_data["datas"].append(
-				{
-					"item": doc.item,
-					"master": doc.master,
-					"colour": _attribute_value(doc.colour),
-					"sizes": doc.sizes,
-					"qty": doc.qty,
-					"start_date": doc.start_date,
-					"delay": doc.delay,
-					"actions": [
-						{
-							"department": row.department,
-							"date": row.date,
-							"rescheduled_date": row.rescheduled_date,
-							"actual_date": row.actual_date,
-							"reason": row.reason,
-							"performance": row.performance,
-							"delay": row.date_diff,
-						}
-						for row in doc.details
-					],
-				}
-			)
-	return result
+
+def _review_row(doc):
+	return {
+		**{field: doc.get(field) for field in ("name", "against", "item", "master", "sizes", "qty")},
+		"start_date": doc.start_date,
+		"delay": doc.delay,
+		"actions": [
+			{
+				"department": row.department,
+				"date": row.date,
+				"rescheduled_date": row.rescheduled_date,
+				"actual_date": row.actual_date,
+				"reason": row.reason,
+				"performance": row.performance,
+				"delay": row.date_diff,
+			}
+			for row in doc.details
+		],
+	}

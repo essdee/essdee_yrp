@@ -852,6 +852,9 @@ frappe.production.ui.TimeActionPreview = class {
 	load_data(data, startDate) {
 		this.vue.load_data(JSON.parse(JSON.stringify(data || {})), startDate);
 	}
+	get_work_stations() {
+		return this.vue.get_work_stations();
+	}
 };
 
 frappe.production.ui.WorkStation = class {
@@ -878,6 +881,9 @@ frappe.production.ui.TandAUpdate = class {
 		const mounted = mount_component(TandAUpdate, this.$wrapper);
 		this.app = mounted.app;
 		this.vue = mounted.vue;
+	}
+	load_from_route() {
+		this.vue.load_from_route();
 	}
 };
 

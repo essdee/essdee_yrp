@@ -346,6 +346,12 @@ a {
 	min-height: calc(100dvh - var(--erp-shell-header-height));
 }
 
+@media (min-width: 761px) and (hover: hover) {
+	.app-shell:has(.module-sidebar.is-visible) .app-main {
+		padding-left: calc(44px + var(--erp-space-2));
+	}
+}
+
 .app-main:focus {
 	outline: none;
 }
