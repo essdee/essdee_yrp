@@ -26,17 +26,13 @@
 			</header>
 			<div class="ta-editor__scroll">
 				<table class="erp-data-table ta-acts">
-					<colgroup><col class="ta-col-status"><col class="ta-col-action"><col class="ta-col-station"><col class="ta-col-planned"><col class="ta-col-freeze"><col class="ta-col-rescheduled"><col class="ta-col-actual"><col class="ta-col-reason"><col class="ta-col-delay"></colgroup>
-					<thead><tr><th>Status</th><th>Action</th><th>Work Station</th><th>Planned Date</th><th>Freeze Date</th><th>Rescheduled Date</th><th>Actual Date</th><th>Reason</th><th>Delay</th></tr></thead>
+					<colgroup><col class="ta-col-action"><col class="ta-col-station"><col class="ta-col-planned"><col class="ta-col-freeze"><col class="ta-col-rescheduled"><col class="ta-col-actual"><col class="ta-col-reason"><col class="ta-col-delay"></colgroup>
+					<thead><tr><th>Action</th><th>Work Station</th><th>Planned Date</th><th>Freeze Date</th><th>Rescheduled Date</th><th>Actual Date</th><th>Reason</th><th>Delay</th></tr></thead>
 					<tbody>
 						<template v-for="row in rows" :key="row.action">
 							<tr :class="rowClass(row)">
 								<td>
-									<TimeAndActionChip :tone="row.status" :label="STATUS_LABELS[row.status]" />
-									<small v-if="statusNote(row)" class="ta-acts__sub">{{ statusNote(row) }}</small>
-								</td>
-								<td>
-									<div class="ta-acts__name" :title="row.action">{{ row.action }}</div>
+									<div class="ta-acts__name" :title="row.action">{{ row.action }}<span class="ta-sr"> ({{ STATUS_LABELS[row.status] }})</span></div>
 									<div class="ta-acts__meta" :title="metaLine(row)"><span class="ta-acts__idx">#{{ row.index + 1 }}</span>&nbsp;· {{ row.department }} · {{ dayCount(row.lead_time) }} lead</div>
 									<div v-if="row.status === 'blocked'" class="ta-acts__waiting" :title="`Waiting for ${row.blockedBy.join(', ')}`"><i class="pi pi-lock" aria-hidden="true" /> Waiting for {{ row.blockedBy.join(", ") }}</div>
 								</td>
@@ -54,11 +50,11 @@
 									<span v-else class="ta-subtle">{{ row.actual_date && !row.error ? "Not needed" : "—" }}</span>
 								</td>
 								<td>
-									<template v-if="delay(row)"><span class="ta-acts__delay" :class="`ta-acts__delay--${delay(row).tone}`">{{ delay(row).text }}</span><small class="ta-acts__sub">Planned Delay {{ delay(row).planned }}</small></template>
+									<template v-if="delay(row)"><span class="ta-acts__delay" :class="`ta-acts__delay--${delay(row).tone}`">{{ delay(row).text }}</span></template>
 									<span v-else class="ta-subtle">—</span>
 								</td>
 							</tr>
-							<tr v-if="row.error" class="ta-acts__error"><td colspan="9"><div role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true" />{{ row.error }}</div></td></tr>
+							<tr v-if="row.error" class="ta-acts__error"><td colspan="8"><div role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true" />{{ row.error }}</div></td></tr>
 						</template>
 					</tbody>
 				</table>
@@ -114,7 +110,7 @@ import DateField from "../../../components/common/DateField.vue"
 import DocumentConfirmationDialog from "../../../components/documents/DocumentConfirmationDialog.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import TimeAndActionChip from "./TimeAndActionChip.vue"
-import { REVISE_HELP, STATUS_LABELS, dayCount, getDelay, getImpact, getPendingSummary, getReviseMessage, getSaveMessage, getStatusNote } from "./timeAndAction.js"
+import { REVISE_HELP, STATUS_LABELS, dayCount, getDelay, getImpact, getPendingSummary, getReviseMessage, getSaveMessage } from "./timeAndAction.js"
 import { useTimeAndActionEditor } from "./useTimeAndActionEditor.js"
 
 /** Inline editor of one open T&A: actual dates previewed by the server, sticky save bar, Revise Dates and Complete T&A. */
@@ -123,7 +119,7 @@ const emit = defineEmits(["saved", "completed", "dirty"])
 const vTooltip = Tooltip
 const toast = useToast()
 const editor = useTimeAndActionEditor(props.name)
-const { data, rows, nextIndex, counts, datedCount, missingReasons, unsavedCount, hasChanges, canSave, loading, busy, loadError, today, reset, setActual, setReason } = editor
+const { data, rows, nextIndex, counts, datedCount, missingReasons, unsavedCount, hasChanges, canSave, loading, busy, loadError, reset, setActual, setReason } = editor
 const error = ref("")
 const saving = ref(false)
 const saveVisible = ref(false)
@@ -143,6 +139,7 @@ const completeMessage = computed(() => {
 function rowClass(row) {
 	return {
 		[`is-${row.status}`]: true,
+		"is-late": row.status === "done" && Number(row.date_diff) < 0,
 		"is-next": row.index === nextIndex.value && row.status !== "overdue",
 		"is-edited": row.edited && !row.error,
 		"has-error": Boolean(row.error),
@@ -150,7 +147,6 @@ function rowClass(row) {
 }
 
 const metaLine = (row) => `#${row.index + 1} · ${row.department} · ${dayCount(row.lead_time)} lead`
-const statusNote = (row) => getStatusNote(row, row.status, { today, isNext: row.index === nextIndex.value })
 const delay = (row) => (row.error ? null : getDelay(row))
 
 function changeSummary(row) {
@@ -227,20 +223,20 @@ editor.load()
 .ta-editor__buttons { display: flex; align-items: center; gap: 8px; }
 .ta-editor__hint { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
 .ta-editor__scroll { min-width: 0; max-height: min(70vh, 760px); overflow: auto; }
-.ta-acts { table-layout: fixed; min-width: 1120px; }
-.ta-col-status { width: 104px; } .ta-col-station { width: 106px; } .ta-col-planned, .ta-col-freeze { width: 98px; } .ta-col-rescheduled { width: 110px; }
-.ta-col-actual { width: 180px; } .ta-col-reason { width: 18%; } .ta-col-delay { width: 112px; }
+.ta-acts { table-layout: fixed; min-width: 1080px; }
+.ta-col-station { width: 104px; } .ta-col-planned, .ta-col-freeze, .ta-col-rescheduled { width: 10.5%; }
+.ta-col-actual { width: 180px; } .ta-col-reason { width: 18%; } .ta-col-delay { width: 124px; }
 .ta-editor .ta-acts.erp-data-table > thead > tr > th { position: sticky; top: 0; z-index: 2; padding: 10px 12px; white-space: normal; line-height: 1.25; background: var(--erp-report-head-bg); border-bottom: 1px solid var(--erp-border-strong); color: var(--erp-text-secondary); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr > td { height: 56px; padding: 7px 12px; vertical-align: middle; background: var(--ta-row-bg, transparent); border-bottom: 1px solid var(--erp-border); box-shadow: var(--ta-hover, 0 0 #0000); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr > td:first-child { box-shadow: var(--ta-row-mark, 0 0 #0000), var(--ta-hover, 0 0 #0000); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr:nth-child(even) { --ta-row-bg: color-mix(in srgb, var(--erp-surface-muted) 45%, transparent); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr:hover { --ta-hover: inset 0 0 0 999px color-mix(in srgb, var(--erp-text) 4%, transparent); }
-.ta-editor .ta-acts.erp-data-table > tbody > tr.is-done { --ta-row-bg: color-mix(in srgb, var(--erp-success-soft) 55%, transparent); --ta-row-mark: inset 3px 0 0 var(--erp-success); }
-.ta-editor .ta-acts.erp-data-table > tbody > tr.is-overdue { --ta-row-bg: color-mix(in srgb, var(--erp-danger-soft) 55%, transparent); --ta-row-mark: inset 3px 0 0 var(--erp-danger); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-done { --ta-row-bg: color-mix(in srgb, var(--erp-success-soft) 70%, transparent); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-overdue, .ta-editor .ta-acts.erp-data-table > tbody > tr.is-late { --ta-row-bg: color-mix(in srgb, var(--erp-danger-soft) 70%, transparent); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr.is-due { --ta-row-mark: inset 3px 0 0 var(--erp-attention); }
-.ta-editor .ta-acts.erp-data-table > tbody > tr.is-next { --ta-row-bg: color-mix(in srgb, var(--erp-attention-soft) 60%, transparent); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-next { --ta-row-bg: color-mix(in srgb, var(--erp-attention-soft) 35%, transparent); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr.is-blocked { --ta-row-bg: transparent; }
-.ta-editor .ta-acts.erp-data-table > tbody > tr.is-edited { --ta-row-bg: var(--erp-accent-soft); --ta-row-mark: inset 3px 0 0 var(--erp-accent); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-edited { --ta-row-mark: inset 3px 0 0 var(--erp-accent); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr.has-error, .ta-editor .ta-acts.erp-data-table > tbody > tr.ta-acts__error { --ta-row-bg: var(--erp-danger-soft); --ta-row-mark: inset 3px 0 0 var(--erp-danger); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr.has-error > td { border-bottom: 0; }
 .ta-editor .ta-acts.erp-data-table > tbody > tr.is-blocked > td { color: var(--erp-text-subtle); }
@@ -249,7 +245,6 @@ editor.load()
 .ta-acts__meta, .ta-acts__waiting { overflow: hidden; margin-top: 2px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); white-space: nowrap; text-overflow: ellipsis; }
 .ta-acts__idx { color: var(--erp-text-subtle); }
 .ta-acts__waiting i { font-size: 10px; }
-.ta-acts__sub { display: block; margin-top: 2px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); font-weight: 400; white-space: nowrap; }
 .ta-acts td.ta-acts__planned, .ta-acts td.ta-acts__rescheduled { color: var(--erp-text-muted); white-space: nowrap; }
 .ta-acts td.ta-acts__rescheduled.is-shifted { color: var(--erp-attention-text); font-weight: 600; }
 .ta-acts tr.is-done td.ta-acts__rescheduled.is-shifted, .ta-acts tr.is-blocked td.ta-acts__rescheduled.is-shifted { color: var(--erp-text-secondary); font-weight: 500; }
@@ -262,7 +257,8 @@ editor.load()
 .ta-acts__actual :deep(.p-datepicker-input::placeholder) { font-weight: 400; }
 .ta-acts__actual :deep(.p-datepicker-input:disabled) { color: var(--erp-text-subtle); background: var(--erp-surface-muted); border-color: var(--erp-border); }
 .ta-acts :deep(.p-inputtext.p-inputtext-sm) { height: 32px; }
-.ta-acts__delay { font-weight: 600; }
+.ta-acts__delay { font-size: 14px; font-weight: 700; }
+.ta-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ta-acts__delay--late { color: var(--erp-danger); }
 .ta-acts__delay--ok { color: var(--erp-success-text); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr.ta-acts__error > td { height: auto; padding: 0 12px 10px; }

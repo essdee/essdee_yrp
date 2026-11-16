@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs"
 
 import {
 	REPORT_COLUMNS, againstLabel, canEditRow, countStatuses, getBlockedBy, getDelay, getImpact, getNextActionChip, getPendingSummary,
-	getReviseMessage, getRowStatus, getSaveMessage, getStatusNote, reportCell, reportTone,
+	getReviseMessage, getRowStatus, getSaveMessage, reportCell, reportTone,
 } from "../src/departments/planning/time-and-action/timeAndAction.js"
 import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 
@@ -41,9 +41,6 @@ test("row status chips derive from server rows: done, blocked, overdue, due, err
 	assert.equal(getRowStatus({ rescheduled_date: "2026-11-14", depends_on: {} }, { today }), "overdue")
 	assert.equal(getRowStatus({ rescheduled_date: "2026-11-17", depends_on: {} }, { today }), "due")
 	assert.equal(getRowStatus({ actual_date: "2026-11-10" }, { today, hasError: true }), "error")
-	assert.equal(getStatusNote({ rescheduled_date: "2026-11-17" }, "due", { today, isNext: true }), "in 1 day · next")
-	assert.equal(getStatusNote({ rescheduled_date: "2026-11-16" }, "due", { today }), "today")
-	assert.equal(getStatusNote({ rescheduled_date: "2026-11-14" }, "overdue", { today }), "2 days past")
 	assert.deepEqual(countStatuses(["done", "done", "blocked", "due"]), { done: 2, due: 1, overdue: 0, blocked: 1, error: 0 })
 })
 
@@ -100,8 +97,8 @@ test("update page is an accordion without the Desk matrix or Rescheduled Details
 	assert.match(page, /<th>Against<\/th><th>Against ID<\/th>/)
 	assert.doesNotMatch(page, /<th[^>]*>Qty<\/th>/)
 	assert.match(editor, /<th>Planned Date<\/th><th>Freeze Date<\/th><th>Rescheduled Date<\/th>/)
-	for (const label of ["Status", "Action", "Work Station", "Planned Date", "Freeze Date", "Rescheduled Date", "Actual Date", "Reason", "Delay"]) assert.match(editor, new RegExp(`<th>${label}</th>`))
-	assert.doesNotMatch(editor, /Rescheduled Details|ta-matrix/)
+	for (const label of ["Action", "Work Station", "Planned Date", "Freeze Date", "Rescheduled Date", "Actual Date", "Reason", "Delay"]) assert.match(editor, new RegExp(`<th>${label}</th>`))
+	assert.doesNotMatch(editor, /Rescheduled Details|ta-matrix|<th>Status<\/th>|Planned Delay \{\{/)
 	assert.match(editor, /previewActualDates|setActual/)
 })
 

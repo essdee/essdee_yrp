@@ -1,14 +1,7 @@
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 
-const DAY_MS = 86400000
-
 export function todayIso(now = new Date()) {
 	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
-}
-
-/** Calendar days from `from` to `to` (ISO dates); positive when `to` is later. */
-export function daysBetween(from, to) {
-	return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS)
 }
 
 export function dayCount(count) {
@@ -43,13 +36,6 @@ export function getRowStatus(row, { hasError = false, today = todayIso() } = {})
 }
 
 export const STATUS_LABELS = { done: "Done", due: "Due", overdue: "Overdue", blocked: "Blocked", error: "Check date" }
-
-export function getStatusNote(row, status, { today = todayIso(), isNext = false } = {}) {
-	if (status === "overdue") return `${dayCount(daysBetween(row.rescheduled_date, today))} past`
-	if (status !== "due") return ""
-	const left = daysBetween(today, row.rescheduled_date)
-	return `${left === 0 ? "today" : `in ${dayCount(left)}`}${isNext ? " · next" : ""}`
-}
 
 export function countStatuses(statuses) {
 	const counts = { done: 0, due: 0, overdue: 0, blocked: 0, error: 0 }
