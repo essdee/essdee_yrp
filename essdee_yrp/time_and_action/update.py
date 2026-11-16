@@ -55,7 +55,7 @@ def preview_actual_dates(time_and_action: str, changes: list | str, modified: st
 	finally:
 		frappe.flags.in_time_and_action_update = False
 	apply_schedule(doc)
-	return serialize(doc)
+	return {**serialize(doc), **get_delivery_change(before.end_date, doc.end_date)}
 
 
 @frappe.whitelist()
@@ -67,6 +67,15 @@ def update_actual_dates(time_and_action: str, changes: list | str, modified: str
 		doc.save()
 	finally:
 		frappe.flags.in_time_and_action_update = False
+
+
+def get_delivery_change(before, after) -> dict:
+	"""Expected delivery (last action's date) before and after; days moved in working days, later = positive."""
+	return {
+		"delivery_date_before": getdate(before),
+		"delivery_date_after": getdate(after),
+		"delivery_days_moved": get_working_day_diff(after, before, get_company_holidays()),
+	}
 
 
 def get_doc_for_update(name: str, modified: str):

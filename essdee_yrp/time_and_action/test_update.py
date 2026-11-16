@@ -1,3 +1,5 @@
+import json
+
 import frappe
 from frappe.utils import getdate
 
@@ -62,6 +64,33 @@ class TestUpdateActualDates(TimeAndActionTestCase):
 		self.assertEqual(str(result["rows"][0]["actual_date"]), "2026-11-10")
 		with self.assertRaisesRegex(frappe.ValidationError, "reason"):
 			update_actual_dates(self.name, [change("TA-TEST-YARN", "2026-11-10")], self.modified())
+
+	def test_preview_reports_delivery_moving_later_in_working_days(self):
+		use_company_holidays(["2026-11-12"], "2025-01-01", "2028-12-31")
+		result = preview_actual_dates(self.name, [change("TA-TEST-YARN", "2026-11-10")], self.modified())
+		self.assertEqual(getdate(result["delivery_date_before"]), getdate("2026-11-08"))
+		self.assertEqual(getdate(result["delivery_date_after"]), getdate("2026-11-15"))
+		self.assertEqual(result["delivery_days_moved"], 6)
+
+	def test_preview_reports_unchanged_delivery(self):
+		result = preview_actual_dates(self.name, [change("TA-TEST-TRIMS", "2026-11-03")], self.modified())
+		self.assertEqual(getdate(result["delivery_date_before"]), getdate("2026-11-08"))
+		self.assertEqual(getdate(result["delivery_date_after"]), getdate("2026-11-08"))
+		self.assertEqual(result["delivery_days_moved"], 0)
+
+	def test_preview_reports_delivery_pulled_in(self):
+		result = preview_actual_dates(self.name, [change("TA-TEST-YARN", "2026-11-03")], self.modified())
+		self.assertEqual(getdate(result["delivery_date_after"]), getdate("2026-11-07"))
+		self.assertEqual(result["delivery_days_moved"], -1)
+
+	def test_preview_accepts_json_string_args_from_desk(self):
+		result = frappe.call(
+			"essdee_yrp.time_and_action.update.preview_actual_dates",
+			time_and_action=self.name,
+			changes=json.dumps([change("TA-TEST-YARN", "2026-11-10")]),
+			modified=self.modified(),
+		)
+		self.assertEqual(result["delivery_days_moved"], 6)
 
 	def test_preview_runs_the_rules(self):
 		with self.assertRaisesRegex(frappe.ValidationError, "TA-TEST-YARN"):

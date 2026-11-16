@@ -13,6 +13,9 @@
                 </template>
             </div>
         </div>
+        <div v-if="is_edited && delivery_message()" class="alert mb-3" :class="data.delivery_days_moved > 0 ? 'alert-danger' : 'alert-success'">
+            {{ delivery_message() }}
+        </div>
         <div v-if="data" class="ta-update">
             <div class="ta-summary">
                 <div><b>T&A</b> <a :href="`/app/sd-yrp-time-and-action/${data.name}`">{{ data.name }}</a></div>
@@ -193,6 +196,22 @@ function set_reason(row) {
 }
 
 function save() {
+    if (data.value.delivery_days_moved > 0) {
+        frappe.confirm(`${delivery_message()}. ${__("Save anyway?")}`, update_actual_dates)
+        return
+    }
+    update_actual_dates()
+}
+
+function delivery_message() {
+    const days = data.value?.delivery_days_moved
+    if (!days) return ""
+    const moves = __("Expected delivery date moves from {0} to {1}", [format_date(data.value.delivery_date_before), format_date(data.value.delivery_date_after)])
+    const count = Math.abs(days) === 1 ? __("1 working day") : __("{0} working days", [Math.abs(days)])
+    return days > 0 ? `${moves} — ${__("delayed by {0} more", [count])}` : `${moves} — ${__("pulled in by {0}", [count])}`
+}
+
+function update_actual_dates() {
     frappe.call({
         method: "essdee_yrp.time_and_action.update.update_actual_dates",
         args: { time_and_action: data.value.name, changes: Object.values(changes.value), modified: data.value.modified },
