@@ -44,3 +44,13 @@ class TestTimeAndActionWeb(TimeAndActionTestCase):
 		context = get_lot_time_and_action(lot)
 		self.assertEqual((context["time_and_action"], context["can_create"]), (None, True))
 		self.assertEqual(context["item"], frappe.db.get_value("SD YRP Lot", lot, "item"))
+
+	def test_progress_and_next_action(self):
+		row = get_open_time_and_actions(lot=self.lot)[0]
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		first = doc.details[0]
+		self.assertEqual((row.dated, row.total), (0, len(doc.details)))
+		self.assertEqual((row.next_action, row.next_action_date), (first.action, first.rescheduled_date))
+		frappe.db.set_value("SD YRP Time and Action Detail", first.name, "actual_date", first.rescheduled_date)
+		row = get_open_time_and_actions(lot=self.lot)[0]
+		self.assertEqual((row.dated, row.next_action), (1, doc.details[1].action))

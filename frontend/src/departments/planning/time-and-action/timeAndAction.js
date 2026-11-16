@@ -1,5 +1,24 @@
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 
+const DAY_MS = 86400000
+
+export function todayIso(now = new Date()) {
+	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+}
+
+/** Calendar days from `from` to `to` (ISO dates); positive when `to` is later. */
+export function daysBetween(from, to) {
+	return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS)
+}
+
+export function dayCount(count) {
+	return `${count} ${Math.abs(count) === 1 ? "day" : "days"}`
+}
+
+function workingDayCount(count) {
+	return `${count} working ${Math.abs(count) === 1 ? "day" : "days"}`
+}
+
 /** Desk T&A Update rule: only In Progress T&As, and only the user's departments unless Administrator. */
 export function canEditRow(data, row) {
 	return data?.status === "In Progress" && Boolean(data.is_administrator || data.departments?.includes(row.department))
@@ -9,43 +28,84 @@ export function isLate(row) {
 	return Boolean(row.actual_date && row.actual_date > row.rescheduled_date)
 }
 
-export function actualTone(row) {
-	if (!row.actual_date) return ""
-	return isLate(row) ? "late" : "on-time"
+/** Dependencies of an undated row that have no actual date yet, from the server's `depends_on`. */
+export function getBlockedBy(row) {
+	if (row.actual_date) return []
+	return Object.entries(row.depends_on || {}).filter(([, actual]) => !actual).map(([name]) => name)
 }
 
-export function leadTimeLabel(row) {
-	return `${row.lead_time} ${Number(row.lead_time) === 1 ? "Day" : "Days"} · ${row.department || ""}`
+/** Client chip for one action: error (server rejected the date), done, blocked, overdue or due. */
+export function getRowStatus(row, { hasError = false, today = todayIso() } = {}) {
+	if (hasError) return "error"
+	if (row.actual_date) return "done"
+	if (getBlockedBy(row).length) return "blocked"
+	return today > row.rescheduled_date ? "overdue" : "due"
 }
 
-export function dependencyTitle(row) {
-	const names = Object.keys(row.depends_on || {})
-	return names.length ? `Depends on: ${names.join(", ")}` : "No dependencies"
+export const STATUS_LABELS = { done: "Done", due: "Due", overdue: "Overdue", blocked: "Blocked", error: "Check date" }
+
+export function getStatusNote(row, status, { today = todayIso(), isNext = false } = {}) {
+	if (status === "overdue") return `${dayCount(daysBetween(row.rescheduled_date, today))} past`
+	if (status !== "due") return ""
+	const left = daysBetween(today, row.rescheduled_date)
+	return `${left === 0 ? "today" : `in ${dayCount(left)}`}${isNext ? " · next" : ""}`
 }
 
-/** Expected-delivery impact line, worded like the Desk T&A Update page; empty when delivery does not move. */
-export function deliveryMessage(data) {
-	const days = data?.delivery_days_moved
-	if (!days) return ""
-	const moves = `Expected delivery date moves from ${formatDisplayDate(data.delivery_date_before, "")} to ${formatDisplayDate(data.delivery_date_after, "")}`
-	const count = Math.abs(days) === 1 ? "1 working day" : `${Math.abs(days)} working days`
-	return days > 0 ? `${moves} — delayed by ${count} more` : `${moves} — pulled in by ${count}`
+export function countStatuses(statuses) {
+	const counts = { done: 0, due: 0, overdue: 0, blocked: 0, error: 0 }
+	for (const status of statuses) counts[status] += 1
+	return counts
 }
 
-export function reviseMessage(data) {
+/** Delay cell from the server's Rescheduled Delay (`date_diff`) and Planned Delay (`actual_delay`); negative = late. */
+export function getDelay(row) {
+	if (!row.actual_date) return null
+	const diff = Number(row.date_diff) || 0
+	if (diff < 0) return { text: `${dayCount(-diff)} late`, tone: "late", planned: row.actual_delay }
+	return { text: diff === 0 ? "On time" : `${dayCount(diff)} early`, tone: "ok", planned: row.actual_delay }
+}
+
+/** Save bar impact line from `preview_actual_dates`; days are working days, later = positive. */
+export function getImpact(data, hasChanges) {
+	const days = Number(data?.delivery_days_moved) || 0
+	if (!hasChanges || !days) {
+		return { tone: "none", text: hasChanges ? "No change to expected delivery" : "Enter actual dates to see the effect on delivery" }
+	}
+	const from = formatDisplayDate(data.delivery_date_before, "")
+	const to = formatDisplayDate(data.delivery_date_after, "")
+	if (days > 0) return { tone: "late", from, to, text: `+${workingDayCount(days)}` }
+	return { tone: "early", from, to, text: `${workingDayCount(-days)} earlier` }
+}
+
+export function getPendingSummary({ changes = 0, errors = 0, missingReasons = 0 }) {
+	return [
+		changes && `${changes} unsaved ${changes === 1 ? "change" : "changes"}`,
+		errors && `${errors} ${errors === 1 ? "date" : "dates"} to fix`,
+		missingReasons && `${missingReasons} ${missingReasons === 1 ? "reason" : "reasons"} missing`,
+	].filter(Boolean)
+}
+
+export function getSaveMessage(data) {
+	const days = Number(data?.delivery_days_moved) || 0
+	const before = formatDisplayDate(data?.delivery_date_before, "")
+	if (!days) return `Expected delivery stays ${before}.`
+	const after = formatDisplayDate(data.delivery_date_after, "")
+	return `Expected delivery moves ${before} to ${after}, ${days > 0 ? "+" : ""}${workingDayCount(days)}.`
+}
+
+export function getReviseMessage(data) {
 	const last = data?.rows?.[data.rows.length - 1]
 	if (!last) return ""
-	return `Dispatch date changes from ${formatDisplayDate(last.date, "")} to ${formatDisplayDate(last.rescheduled_date, "")}. Revise the dates?`
+	return `Every action's Freeze Date is replaced by its current Rescheduled Date, and the old dates are logged with your reason. Revisions are limited per T&A. Dispatch date changes from ${formatDisplayDate(last.date, "")} to ${formatDisplayDate(last.rescheduled_date, "")}.`
 }
 
-/** Rows for the Rescheduled Details dialog: every frozen baseline per action. */
-export function revisionRows(data) {
-	const rows = data?.rows || []
-	const count = Math.max(0, ...rows.map((row) => (data.revisions?.[row.action] || []).length))
-	return Array.from({ length: count }, (_, index) => ({
-		label: `Rescheduled Date ${index + 1}`,
-		values: rows.map((row) => data.revisions?.[row.action]?.[index] || null),
-	}))
+export const REVISE_HELP = "Revise Dates makes the current Rescheduled Dates the new baseline: every action's Freeze Date is replaced by its Rescheduled Date, and the old dates are logged with your reason. Only the revised-date approver role can do it, a limited number of times per T&A."
+
+/** Next Action chip of a list row: Overdue once its Rescheduled Date has passed, else Due on that date. */
+export function getNextActionChip(row, today = todayIso()) {
+	if (!row.next_action) return null
+	if (today > row.next_action_date) return { tone: "overdue", label: "Overdue" }
+	return { tone: "due", label: `Due ${formatDisplayDate(row.next_action_date, "")}` }
 }
 
 /** The 12 columns of the Lot "Time and Action" report view, Desk labels and Desk value mapping. */
@@ -58,8 +118,8 @@ export const REPORT_COLUMNS = [
 	{ key: "date", label: "Freeze Date", date: true },
 	{ key: "rescheduled_date", label: "Rescheduled Date", date: true },
 	{ key: "actual_date", label: "Actual Date", date: true },
-	{ key: "actual_delay", label: "Planned Delay", number: true },
-	{ key: "date_diff", label: "Rescheduled Delay", number: true },
+	{ key: "actual_delay", label: "Planned Delay", number: true, signed: true },
+	{ key: "date_diff", label: "Rescheduled Delay", number: true, signed: true },
 	{ key: "reason", label: "Reason" },
 	{ key: "performance", label: "Performance", number: true, suffix: "%" },
 ]
@@ -69,4 +129,10 @@ export function reportCell(row, column) {
 	if (column.date) return formatDisplayDate(value, "")
 	if (value === null || value === undefined) return ""
 	return `${value}${column.suffix || ""}`
+}
+
+export function reportTone(row, column) {
+	if (!column.signed) return ""
+	const value = Number(row[column.key]) || 0
+	return value < 0 ? "neg" : value > 0 ? "pos" : ""
 }

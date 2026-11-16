@@ -4,6 +4,8 @@ import frappe
 
 from essdee_yrp.time_and_action.create import LOT, TIME_AND_ACTION, get_time_and_action
 
+DETAIL = "SD YRP Time and Action Detail"
+
 LIST_FIELDS = (
 	"name",
 	"against",
@@ -21,13 +23,41 @@ LIST_FIELDS = (
 
 @frappe.whitelist()
 def get_open_time_and_actions(lot: str | None = None, item: str | None = None) -> list[dict]:
-	"""T&As that are not Completed, newest first; `lot` keeps only that Lot's T&A."""
+	"""T&As that are not Completed, newest first, with progress and next action; `lot` keeps only that Lot's T&A."""
 	filters = {"status": ["!=", "Completed"]}
 	if lot:
 		filters.update({"against": LOT, "against_id": lot})
 	if item:
 		filters["item"] = item
-	return frappe.get_list(TIME_AND_ACTION, filters=filters, fields=list(LIST_FIELDS), order_by="creation desc")
+	rows = frappe.get_list(TIME_AND_ACTION, filters=filters, fields=list(LIST_FIELDS), order_by="creation desc")
+	add_progress(rows)
+	return rows
+
+
+def add_progress(rows: list[dict]) -> None:
+	"""Set `dated`, `total`, `next_action` and `next_action_date` (its Rescheduled Date) on each row."""
+	if not rows:
+		return
+	details = frappe.get_all(
+		DETAIL,
+		filters={"parent": ["in", [row.name for row in rows]], "parenttype": TIME_AND_ACTION},
+		fields=["parent", "action", "rescheduled_date", "actual_date"],
+		order_by="parent, idx",
+	)
+	by_parent = {}
+	for detail in details:
+		by_parent.setdefault(detail.parent, []).append(detail)
+	for row in rows:
+		actions = by_parent.get(row.name, [])
+		pending = [detail for detail in actions if not detail.actual_date]
+		row.update(
+			{
+				"dated": len(actions) - len(pending),
+				"total": len(actions),
+				"next_action": pending[0].action if pending else None,
+				"next_action_date": pending[0].rescheduled_date if pending else None,
+			}
+		)
 
 
 @frappe.whitelist()

@@ -54,7 +54,7 @@
 								<LotBomPanel :workspace="workspace" />
 							</TabPanel>
 							<TabPanel v-else-if="activeTab === 'time-and-action'" value="time-and-action">
-								<LotTimeAndActionTab :lot="lotId" :time-and-action="lotTimeAndAction.time_and_action || ''" :load-error="lotTimeAndAction.error || ''" />
+								<LotTimeAndActionTab :lot="lotId" :time-and-action="lotTimeAndAction.time_and_action || ''" :load-error="lotTimeAndAction.error || ''" :can-create="Boolean(lotTimeAndAction.can_create)" @create="createTimeAndActionVisible = true" />
 							</TabPanel>
 						</TabPanels>
 					</Tabs>

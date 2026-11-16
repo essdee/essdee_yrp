@@ -1,106 +1,98 @@
 <template>
-	<section class="ta-editor" :aria-label="`Time and Action ${name}`">
+	<section class="ta-editor" :aria-label="`Update ${name}`">
 		<Skeleton v-if="loading && !data" height="320px" />
 		<Message v-else-if="loadError" severity="error" :closable="false">{{ loadError }}</Message>
 		<template v-else-if="data">
-			<header class="ta-editor__bar">
-				<div class="ta-editor__summary">
-					<span><b>T&A</b> <DocumentLink doctype="SD YRP Time and Action" :name="data.name" /></span>
-					<span><b>{{ data.against === "SD YRP Lot" ? "Lot" : "Production Order" }}</b> <DocumentLink :doctype="data.against" :name="data.against_id" /></span>
-					<span><b>Master</b> {{ data.master }}</span>
-					<span><b>Item</b> {{ data.item }}</span>
-					<span><b>Qty</b> {{ data.qty }}</span>
-					<span><b>Start</b> {{ formatDisplayDate(data.start_date, "") }}</span>
-					<span :class="{ 'ta-editor__late': data.end_date_delay }"><b>Expected End</b> {{ formatDisplayDate(data.end_date, "") }}</span>
-					<span><b>Delay</b> {{ data.delay }} / {{ data.rescheduled_delay }}</span>
-					<span><b>Performance</b> {{ data.performance }}%</span>
-					<span><b>Status</b> {{ data.status }}</span>
+			<header class="ta-editor__strip">
+				<div class="ta-editor__progress">
+					<span><b>{{ datedCount }}</b> of {{ rows.length }} actions dated</span>
+					<span class="ta-editor__bar" aria-hidden="true"><i :style="{ width: `${(datedCount / (rows.length || 1)) * 100}%` }" /></span>
+					<span class="ta-editor__legend">
+						<TimeAndActionChip tone="done" :label="`${counts.done} done`" />
+						<TimeAndActionChip tone="overdue" :label="`${counts.overdue} overdue`" />
+						<TimeAndActionChip tone="due" :label="`${counts.due} due`" />
+						<TimeAndActionChip tone="blocked" :label="`${counts.blocked} blocked`" />
+						<TimeAndActionChip v-if="counts.error" tone="error" :label="`${counts.error} to fix`" />
+					</span>
 				</div>
 				<div class="ta-editor__actions">
-					<Button v-if="data.can_complete && !isEdited" label="Complete T&A" icon="pi pi-check-circle" severity="success" size="small" :disabled="busy" @click="completeVisible = true" />
-					<Button v-if="data.can_revise && !isEdited" label="Revise Dates" icon="pi pi-calendar" severity="secondary" outlined size="small" :disabled="busy" @click="reviseVisible = true" />
-					<template v-if="isEdited">
-						<Tag value="Not Saved" severity="warn" />
-						<Button label="Discard" severity="secondary" text size="small" :disabled="busy" @click="load" />
-						<Button label="Save T&A" icon="pi pi-check" size="small" :loading="busy" @click="save" />
-					</template>
+					<div class="ta-editor__buttons">
+						<Button v-tooltip.left="{ value: REVISE_HELP, class: 'ta-editor__tooltip' }" icon="pi pi-info-circle" text rounded severity="secondary" size="small" aria-label="What Revise Dates does" />
+						<Button label="Revise Dates" icon="pi pi-refresh" severity="secondary" outlined size="small" :disabled="busy || !data.can_revise" :title="data.can_revise ? 'Make the current Rescheduled Dates the new Freeze Dates' : 'Only the revised-date approver can revise, a limited number of times'" @click="openRevise" />
+						<Button label="Complete T&A" icon="pi pi-check" size="small" :disabled="busy || !data.can_complete || counts.error > 0" @click="completeVisible = true" />
+					</div>
+					<span class="ta-editor__hint">{{ data.can_complete ? `All ${rows.length} actions are dated` : `Complete unlocks when every action is dated · ${rows.length - datedCount} left` }}</span>
 				</div>
 			</header>
-			<Message v-if="isEdited && impact" :severity="data.delivery_days_moved > 0 ? 'error' : 'success'" :closable="false">{{ impact }}</Message>
-			<Message v-if="error" severity="error" :closable="true" role="alert" @close="error = ''">{{ error }}</Message>
-			<div class="erp-table-wrap ta-editor__scroll" role="region" tabindex="0" aria-label="Time and Action activities">
-				<table class="erp-data-table ta-matrix">
-					<thead>
-						<tr>
-							<th class="ta-matrix__sticky">Activity</th>
-							<th v-for="row in data.rows" :key="row.action" :title="dependencyTitle(row)">
-								<div>{{ row.action }}</div>
-								<small>{{ leadTimeLabel(row) }}</small>
-							</th>
-						</tr>
-					</thead>
+			<div class="ta-editor__scroll">
+				<table class="erp-data-table ta-acts">
+					<thead><tr><th>Status</th><th>Action</th><th>Work Station</th><th>Planned Date</th><th>Rescheduled Date</th><th>Actual Date</th><th>Reason</th><th>Delay</th></tr></thead>
 					<tbody>
-						<tr><th class="ta-matrix__sticky">Planned Date</th><td v-for="row in data.rows" :key="row.action">{{ formatDisplayDate(row.planned_start_date, "") }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Freezed Date</th><td v-for="row in data.rows" :key="row.action">{{ formatDisplayDate(row.date, "") }}</td></tr>
-						<tr>
-							<th class="ta-matrix__sticky"><button type="button" class="ta-matrix__link" @click="revisionsVisible = true">Rescheduled Date ({{ data.revised || 0 }})</button></th>
-							<td v-for="row in data.rows" :key="row.action">{{ formatDisplayDate(row.rescheduled_date, "") }}</td>
-						</tr>
-						<tr>
-							<th class="ta-matrix__sticky">Actual</th>
-							<td v-for="row in data.rows" :key="row.action" :class="`ta-matrix__actual--${actualTone(row)}`">
-								<DateField v-if="row.can_enter && canEditRow(data, row)" :model-value="''" :aria-label="`Actual date of ${row.action}`" :disabled="busy" @update:model-value="(value) => setActual(row, value)" />
-								<span v-else class="ta-matrix__actual">
-									{{ formatDisplayDate(row.actual_date, "") }}
-									<Button v-if="row.can_remove && canEditRow(data, row)" icon="pi pi-times" severity="danger" text rounded size="small" :aria-label="`Remove actual date of ${row.action}`" title="Remove" :disabled="busy" @click="removeActual(row)" />
-								</span>
-							</td>
-						</tr>
-						<tr>
-							<th class="ta-matrix__sticky">Reason for Delay</th>
-							<td v-for="row in data.rows" :key="row.action">
-								<InputText v-if="row.actual_date && canEditRow(data, row)" v-model="row.reason" size="small" fluid :invalid="isLate(row) && !row.reason" :aria-label="`Reason for delay of ${row.action}`" @change="setReason(row)" />
-								<span v-else>{{ row.reason }}</span>
-							</td>
-						</tr>
-						<tr><th class="ta-matrix__sticky">Performance</th><td v-for="row in data.rows" :key="row.action">{{ row.performance }}%</td></tr>
-						<tr><th class="ta-matrix__sticky">Delay</th><td v-for="row in data.rows" :key="row.action">{{ row.date_diff }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Cumulative Actual Delay</th><td v-for="row in data.rows" :key="row.action">{{ row.actual_delay }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Cumulative Rescheduled Delay</th><td v-for="row in data.rows" :key="row.action">{{ row.cumulative_delay }}</td></tr>
+						<template v-for="row in rows" :key="row.action">
+							<tr :class="rowClass(row)">
+								<td>
+									<TimeAndActionChip :tone="row.status" :label="STATUS_LABELS[row.status]" />
+									<small v-if="statusNote(row)" class="ta-acts__sub">{{ statusNote(row) }}</small>
+								</td>
+								<td>
+									<div class="ta-acts__name">{{ row.action }}</div>
+									<div class="ta-acts__meta"><span class="ta-acts__idx">#{{ row.index + 1 }}</span><span>{{ row.department }}</span><span>·</span><span>{{ dayCount(row.lead_time) }} lead</span></div>
+									<div v-if="row.status === 'blocked'" class="ta-acts__waiting"><i class="pi pi-lock" aria-hidden="true" /><span>Waiting for {{ row.blockedBy.join(", ") }}</span></div>
+								</td>
+								<td><span v-if="row.work_station">{{ row.work_station }}</span><span v-else class="ta-subtle">—</span></td>
+								<td>{{ formatDisplayDate(row.planned_start_date, "") }}</td>
+								<td>
+									<span v-if="row.oldRescheduledDate" class="ta-acts__moved"><s>{{ formatDisplayDate(row.oldRescheduledDate, "") }}</s><b :class="{ 'is-earlier': row.rescheduled_date < row.oldRescheduledDate }">{{ formatDisplayDate(row.rescheduled_date, "") }}</b></span>
+									<template v-else>{{ formatDisplayDate(row.rescheduled_date, "") }}</template>
+								</td>
+								<td><DateField :model-value="row.inputValue" :aria-label="`Actual Date of ${row.action}`" :disabled="!row.editable" :invalid="Boolean(row.error)" :show-on-focus="false" @update:model-value="(value) => setActual(row, value)" /></td>
+								<td>
+									<InputText v-if="row.late && row.editable" :model-value="row.reason || ''" size="small" fluid :invalid="row.needsReason" placeholder="Why late? Required" :aria-label="`Reason for ${row.action}`" @update:model-value="(value) => setReason(row, value)" />
+									<span v-else-if="row.reason">{{ row.reason }}</span>
+									<span v-else class="ta-subtle">{{ row.actual_date && !row.error ? "Not needed" : "—" }}</span>
+								</td>
+								<td>
+									<template v-if="delay(row)"><span class="ta-acts__delay" :class="`ta-acts__delay--${delay(row).tone}`">{{ delay(row).text }}</span><small class="ta-acts__sub">Planned Delay {{ delay(row).planned }}</small></template>
+									<span v-else class="ta-subtle">—</span>
+								</td>
+							</tr>
+							<tr v-if="row.error" class="ta-acts__error"><td colspan="8"><div role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true" />{{ row.error }}</div></td></tr>
+						</template>
 					</tbody>
 				</table>
 			</div>
+			<Message v-if="error" severity="error" :closable="true" role="alert" @close="error = ''">{{ error }}</Message>
+			<footer class="ta-editor__savebar">
+				<div class="ta-editor__delivery">
+					<div><div class="ta-label">Expected Delivery · {{ name }}</div><div class="ta-editor__big">{{ formatDisplayDate(data.end_date, "") }}</div></div>
+					<span class="ta-impact" :class="`ta-impact--${impact.tone}`">
+						<template v-if="impact.from"><i :class="impact.tone === 'late' ? 'pi pi-exclamation-circle' : 'pi pi-check'" aria-hidden="true" />Expected delivery moves {{ impact.from }} <i class="pi pi-arrow-right" aria-hidden="true" /> {{ impact.to }}, {{ impact.text }}</template>
+						<template v-else>{{ impact.text }}</template>
+					</span>
+				</div>
+				<div class="ta-editor__save">
+					<span class="ta-editor__pending"><template v-for="(part, index) in pending" :key="part"><template v-if="index"> · </template><span :class="{ 'is-bad': index > 0 }">{{ part }}</span></template></span>
+					<Button label="Discard" text severity="secondary" :disabled="!unsavedCount || busy" @click="reset" />
+					<Button label="Save" :disabled="!canSave" :loading="saving" @click="requestSave" />
+				</div>
+			</footer>
 		</template>
-		<DocumentConfirmationDialog v-model:visible="confirmVisible" title="Expected delivery moves" :message="`${impact}. Save anyway?`" confirm-label="Save T&A" cancel-label="Cancel" severity="danger" :busy="busy" @confirm="commit" />
-		<DocumentConfirmationDialog v-model:visible="completeVisible" title="Complete T&A" :message="`Complete Time and Action ${data?.name}? Its dates are locked after this.`" confirm-label="Complete T&A" cancel-label="Cancel" severity="success" icon="pi pi-check-circle" :busy="busy" @confirm="complete" />
-		<Dialog v-model:visible="reviseVisible" modal header="Revise" class="erp-dialog--sm">
+		<DocumentConfirmationDialog v-model:visible="saveVisible" :title="`Save ${name}?`" :message="getSaveMessage(data)" confirm-label="Save" cancel-label="Keep editing" severity="primary" icon="pi pi-calendar" :busy="saving" @confirm="commit">
+			<ul class="ta-change-list"><li v-for="row in changedRows" :key="row.action"><b>{{ row.action }}</b><span>{{ changeSummary(row) }}</span></li></ul>
+		</DocumentConfirmationDialog>
+		<DocumentConfirmationDialog v-model:visible="completeVisible" :title="`Complete ${name}?`" :message="completeMessage" confirm-label="Complete T&A" cancel-label="Cancel" severity="primary" icon="pi pi-check-circle" :busy="saving" @confirm="runComplete" />
+		<Dialog v-model:visible="reviseVisible" modal :header="`Revise Dates of ${name}`" class="erp-dialog--sm">
 			<div class="ta-editor__revise">
-				<p>{{ reviseMessage(data) }}</p>
+				<p>{{ getReviseMessage(data) }}</p>
+				<Message v-if="unsavedCount" severity="warn" :closable="false">Save or discard your unsaved changes before revising.</Message>
 				<label class="erp-field-label" for="ta-revise-reason">Reason<span class="erp-required-mark" aria-hidden="true">*</span></label>
-				<Textarea id="ta-revise-reason" v-model="reviseReason" rows="3" fluid />
+				<Textarea id="ta-revise-reason" v-model="reviseReason" rows="3" fluid placeholder="For example: Buyer moved the fabric approval" />
 				<Message v-if="reviseError" severity="error" :closable="false">{{ reviseError }}</Message>
 			</div>
 			<template #footer>
-				<Button label="Cancel" severity="secondary" text :disabled="busy" @click="reviseVisible = false" />
-				<Button label="Revise" icon="pi pi-check" :loading="busy" :disabled="!reviseReason.trim()" @click="revise" />
+				<Button label="Cancel" severity="secondary" text :disabled="saving" @click="reviseVisible = false" />
+				<Button label="Revise Dates" icon="pi pi-refresh" :loading="saving" :disabled="!reviseReason.trim() || unsavedCount > 0" @click="runRevise" />
 			</template>
-		</Dialog>
-		<Dialog v-model:visible="revisionsVisible" modal header="Rescheduled Details" :style="{ width: 'min(1200px, calc(100vw - 32px))' }">
-			<div v-if="data" class="erp-table-wrap ta-editor__scroll" role="region" tabindex="0" aria-label="Rescheduled Details">
-				<table class="erp-data-table ta-matrix">
-					<thead><tr><th class="ta-matrix__sticky" /><th v-for="row in data.rows" :key="row.action">{{ row.action }}</th></tr></thead>
-					<tbody>
-						<tr><th class="ta-matrix__sticky">Planned Date</th><td v-for="row in data.rows" :key="row.action">{{ formatDisplayDate(row.planned_start_date, "") }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Freeze Date</th><td v-for="row in data.rows" :key="row.action">{{ formatDisplayDate(row.date, "") }}</td></tr>
-						<tr v-for="revision in revisionRows(data)" :key="revision.label"><th class="ta-matrix__sticky">{{ revision.label }}</th><td v-for="(value, index) in revision.values" :key="index">{{ formatDisplayDate(value, "") }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Delay</th><td v-for="row in data.rows" :key="row.action">{{ row.date_diff }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Cumulative Actual Delay</th><td v-for="row in data.rows" :key="row.action">{{ row.actual_delay }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Cumulative Rescheduled Delay</th><td v-for="row in data.rows" :key="row.action">{{ row.cumulative_delay }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Reason</th><td v-for="row in data.rows" :key="row.action">{{ row.reason }}</td></tr>
-						<tr><th class="ta-matrix__sticky">Performance</th><td v-for="row in data.rows" :key="row.action">{{ row.performance }}%</td></tr>
-					</tbody>
-				</table>
-			</div>
 		</Dialog>
 	</section>
 </template>
@@ -111,157 +103,182 @@ import Dialog from "primevue/dialog"
 import InputText from "primevue/inputtext"
 import Message from "primevue/message"
 import Skeleton from "primevue/skeleton"
-import Tag from "primevue/tag"
 import Textarea from "primevue/textarea"
+import Tooltip from "primevue/tooltip"
 import { useToast } from "primevue/usetoast"
 import { computed, ref, watch } from "vue"
 
-import { completeTimeAndAction, getUpdateData, previewActualDates, reviseDates, updateActualDates } from "../../../api/timeAndAction.js"
 import DateField from "../../../components/common/DateField.vue"
-import DocumentLink from "../../../components/common/DocumentLink.vue"
 import DocumentConfirmationDialog from "../../../components/documents/DocumentConfirmationDialog.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
-import { actualTone, canEditRow, deliveryMessage, dependencyTitle, isLate, leadTimeLabel, reviseMessage, revisionRows } from "./timeAndAction.js"
+import TimeAndActionChip from "./TimeAndActionChip.vue"
+import { REVISE_HELP, STATUS_LABELS, dayCount, getDelay, getImpact, getPendingSummary, getReviseMessage, getSaveMessage, getStatusNote } from "./timeAndAction.js"
+import { useTimeAndActionEditor } from "./useTimeAndActionEditor.js"
 
-/** One T&A's Desk Update matrix: preview each actual date, then Save T&A; Revise Dates freezes a new baseline. */
+/** Inline editor of one open T&A: actual dates previewed by the server, sticky save bar, Revise Dates and Complete T&A. */
 const props = defineProps({ name: { type: String, required: true } })
-const emit = defineEmits(["saved", "completed"])
+const emit = defineEmits(["saved", "completed", "dirty"])
+const vTooltip = Tooltip
 const toast = useToast()
-const data = ref(null)
-const changes = ref({})
-const isEdited = ref(false)
-const loading = ref(false)
-const busy = ref(false)
-const loadError = ref("")
+const editor = useTimeAndActionEditor(props.name)
+const { data, rows, nextIndex, counts, datedCount, missingReasons, unsavedCount, hasChanges, canSave, loading, busy, loadError, today, reset, setActual, setReason } = editor
 const error = ref("")
-const confirmVisible = ref(false)
+const saving = ref(false)
+const saveVisible = ref(false)
 const completeVisible = ref(false)
 const reviseVisible = ref(false)
 const reviseReason = ref("")
 const reviseError = ref("")
-const revisionsVisible = ref(false)
-const impact = computed(() => deliveryMessage(data.value))
-let sequence = 0
 
-async function load() {
-	const current = ++sequence
-	loading.value = true
-	loadError.value = ""
-	error.value = ""
-	try {
-		const payload = await getUpdateData(props.name)
-		if (current !== sequence) return
-		data.value = payload
-		changes.value = {}
-		isEdited.value = false
-	} catch (reason) {
-		if (current === sequence) loadError.value = reason?.message || "Unable to load this Time and Action."
-	} finally {
-		if (current === sequence) loading.value = false
+const impact = computed(() => getImpact(data.value, hasChanges.value))
+const pending = computed(() => getPendingSummary({ changes: unsavedCount.value, errors: counts.value.error, missingReasons: missingReasons.value }))
+const changedRows = computed(() => rows.value.filter((row) => row.edited && !row.error))
+const completeMessage = computed(() => {
+	const saved = hasChanges.value ? `Your ${unsavedCount.value} unsaved ${unsavedCount.value === 1 ? "change is" : "changes are"} saved first. ` : ""
+	return `All ${rows.value.length} actions are dated. ${saved}A completed T&A leaves the open list and can no longer be updated.`
+})
+
+function rowClass(row) {
+	return {
+		"is-blocked": row.status === "blocked",
+		"is-overdue": row.status === "overdue",
+		"is-next": row.index === nextIndex.value && row.status !== "overdue",
+		"is-edited": row.edited && !row.error,
+		"has-error": Boolean(row.error),
 	}
 }
 
-async function preview(action, change) {
-	const pending = { ...changes.value, [action]: change }
-	busy.value = true
-	error.value = ""
-	try {
-		data.value = await previewActualDates(data.value.name, Object.values(pending), data.value.modified)
-		changes.value = pending
-		isEdited.value = true
-	} catch (reason) {
-		error.value = reason?.message || "Unable to apply this date."
-	} finally {
-		busy.value = false
-	}
+const statusNote = (row) => getStatusNote(row, row.status, { today, isNext: row.index === nextIndex.value })
+const delay = (row) => (row.error ? null : getDelay(row))
+
+function changeSummary(row) {
+	if (!row.actual_date) return "Actual date cleared"
+	const late = getDelay(row)
+	return `Actual ${formatDisplayDate(row.actual_date, "")} · ${late.tone === "late" ? late.text : "on time"}`
 }
 
-function setActual(row, value) {
-	if (value) preview(row.action, { action: row.action, actual_date: value, reason: row.reason || null })
-}
-
-function removeActual(row) {
-	preview(row.action, { action: row.action, actual_date: null, reason: null })
-}
-
-function setReason(row) {
-	changes.value = { ...changes.value, [row.action]: { action: row.action, actual_date: row.actual_date, reason: row.reason || null } }
-	isEdited.value = true
-}
-
-function save() {
-	if (data.value.delivery_days_moved > 0) confirmVisible.value = true
+function requestSave() {
+	if (Number(data.value.delivery_days_moved) > 0) saveVisible.value = true
 	else commit()
 }
 
+async function run(action, success) {
+	saving.value = true
+	error.value = ""
+	try {
+		await action()
+		if (success) toast.add({ severity: "success", summary: success(), life: 3000 })
+		return true
+	} catch (reason) {
+		error.value = reason?.message || "Unable to update this Time and Action."
+		return false
+	} finally {
+		saving.value = false
+		saveVisible.value = false
+		completeVisible.value = false
+	}
+}
+
 async function commit() {
-	busy.value = true
-	error.value = ""
-	try {
-		await updateActualDates(data.value.name, Object.values(changes.value), data.value.modified)
-		confirmVisible.value = false
-		toast.add({ severity: "success", summary: "T&A saved", life: 3000 })
-		await load()
-		emit("saved")
-	} catch (reason) {
-		confirmVisible.value = false
-		error.value = reason?.message || "Unable to save this Time and Action."
-	} finally {
-		busy.value = false
-	}
+	const expected = formatDisplayDate(data.value.end_date, "")
+	if (await run(editor.save, () => `Saved ${props.name}. Expected delivery ${expected}.`)) emit("saved")
 }
 
-async function complete() {
-	busy.value = true
-	error.value = ""
-	try {
-		await completeTimeAndAction(data.value.name)
-		completeVisible.value = false
-		toast.add({ severity: "success", summary: `${data.value.name} completed`, life: 3000 })
-		emit("completed", data.value.name)
-	} catch (reason) {
-		completeVisible.value = false
-		error.value = reason?.message || "Unable to complete this Time and Action."
-	} finally {
-		busy.value = false
-	}
+async function runComplete() {
+	if (await run(editor.complete, () => `${props.name} completed.`)) emit("completed", props.name)
 }
 
-async function revise() {
-	busy.value = true
+function openRevise() {
+	reviseReason.value = ""
+	reviseError.value = ""
+	reviseVisible.value = true
+}
+
+async function runRevise() {
+	saving.value = true
 	reviseError.value = ""
 	try {
-		await reviseDates(data.value.name, reviseReason.value.trim())
+		await editor.revise(reviseReason.value.trim())
 		reviseVisible.value = false
-		reviseReason.value = ""
-		toast.add({ severity: "success", summary: "Dates revised", life: 3000 })
-		await load()
+		toast.add({ severity: "success", summary: "Dates revised. Freeze Dates now match the Rescheduled Dates.", life: 3000 })
 		emit("saved")
 	} catch (reason) {
 		reviseError.value = reason?.message || "Unable to revise the dates."
 	} finally {
-		busy.value = false
+		saving.value = false
 	}
 }
 
-watch(() => props.name, () => { data.value = null; load() }, { immediate: true })
+watch(unsavedCount, (count) => emit("dirty", count), { immediate: true })
+editor.load()
 </script>
 
 <style scoped>
-.ta-editor { display: grid; min-width: 0; gap: var(--erp-space-3); }
-.ta-editor__bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--erp-space-3); align-items: center; }
-.ta-editor__summary { display: flex; flex-wrap: wrap; gap: var(--erp-space-2) var(--erp-space-5); }
-.ta-editor__actions { display: flex; flex-wrap: wrap; gap: var(--erp-space-2); align-items: center; }
-.ta-editor__late { color: var(--erp-danger); }
-.ta-editor__scroll { max-height: 70vh; overflow: auto; }
+.ta-editor { display: grid; min-width: 0; margin: 8px 16px 16px 40px; background: var(--erp-surface); border: 1px solid var(--erp-border); border-left: 3px solid var(--erp-accent); border-radius: var(--erp-radius-md); box-shadow: var(--erp-shadow-card); }
+.ta-editor > .p-skeleton, .ta-editor > .p-message { margin: 12px; }
+.ta-editor__strip { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 20px; padding: 12px 16px; background: var(--erp-surface-soft); border-bottom: 1px solid var(--erp-border); border-radius: var(--erp-radius-md) var(--erp-radius-md) 0 0; }
+.ta-editor__progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 13px; }
+.ta-editor__bar { position: relative; width: 180px; height: 6px; overflow: hidden; background: var(--erp-surface-muted); border-radius: 99px; }
+.ta-editor__bar i { position: absolute; inset: 0 auto 0 0; background: var(--erp-success); border-radius: 99px; }
+.ta-editor__legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.ta-editor__actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; }
+.ta-editor__buttons { display: flex; align-items: center; gap: 8px; }
+.ta-editor__hint { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
+.ta-editor__scroll { min-width: 0; overflow-x: auto; }
+.ta-acts { table-layout: fixed; min-width: 1000px; }
+.ta-acts th { position: static; white-space: normal; line-height: 1.25; background: var(--erp-surface-soft); }
+.ta-acts th:nth-child(1) { width: 112px; } .ta-acts th:nth-child(2) { width: 200px; } .ta-acts th:nth-child(3) { width: 118px; } .ta-acts th:nth-child(4) { width: 108px; }
+.ta-acts th:nth-child(5) { width: 118px; } .ta-acts th:nth-child(6) { width: 176px; } .ta-acts th:nth-child(8) { width: 128px; }
+.ta-acts td { padding: 9px 12px; }
+.ta-acts td:nth-child(4), .ta-acts td:nth-child(5) { white-space: nowrap; }
+.ta-acts :deep(.p-datepicker-input) { padding-inline: 9px; }
+.ta-editor .ta-acts.erp-data-table > tbody > tr > td { background: var(--ta-row-bg, transparent); box-shadow: none; }
+.ta-editor .ta-acts.erp-data-table > tbody > tr > td:first-child { box-shadow: var(--ta-row-mark, none); }
+.ta-acts tr.is-blocked td { color: var(--erp-text-subtle); }
+.ta-acts tr.is-blocked .ta-acts__name { color: var(--erp-text-muted); }
+.ta-acts tr.is-overdue { --ta-row-mark: inset 3px 0 0 var(--erp-danger); }
+.ta-acts tr.is-next { --ta-row-mark: inset 3px 0 0 var(--erp-accent); }
+.ta-acts tr.is-edited { --ta-row-bg: var(--erp-accent-soft); }
+.ta-acts tr.has-error, .ta-acts tr.ta-acts__error { --ta-row-bg: var(--erp-danger-soft); }
+.ta-acts__name { color: var(--erp-text-muted); }
+.ta-acts tr.is-overdue td:first-child, .ta-acts tr.is-overdue:hover td:first-child { box-shadow: inset 3px 0 0 var(--erp-danger); }
+.ta-acts tr.is-next td:first-child, .ta-acts tr.is-next:hover td:first-child { box-shadow: inset 3px 0 0 var(--erp-accent); }
+.ta-acts tr.is-edited td, .ta-acts tr.is-edited:hover td { background: var(--erp-accent-soft); }
+.ta-acts tr.has-error td, .ta-acts tr.has-error:hover td, .ta-acts tr.ta-acts__error td { background: var(--erp-danger-soft); }
+.ta-acts__name { overflow-wrap: anywhere; font-weight: 600; line-height: 1.3; color: var(--erp-text); }
+.ta-acts__meta { display: flex; flex-wrap: wrap; gap: 0 6px; margin-top: 2px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
+.ta-acts__idx { color: var(--erp-text-subtle); }
+.ta-acts__waiting { display: flex; align-items: flex-start; gap: 4px; margin-top: 3px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
+.ta-acts__waiting i { margin-top: 3px; font-size: 10px; }
+.ta-acts__sub { display: block; margin-top: 3px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); font-weight: 400; white-space: nowrap; }
+.ta-acts__moved s { display: block; color: var(--erp-text-subtle); font-size: var(--erp-font-size-caption); }
+.ta-acts__moved b { color: var(--erp-attention-text); font-weight: 600; }
+.ta-acts__moved b.is-earlier { color: var(--erp-success-text); }
+.ta-acts__delay { font-weight: 600; }
+.ta-acts__delay--late { color: var(--erp-danger); }
+.ta-acts__delay--ok { color: var(--erp-success-text); }
+.ta-acts__error td { padding: 0 12px 10px; }
+.ta-acts__error div { display: flex; align-items: center; gap: 7px; color: var(--erp-danger); font-size: 13px; font-weight: 500; }
+.ta-subtle { color: var(--erp-text-subtle); }
+.ta-label { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.ta-editor__savebar { position: sticky; bottom: 12px; z-index: 10; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 20px; margin: 12px 0 0; padding: 12px 18px; background: var(--erp-surface); border: 1px solid var(--erp-border); border-radius: var(--erp-radius-md); box-shadow: var(--erp-shadow-card); }
+.ta-editor__delivery { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.ta-editor__big { font-size: var(--erp-font-size-section); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ta-impact { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; font-size: 13px; font-weight: 500; border-radius: 7px; }
+.ta-impact--late { color: var(--erp-attention-text); background: var(--erp-attention-soft); border: 1px solid var(--erp-attention-border); }
+.ta-impact--early { color: var(--erp-success-text); background: var(--erp-success-soft); }
+.ta-impact--none { color: var(--erp-text-muted); }
+.ta-editor__save { display: flex; align-items: center; gap: 10px; }
+.ta-editor__pending { color: var(--erp-text-muted); font-size: 13px; }
+.ta-editor__pending .is-bad { color: var(--erp-danger); font-weight: 600; }
+.ta-editor > .p-message { margin: 12px 16px 0; }
 .ta-editor__revise { display: grid; gap: var(--erp-space-2); }
 .ta-editor__revise p { margin: 0; }
-.ta-matrix th, .ta-matrix td { min-width: 140px; text-align: center; vertical-align: middle; }
-.ta-matrix thead th small { display: block; color: var(--erp-text-muted); font-weight: 400; }
-.ta-matrix .ta-matrix__sticky { position: sticky; left: 0; z-index: 1; min-width: 200px; text-align: left; background: var(--erp-surface); }
-.ta-matrix thead .ta-matrix__sticky { z-index: 3; }
-.ta-matrix__link { padding: 0; border: 0; background: none; color: var(--erp-accent); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
-.ta-matrix__actual { display: inline-flex; gap: var(--erp-space-1); align-items: center; }
-.ta-matrix__actual--late { background: var(--erp-danger-soft); }
-.ta-matrix__actual--on-time { background: var(--erp-success-soft); }
+.ta-change-list { margin: 12px 0 0; padding: 0; list-style: none; border: 1px solid var(--erp-border); border-radius: 7px; }
+.ta-change-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--erp-border-subtle); }
+.ta-change-list li:last-child { border-bottom: 0; }
+</style>
+
+<style>
+.ta-editor__tooltip { max-width: 320px; }
 </style>

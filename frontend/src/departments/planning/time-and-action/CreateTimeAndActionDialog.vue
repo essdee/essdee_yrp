@@ -1,5 +1,5 @@
 <template>
-	<Dialog :visible="visible" modal header="Create Time and Action" :closable="!busy" :style="{ width: preview ? 'min(1200px, calc(100vw - 32px))' : 'min(560px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="reset">
+	<Dialog :visible="visible" modal header="Create Time and Action" :closable="!busy" :style="{ width: 'min(980px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="reset">
 		<div class="ta-create">
 			<p class="ta-create__info"><b>Lot</b> {{ lot }} · <b>Item</b> {{ item || "" }} · <b>Qty</b> {{ qty || 0 }}</p>
 			<div class="ta-create__fields">
@@ -10,26 +10,30 @@
 			<section v-if="preview" class="ta-create__preview" aria-label="Time and Action Preview">
 				<p class="ta-create__info"><b>Master</b> {{ preview.master }} · <b>Start Date</b> {{ formatDisplayDate(preview.startDate, "") }} · <b>Dispatch Date</b> {{ formatDisplayDate(preview.rows.at(-1)?.date, "") }}</p>
 				<div class="erp-table-wrap ta-create__scroll" role="region" tabindex="0" aria-label="Time and Action Preview">
-					<table class="erp-data-table ta-create__table">
-						<thead><tr><th class="ta-create__sticky">Activity</th><th v-for="row in preview.rows" :key="row.action">{{ row.action }}</th></tr></thead>
+					<table class="erp-data-table">
+						<thead><tr><th class="erp-number">#</th><th>Action</th><th>Department</th><th class="erp-number">Lead Time</th><th>Completion Date</th><th class="ta-create__station">Work Station</th></tr></thead>
 						<tbody>
-							<tr><th class="ta-create__sticky">Lead Time</th><td v-for="row in preview.rows" :key="row.action">{{ row.lead_time }}</td></tr>
-							<tr><th class="ta-create__sticky">Department</th><td v-for="row in preview.rows" :key="row.action">{{ row.department }}</td></tr>
-							<tr><th class="ta-create__sticky">Completion Date</th><td v-for="row in preview.rows" :key="row.action">{{ formatDisplayDate(row.date, "") }}</td></tr>
-							<tr>
-								<th class="ta-create__sticky">Work Station</th>
-								<td v-for="row in preview.rows" :key="row.action">
+							<tr v-for="(row, index) in preview.rows" :key="row.action">
+								<td class="erp-number ta-create__index">{{ index + 1 }}</td>
+								<td class="ta-create__action">{{ row.action }}</td>
+								<td>{{ row.department }}</td>
+								<td class="erp-number">{{ row.lead_time }}</td>
+								<td>{{ formatDisplayDate(row.date, "") }}</td>
+								<td>
 									<LinkField v-if="row.default_work_station" v-model="workStations[row.action]" doctype="YRP Work Station" :filters="{ action: row.action }" :aria-label="`Work Station of ${row.action}`" :allow-create="false" :show-open-button="false" />
+									<span v-else class="ta-create__subtle">—</span>
 								</td>
 							</tr>
 						</tbody>
 					</table>
 				</div>
 			</section>
+			<p v-else-if="previewing" class="ta-create__info ta-create__subtle">Loading the schedule…</p>
+			<p v-else class="ta-create__info ta-create__subtle">Pick an Action Master and a Start Date to preview the schedule.</p>
 		</div>
 		<template #footer>
-			<Button label="Preview" icon="pi pi-eye" severity="secondary" outlined :loading="previewing" :disabled="busy || !master || !startDate" @click="loadPreview" />
-			<Button label="Create" icon="pi pi-check" :loading="busy" :disabled="previewing || !master || !startDate" @click="create" />
+			<Button label="Cancel" severity="secondary" outlined :disabled="busy" @click="emit('update:visible', false)" />
+			<Button label="Create" icon="pi pi-check" :loading="busy" :disabled="previewing || !preview" @click="create" />
 		</template>
 	</Dialog>
 </template>
@@ -45,7 +49,7 @@ import DateField from "../../../components/common/DateField.vue"
 import LinkField from "../../../components/common/LinkField.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 
-/** Desk Create T&A dialog for a Lot: Action Master, Start Date, Preview with editable Work Stations, Create. */
+/** Create T&A for a Lot: Action Master and Start Date preview the schedule, Work Stations stay editable, then Create. */
 const props = defineProps({
 	visible: { type: Boolean, default: false },
 	lot: { type: String, required: true },
@@ -70,13 +74,19 @@ function reset() {
 	error.value = ""
 }
 
-watch([master, startDate], () => { preview.value = null; workStations.value = {} })
+watch([master, startDate], () => {
+	preview.value = null
+	workStations.value = {}
+	if (master.value && startDate.value) loadPreview()
+})
 
 async function loadPreview() {
+	const requested = `${master.value}|${startDate.value}`
 	previewing.value = true
 	error.value = ""
 	try {
 		const rows = await getSchedulePreview(master.value, startDate.value)
+		if (requested !== `${master.value}|${startDate.value}`) return
 		const chosen = workStations.value
 		preview.value = { master: master.value, startDate: startDate.value, rows: rows.map((row) => ({ ...row, default_work_station: row.work_station })) }
 		workStations.value = Object.fromEntries(rows.filter((row) => row.work_station).map((row) => [row.action, chosen[row.action] || row.work_station]))
@@ -109,6 +119,8 @@ async function create() {
 .ta-create__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--erp-space-3); }
 .ta-create__preview { display: grid; min-width: 0; gap: var(--erp-space-2); }
 .ta-create__scroll { max-height: 55vh; overflow: auto; }
-.ta-create__table th, .ta-create__table td { min-width: 160px; text-align: center; vertical-align: middle; }
-.ta-create__table .ta-create__sticky { position: sticky; left: 0; z-index: 1; min-width: 150px; text-align: left; background: var(--erp-surface); }
+.ta-create__scroll td { padding-top: 7px; padding-bottom: 7px; }
+.ta-create__action { font-weight: 600; color: var(--erp-text) !important; }
+.ta-create__index, .ta-create__subtle { color: var(--erp-text-subtle) !important; }
+.ta-create__station { width: 220px; }
 </style>
