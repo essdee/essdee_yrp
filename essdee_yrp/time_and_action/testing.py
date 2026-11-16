@@ -2,7 +2,17 @@
 
 import erpnext
 import frappe
+from frappe.tests.utils import FrappeTestCase
 from frappe.utils import getdate
+
+
+class TimeAndActionTestCase(FrappeTestCase):
+	"""Rolls back after every test so tests never see each other's records."""
+
+	def tearDown(self):
+		frappe.db.rollback()
+		frappe.set_user("Administrator")
+		frappe.flags.in_time_and_action_update = False
 
 
 def use_company_holidays(holidays, from_date="2026-01-01", to_date="2027-12-31"):
@@ -24,7 +34,12 @@ def use_company_holidays(holidays, from_date="2026-01-01", to_date="2027-12-31")
 def make_action(name, lead_time=1):
 	if not frappe.db.exists("SD YRP Action", name):
 		frappe.get_doc(
-			{"doctype": "SD YRP Action", "__newname": name, "lead_time": lead_time, "department": department()}
+			{
+				"doctype": "SD YRP Action",
+				"__newname": name,
+				"lead_time": lead_time,
+				"department": department(),
+			}
 		).insert(set_name=name)
 	return name
 

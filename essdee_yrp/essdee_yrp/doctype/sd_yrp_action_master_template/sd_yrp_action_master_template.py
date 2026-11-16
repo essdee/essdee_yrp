@@ -2,9 +2,9 @@
 # For license information, please see license.txt
 import frappe
 from frappe.model.document import Document
-from frappe.utils import date_diff
-from yrp.attribute_links import value as _attribute_value
 from yrp.utils import update_if_string_instance
+
+from essdee_yrp.time_and_action.create import get_master_lead_time, validate_master_steps
 
 
 class SDYRPActionMasterTemplate(Document):
@@ -21,8 +21,6 @@ class SDYRPActionMasterTemplate(Document):
 				"lead_time": row.lead_time,
 				"department": row.department,
 				"dependent_action": [],
-				"check_value": row.merge_action,
-				"one_colour_process": row.one_colour_process,
 			}
 
 		for row in self.action_master_dependent_details:
@@ -51,8 +49,6 @@ class SDYRPActionMasterTemplate(Document):
 						"lead_time": row["lead_time"],
 						"department": row["department"],
 						"target": 0,
-						"merge_action": row["check_value"],
-						"one_colour_process": row["one_colour_process"],
 					}
 				)
 				if len(row["dependent_action"]) > 0:
@@ -67,25 +63,11 @@ class SDYRPActionMasterTemplate(Document):
 			self.set("details", details)
 			self.set("action_master_dependent_details", dependent_details)
 
-	def before_save(self):
-		from essdee_yrp.essdee_yrp.doctype.sd_yrp_time_and_action.sd_yrp_time_and_action import (
-			get_t_and_a_preview_data,
-		)
+	def validate(self):
+		validate_master_steps(self)
 
-		data = get_t_and_a_preview_data(
-			frappe.utils.nowdate(),
-			[{"colour": "colour", "master": self.name}],
-			is_template=True,
-			master_doc=self,
-		)
-		if len(_attribute_value(data["colour"])) > 0:
-			dispatch_date = _attribute_value(data["colour"])[len(_attribute_value(data["colour"])) - 1][
-				"rescheduled_date"
-			]
-			lead_time = date_diff(dispatch_date, frappe.utils.nowdate())
-			self.lead_time = lead_time
-		else:
-			self.lead_time = 0
+	def before_save(self):
+		self.lead_time = get_master_lead_time(self)
 
 
 @frappe.whitelist()

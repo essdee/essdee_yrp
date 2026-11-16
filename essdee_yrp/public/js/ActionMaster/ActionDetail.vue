@@ -12,8 +12,6 @@
                         <th>Lead Time</th>
                         <th>Department</th>
                         <th>Dependent Actions</th>
-                        <th>Merge Process</th>
-                        <th>One Colour Process</th>
                         <th v-if="!preview">Edit</th>
                     </tr>
                 </thead>
@@ -27,12 +25,6 @@
                         <td>{{ row.department }}</td>
                         <td>
                             <div v-for="action in row.dependent_action" :key="action">{{ action }}<br></div>
-                        </td>
-                        <td>
-                            <span v-if="row.check_value">✅</span>
-                        </td>
-                        <td>
-                            <span v-if="row.one_colour_process">✅</span>
                         </td>
                     </tr>
                 </tbody>
@@ -52,12 +44,6 @@
                             <td>{{ element.department }}</td>
                             <td>
                                 <div v-for="action in element.dependent_action" :key="action">{{ action }}<br></div>
-                            </td>
-                            <td>
-                                <span v-if="element.check_value">✅</span>
-                            </td>
-                            <td>
-                                <span v-if="element.one_colour_process">✅</span>
                             </td>
                             <td>
                                 <div class="cursor-pointer" @click="edit_item(index)" v-html="frappe.utils.icon('edit', 'md')"></div>
@@ -87,8 +73,6 @@
                     </div>
                     <div class="lead-time col-md-2"></div>
                     <div class="department-val col-md-2"></div>
-                    <div style="margin-top:20px;" class="merge-check col-md-1"></div>
-                    <div style="margin-top: 20px;" class="one-colour-check col-md-1"></div>
                 </div>
                 <div style="display: flex;">
                     <div>
@@ -125,8 +109,6 @@ let cur_selected = []
 let in_edit = ref(false)
 let default_list = ref([])
 let edit_index = ref(null)
-let check_value = null
-let one_colour = null
 let preview = ref(false)
 const can_edit = computed(() => !preview.value && cur_frm.doc.docstatus === 0 && Boolean(cur_frm.perm?.[0]?.write))
 const { selected, isAllSelected, isPartlySelected, isSelected, toggle, toggleAll, removeSelected } = useRowSelection(
@@ -207,15 +189,11 @@ function add_action(index=null){
         action = get_input_field(".cur-action", "Link", "action", "SD YRP Action", "SD YRP Action", true, get_action_data);
         lead_time = get_input_field(".lead-time", "Int", "lead_time", "Lead Time", null, true);
         department = get_input_field(".department-val", "Link", "department", "Department", "Department", true);
-        check_value = get_input_field(".merge-check", "Check", "merge_action", "Merge Action", null, true)
-        one_colour = get_input_field(".one-colour-check", "Check", "one_colour_process", "One Colour Process", null, true)
         if(index == 0 || index){
             action.set_value(items.value[index]['action'])
             lead_time.set_value(items.value[index]['lead_time'])
             department.set_value(items.value[index]['department'])
             cur_selected = items.value[index]['dependent_action']
-            check_value.set_value(items.value[index]['check_value'])
-            one_colour.set_value(items.value[index]['one_colour_process'])
         }
     });
 }
@@ -266,8 +244,6 @@ function add_items(){
             "dependent_action": cur_selected,
             "lead_time": lead_time.get_value(),
             "department": department.get_value(),
-            "check_value": check_value.get_value(),
-            "one_colour_process": one_colour.get_value(),
         }
         edit_index.value = null
         default_list.value = []
@@ -278,8 +254,6 @@ function add_items(){
             "dependent_action": cur_selected,
             "lead_time": lead_time.get_value(),
             "department": department.get_value(),
-            "check_value": check_value.get_value(),
-            "one_colour_process": one_colour.get_value(),
         })
     }
     clear_values()
@@ -290,8 +264,6 @@ function clear_values(){
     action.set_value(null)
     lead_time.set_value(null)
     department.set_value(null)
-    check_value.set_value(0)
-    one_colour.set_value(0)
 	cur_selected = []
 }
 

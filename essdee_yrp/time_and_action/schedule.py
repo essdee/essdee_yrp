@@ -59,9 +59,7 @@ def _get_base_date(action, dependencies, effective, previous):
 	depends_on = dependencies.get(action) or []
 	missing = [name for name in depends_on if name not in effective]
 	if missing:
-		frappe.throw(
-			_("{0} depends on {1}, which must come earlier.").format(action, ", ".join(missing))
-		)
+		frappe.throw(_("{0} depends on {1}, which must come earlier.").format(action, ", ".join(missing)))
 	return max((effective[name] for name in depends_on), default=previous)
 
 
