@@ -879,6 +879,9 @@ frappe.production.ui.TandAUpdate = class {
 		this.app = mounted.app;
 		this.vue = mounted.vue;
 	}
+	load_from_route() {
+		this.vue.load_from_route();
+	}
 };
 
 frappe.production.ui.TimeAndActionOrderTracking = class {

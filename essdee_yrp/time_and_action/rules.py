@@ -13,7 +13,7 @@ def format_date(value) -> str:
 	return formatdate(value, "dd-mm-yyyy")
 
 
-def validate_actual_dates(doc, before=None) -> None:
+def validate_actual_dates(doc, before=None, require_reason=True) -> None:
 	"""Check every actual date or reason that differs from `before` (default: the saved doc)."""
 	before = before or doc.get_doc_before_save()
 	old_rows = {row.action: row for row in (before.details if before else [])}
@@ -24,7 +24,7 @@ def validate_actual_dates(doc, before=None) -> None:
 		return
 	if not frappe.flags.in_time_and_action_update:
 		frappe.throw(_("Actual dates and reasons can be entered only from the T&A Update page."))
-	state = ActualDateState(doc)
+	state = ActualDateState(doc, require_reason)
 	for row in changed:
 		old_actual = _get_actual(old_rows.get(row.action))
 		if old_actual and old_actual != str(row.actual_date or ""):
@@ -45,7 +45,8 @@ def _is_changed(row, old) -> bool:
 class ActualDateState:
 	"""Actual dates and dependency links of one T&A as they will be saved."""
 
-	def __init__(self, doc):
+	def __init__(self, doc, require_reason=True):
+		self.require_reason = require_reason
 		self.actual = {
 			row.action: getdate(row.actual_date) if row.actual_date else None for row in doc.details
 		}
@@ -84,7 +85,11 @@ class ActualDateState:
 					row.action, format_date(latest)
 				)
 			)
-		if getdate(row.actual_date) > getdate(row.rescheduled_date) and not (row.reason or "").strip():
+		if (
+			self.require_reason
+			and getdate(row.actual_date) > getdate(row.rescheduled_date)
+			and not row.reason
+		):
 			frappe.throw(
 				_("Enter a reason: {0} is later than its expected date {1}.").format(
 					row.action, format_date(row.rescheduled_date)
