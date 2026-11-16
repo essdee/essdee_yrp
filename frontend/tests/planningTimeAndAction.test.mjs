@@ -6,7 +6,7 @@ import { LOT_VIEW_TABS } from "../src/departments/planning/lot/lotLayout.js"
 import { readFileSync } from "node:fs"
 
 import {
-	REPORT_COLUMNS, canEditRow, countStatuses, getBlockedBy, getDelay, getImpact, getNextActionChip, getPendingSummary,
+	REPORT_COLUMNS, againstLabel, canEditRow, countStatuses, getBlockedBy, getDelay, getImpact, getNextActionChip, getPendingSummary,
 	getReviseMessage, getRowStatus, getSaveMessage, getStatusNote, reportCell, reportTone,
 } from "../src/departments/planning/time-and-action/timeAndAction.js"
 import { departments, getWorkspacePaths } from "../src/departments/registry.js"
@@ -97,7 +97,14 @@ test("update page is an accordion without the Desk matrix or Rescheduled Details
 	const editor = readFileSync(new URL("TimeAndActionEditor.vue", directory), "utf8")
 	assert.match(page, /Discard changes to \$\{expanded\}\?/)
 	assert.match(page, /<th>Next Action<\/th>/)
-	for (const label of ["Status", "Action", "Work Station", "Planned Date", "Rescheduled Date", "Actual Date", "Reason", "Delay"]) assert.match(editor, new RegExp(`<th>${label}</th>`))
+	assert.match(page, /<th>Against<\/th><th>Against ID<\/th>/)
+	assert.doesNotMatch(page, /<th[^>]*>Qty<\/th>/)
+	assert.match(editor, /<th>Planned Date<\/th><th>Freeze Date<\/th><th>Rescheduled Date<\/th>/)
+	for (const label of ["Status", "Action", "Work Station", "Planned Date", "Freeze Date", "Rescheduled Date", "Actual Date", "Reason", "Delay"]) assert.match(editor, new RegExp(`<th>${label}</th>`))
 	assert.doesNotMatch(editor, /Rescheduled Details|ta-matrix/)
 	assert.match(editor, /previewActualDates|setActual/)
+})
+
+test("Against column shows the Desk label of the T&A's against DocType", () => {
+	assert.deepEqual(["SD YRP Lot", "YRP Production Order"].map(againstLabel), ["Lot", "Production Order"])
 })

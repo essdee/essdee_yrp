@@ -101,6 +101,11 @@ export function getReviseMessage(data) {
 
 export const REVISE_HELP = "Revise Dates makes the current Rescheduled Dates the new baseline: every action's Freeze Date is replaced by its Rescheduled Date, and the old dates are logged with your reason. Only the revised-date approver role can do it, a limited number of times per T&A."
 
+/** Desk label of a T&A's `against` DocType. */
+export function againstLabel(doctype) {
+	return doctype === "SD YRP Lot" ? "Lot" : doctype === "YRP Production Order" ? "Production Order" : doctype || ""
+}
+
 /** Next Action chip of a list row: Overdue once its Rescheduled Date has passed, else Due on that date. */
 export function getNextActionChip(row, today = todayIso()) {
 	if (!row.next_action) return null

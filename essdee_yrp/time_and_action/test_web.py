@@ -1,6 +1,7 @@
 import frappe
 
 from essdee_yrp.time_and_action.create import create_time_and_action
+from essdee_yrp.time_and_action.test_create import submitted_production_order
 from essdee_yrp.time_and_action.test_rules import DEPENDENCIES, STEPS, set_window
 from essdee_yrp.time_and_action.testing import (
 	TimeAndActionTestCase,
@@ -54,3 +55,11 @@ class TestTimeAndActionWeb(TimeAndActionTestCase):
 		frappe.db.set_value("SD YRP Time and Action Detail", first.name, "actual_date", first.rescheduled_date)
 		row = get_open_time_and_actions(lot=self.lot)[0]
 		self.assertEqual((row.dated, row.next_action), (1, doc.details[1].action))
+
+	def test_against_for_lot_and_production_order(self):
+		order = submitted_production_order()
+		name = create_time_and_action("YRP Production Order", order, self.master.name, "2026-11-02")
+		rows = {row.name: row for row in get_open_time_and_actions()}
+		self.assertEqual((rows[self.name].against, rows[self.name].against_id), ("SD YRP Lot", self.lot))
+		self.assertEqual((rows[name].against, rows[name].against_id), ("YRP Production Order", order))
+		self.assertEqual(rows[name].total, len(self.master.details))

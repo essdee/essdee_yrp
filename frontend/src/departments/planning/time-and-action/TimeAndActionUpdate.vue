@@ -11,7 +11,7 @@
 				<table class="erp-data-table ta-list">
 					<thead>
 						<tr>
-							<th class="ta-list__chev" aria-hidden="true" /><th>T&A</th><th>Lot</th><th>Item</th><th class="erp-number">Qty</th><th>Start Date</th>
+							<th class="ta-list__chev" aria-hidden="true" /><th>T&A</th><th>Against</th><th>Against ID</th><th>Item</th><th>Start Date</th>
 							<th>Expected Delivery</th><th>Progress</th><th>Next Action</th><th class="erp-number">Delay</th><th>Status</th>
 						</tr>
 					</thead>
@@ -20,9 +20,9 @@
 							<tr class="ta-list__row" :class="{ 'is-open': row.name === expanded }" tabindex="0" :aria-expanded="row.name === expanded" @click="toggle(row.name)" @keydown.enter.self="toggle(row.name)">
 								<td class="ta-list__chev"><i class="pi pi-chevron-down" aria-hidden="true" /></td>
 								<td class="ta-list__nowrap"><strong>{{ row.name }}</strong><span v-if="row.name === expanded" class="ta-list__open-tag">Open</span></td>
+								<td class="ta-list__nowrap">{{ againstLabel(row.against) }}</td>
 								<td class="ta-list__nowrap">{{ row.against_id }}</td>
 								<td>{{ row.item }}</td>
-								<td class="erp-number">{{ row.qty }}</td>
 								<td>{{ formatDisplayDate(row.start_date, "") }}</td>
 								<td>{{ formatDisplayDate(row.end_date, "") }}</td>
 								<td class="ta-list__nowrap">{{ row.dated }} of {{ row.total }} dated</td>
@@ -60,7 +60,7 @@ import DocumentConfirmationDialog from "../../../components/documents/DocumentCo
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import TimeAndActionChip from "./TimeAndActionChip.vue"
 import TimeAndActionEditor from "./TimeAndActionEditor.vue"
-import { getNextActionChip } from "./timeAndAction.js"
+import { againstLabel, getNextActionChip } from "./timeAndAction.js"
 
 /** Accordion of open (not Completed) T&As filtered by Lot and Item; one opens inline at a time for updating. */
 const route = useRoute()

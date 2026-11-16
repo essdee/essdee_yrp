@@ -26,8 +26,8 @@
 			</header>
 			<div class="ta-editor__scroll">
 				<table class="erp-data-table ta-acts">
-					<colgroup><col class="ta-col-status"><col class="ta-col-action"><col class="ta-col-station"><col class="ta-col-planned"><col class="ta-col-rescheduled"><col class="ta-col-actual"><col class="ta-col-reason"><col class="ta-col-delay"></colgroup>
-					<thead><tr><th>Status</th><th>Action</th><th>Work Station</th><th>Planned Date</th><th>Rescheduled Date</th><th>Actual Date</th><th>Reason</th><th>Delay</th></tr></thead>
+					<colgroup><col class="ta-col-status"><col class="ta-col-action"><col class="ta-col-station"><col class="ta-col-planned"><col class="ta-col-freeze"><col class="ta-col-rescheduled"><col class="ta-col-actual"><col class="ta-col-reason"><col class="ta-col-delay"></colgroup>
+					<thead><tr><th>Status</th><th>Action</th><th>Work Station</th><th>Planned Date</th><th>Freeze Date</th><th>Rescheduled Date</th><th>Actual Date</th><th>Reason</th><th>Delay</th></tr></thead>
 					<tbody>
 						<template v-for="row in rows" :key="row.action">
 							<tr :class="rowClass(row)">
@@ -42,7 +42,8 @@
 								</td>
 								<td><span v-if="row.work_station">{{ row.work_station }}</span><span v-else class="ta-subtle">—</span></td>
 								<td class="ta-acts__planned">{{ formatDisplayDate(row.planned_start_date, "") }}</td>
-								<td class="ta-acts__rescheduled" :class="{ 'is-shifted': row.rescheduled_date !== row.planned_start_date }">
+								<td class="ta-acts__planned">{{ formatDisplayDate(row.date, "") }}</td>
+								<td class="ta-acts__rescheduled" :class="{ 'is-shifted': row.rescheduled_date !== row.date }">
 									<span v-if="row.oldRescheduledDate" class="ta-acts__moved"><s>{{ formatDisplayDate(row.oldRescheduledDate, "") }}</s><b :class="{ 'is-earlier': row.rescheduled_date < row.oldRescheduledDate }">{{ formatDisplayDate(row.rescheduled_date, "") }}</b></span>
 									<template v-else>{{ formatDisplayDate(row.rescheduled_date, "") }}</template>
 								</td>
@@ -57,7 +58,7 @@
 									<span v-else class="ta-subtle">—</span>
 								</td>
 							</tr>
-							<tr v-if="row.error" class="ta-acts__error"><td colspan="8"><div role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true" />{{ row.error }}</div></td></tr>
+							<tr v-if="row.error" class="ta-acts__error"><td colspan="9"><div role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true" />{{ row.error }}</div></td></tr>
 						</template>
 					</tbody>
 				</table>
@@ -226,9 +227,9 @@ editor.load()
 .ta-editor__buttons { display: flex; align-items: center; gap: 8px; }
 .ta-editor__hint { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
 .ta-editor__scroll { min-width: 0; max-height: min(70vh, 760px); overflow: auto; }
-.ta-acts { table-layout: fixed; min-width: 1060px; }
-.ta-col-status { width: 108px; } .ta-col-station { width: 128px; } .ta-col-planned { width: 104px; } .ta-col-rescheduled { width: 116px; }
-.ta-col-actual { width: 176px; } .ta-col-reason { width: 22%; } .ta-col-delay { width: 118px; }
+.ta-acts { table-layout: fixed; min-width: 1120px; }
+.ta-col-status { width: 104px; } .ta-col-station { width: 106px; } .ta-col-planned, .ta-col-freeze { width: 98px; } .ta-col-rescheduled { width: 110px; }
+.ta-col-actual { width: 180px; } .ta-col-reason { width: 18%; } .ta-col-delay { width: 112px; }
 .ta-editor .ta-acts.erp-data-table > thead > tr > th { position: sticky; top: 0; z-index: 2; padding: 10px 12px; white-space: normal; line-height: 1.25; background: var(--erp-report-head-bg); border-bottom: 1px solid var(--erp-border-strong); color: var(--erp-text-secondary); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr > td { height: 56px; padding: 7px 12px; vertical-align: middle; background: var(--ta-row-bg, transparent); border-bottom: 1px solid var(--erp-border); box-shadow: var(--ta-hover, 0 0 #0000); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr > td:first-child { box-shadow: var(--ta-row-mark, 0 0 #0000), var(--ta-hover, 0 0 #0000); }
