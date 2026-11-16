@@ -234,6 +234,16 @@ def _row_dict(row) -> dict:
 	return as_dict() if callable(as_dict) else dict(row)
 
 
+def get_goods_received_note_allow_on_submit_fields(doc) -> list[str]:
+	"""Allow on Submit fields the /web form may edit; stock rows stay locked to the ledger."""
+
+	return [
+		fieldname
+		for fieldname in get_allow_on_submit_fields(doc)
+		if fieldname not in {"items", "correction_items"}
+	]
+
+
 def _get_grn(name: str, permission: str = "read"):
 	doc = frappe.get_doc("YRP Goods Received Note", name)
 	doc.check_permission(permission)
@@ -535,6 +545,7 @@ def get_goods_received_note_workspace(name: str | None = None, source=None) -> d
 	workspace["record"]["cut_panel_movement"] = doc.get("cut_panel_movement")
 	workspace.update(
 		{
+			"allow_on_submit_fields": get_goods_received_note_allow_on_submit_fields(doc),
 			"values": _document_values(doc, readable_fields),
 			"matrices": {
 				"items": item_matrix,
@@ -1141,18 +1152,12 @@ def save_goods_received_note(
 			if cint(submit):
 				frappe.throw(_("A submitted Goods Received Note cannot be submitted again."))
 			submitted_update = True
-			allow_on_submit_fields = set(get_allow_on_submit_fields(doc))
+			allow_on_submit_fields = set(get_goods_received_note_allow_on_submit_fields(doc))
 			allowed_payload_fields = {
 				fieldname
 				for fieldname in GOODS_RECEIVED_NOTE_EDITOR_FIELDS
 				if fieldname in allow_on_submit_fields
 			}
-			if "items" in allow_on_submit_fields:
-				allowed_payload_fields.update({"item_details", "item_groups"})
-			if "correction_items" in allow_on_submit_fields:
-				allowed_payload_fields.update(
-					{"correction_item_details", "correction_item_groups"}
-				)
 			denied = set(values) - allowed_payload_fields
 			if denied:
 				frappe.throw(

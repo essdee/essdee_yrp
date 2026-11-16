@@ -159,20 +159,20 @@
 											</td>
 										<template v-if="hasPrimaryAttribute(section.group)">
 											<td v-for="value in primaryValues(section.group)" :key="value" class="erp-number goods-received-note-matrix__quantity goods-received-note-matrix__primary-cell">
-												<InputNumber v-model="row.values[value].qty" :aria-label="matrixInputLabel('Receive', section, row, value)" :min="0" :max-fraction-digits="3" :disabled="!canEditMatrixBlock(block.kind)" fluid @update:model-value="markDirty" @input="row.values[value].qty = $event.value; markDirty()" />
+												<InputNumber v-model="row.values[value].qty" :aria-label="matrixInputLabel('Receive', section, row, value)" :min="0" :max-fraction-digits="3" :disabled="!canEditMatrix" fluid @update:model-value="markDirty" @input="row.values[value].qty = $event.value; markDirty()" />
 												<small>Available {{ formatQty(availableQuantity(row.values[value])) }}</small>
-												<div v-if="secondaryUom(row, value)" class="goods-received-note-matrix__secondary-inline"><InputNumber v-model="row.values[value].secondary_qty" :aria-label="matrixInputLabel('Secondary quantity for', section, row, value, secondaryUom(row, value))" :min="0" :max-fraction-digits="3" :disabled="!canEditMatrixBlock(block.kind)" fluid @update:model-value="markDirty" @input="row.values[value].secondary_qty = $event.value; markDirty()" /><span><DocumentLink doctype="UOM" :name="secondaryUom(row, value)" :label="secondaryUom(row, value)" /></span></div>
+												<div v-if="secondaryUom(row, value)" class="goods-received-note-matrix__secondary-inline"><InputNumber v-model="row.values[value].secondary_qty" :aria-label="matrixInputLabel('Secondary quantity for', section, row, value, secondaryUom(row, value))" :min="0" :max-fraction-digits="3" :disabled="!canEditMatrix" fluid @update:model-value="markDirty" @input="row.values[value].secondary_qty = $event.value; markDirty()" /><span><DocumentLink doctype="UOM" :name="secondaryUom(row, value)" :label="secondaryUom(row, value)" /></span></div>
 											</td>
 										</template>
 										<template v-else>
 											<td class="erp-number goods-received-note-matrix__available">{{ formatQty(availableQuantity(row.values.default)) }}</td>
-											<td class="erp-number goods-received-note-matrix__quantity"><InputNumber v-model="row.values.default.qty" :aria-label="matrixInputLabel('Receive', section, row, 'default')" :min="0" :max-fraction-digits="3" :disabled="!canEditMatrixBlock(block.kind)" fluid @update:model-value="markDirty" @input="row.values.default.qty = $event.value; markDirty()" /></td>
+											<td class="erp-number goods-received-note-matrix__quantity"><InputNumber v-model="row.values.default.qty" :aria-label="matrixInputLabel('Receive', section, row, 'default')" :min="0" :max-fraction-digits="3" :disabled="!canEditMatrix" fluid @update:model-value="markDirty" @input="row.values.default.qty = $event.value; markDirty()" /></td>
 											<td v-if="hasSecondaryQuantity(section.group)" class="erp-number goods-received-note-matrix__secondary">
-												<InputNumber v-model="row.values.default.secondary_qty" :aria-label="matrixInputLabel('Secondary quantity for', section, row, 'default', secondaryUom(row, 'default'))" :min="0" :max-fraction-digits="3" :disabled="!canEditMatrixBlock(block.kind)" fluid @update:model-value="markDirty" @input="row.values.default.secondary_qty = $event.value; markDirty()" />
+												<InputNumber v-model="row.values.default.secondary_qty" :aria-label="matrixInputLabel('Secondary quantity for', section, row, 'default', secondaryUom(row, 'default'))" :min="0" :max-fraction-digits="3" :disabled="!canEditMatrix" fluid @update:model-value="markDirty" @input="row.values.default.secondary_qty = $event.value; markDirty()" />
 												<small><DocumentLink doctype="UOM" :name="secondaryUom(row, 'default')" :label="secondaryUom(row, 'default')" /></small>
 											</td>
 										</template>
-											<td class="goods-received-note-matrix__comments"><InputText v-model="row.comments" aria-label="Row comments" :disabled="!canEditMatrixBlock(block.kind)" @update:model-value="markDirty" /><Button v-if="block.kind === 'items' && canEditDraft && !workspace.special_source?.read_only" label="Add split" size="small" severity="secondary" text @click="openSplit(section.group, row)" /></td><td class="erp-number goods-received-note-matrix__total">{{ formatQty(rowTotal(row)) }}</td>
+											<td class="goods-received-note-matrix__comments"><InputText v-model="row.comments" aria-label="Row comments" :disabled="!canEditMatrix" @update:model-value="markDirty" /><Button v-if="block.kind === 'items' && canEditDraft && !workspace.special_source?.read_only" label="Add split" size="small" severity="secondary" text @click="openSplit(section.group, row)" /></td><td class="erp-number goods-received-note-matrix__total">{{ formatQty(rowTotal(row)) }}</td>
 											<td class="erp-number goods-received-note-matrix__value">{{ formatMoney(rowValue(row)) }}</td>
 											<td><DocumentLink doctype="UOM" :name="row.default_uom || row.uom" :label="row.default_uom || row.uom || '—'" /></td>
 										</tr>
@@ -433,11 +433,7 @@ const hasSubRowSelect = computed(() => hasActualDia.value || canEditLots.value)
 const removableSubRows = computed(() => itemGroups.value.flatMap((group) => (group.items || []).filter((row) => canRemoveSubRow(group, row))))
 const subRowSelection = useRowSelection(removableSubRows)
 const canEditLots = computed(() => canEditDraft.value && form.against === "Purchase Order" && !form.is_return && itemsNeedLotEditor(itemGroups.value, workspace.value.lot_options, lotFieldname.value))
-function canEditMatrixBlock(kind) {
-	if (!canEdit.value || workspace.value.special_source?.read_only) return false
-	if (!editingSubmitted.value) return true
-	return allowOnSubmitFields.value.has(kind === "items" ? "items" : "correction_items")
-}
+const canEditMatrix = computed(() => canEditDraft.value && !workspace.value.special_source?.read_only)
 // A Cut Panel Movement decides exact or collapsed bundle handling for its GRN.
 const cutPanelMovementOwned = computed(() => Boolean(form.cut_panel_movement || workspace.value.record?.cut_panel_movement))
 const additionalGrn = computed(() => additionalGrnFieldState({ against: form.against || workspace.value.record?.against, isReturn: form.is_return, isRework: form.is_rework, isNew: !currentName.value, canEditDraft: canEditDraft.value }))
@@ -723,8 +719,6 @@ function submittedUpdateValues() {
 	for (const fieldname of allowOnSubmitFields.value) {
 		if (fieldname in form) values[fieldname] = clone(form[fieldname])
 	}
-	if (allowOnSubmitFields.value.has("items")) values.item_details = clone(itemGroups.value)
-	if (allowOnSubmitFields.value.has("correction_items")) values.correction_item_details = clone(correctionGroups.value)
 	return values
 }
 
