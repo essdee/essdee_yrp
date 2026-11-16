@@ -76,6 +76,7 @@ const PlanningLotEditorPage = () => import("../departments/planning/lot/LotEdito
 const PlanningReports = () => import("../departments/planning/PlanningReports.vue")
 const PlanningDashboard = () => import("../departments/planning/dashboard/PlanningDashboard.vue")
 const PlanningBulkClose = () => import("../departments/planning/PlanningBulkClose.vue")
+const PlanningTimeAndActionUpdate = () => import("../departments/planning/time-and-action/TimeAndActionUpdate.vue")
 const ItemsList = () => import("../departments/purchase/ItemsList.vue")
 const ItemPage = () => import("../departments/purchase/ItemPage.vue")
 const ItemEditorPage = () => import("../departments/purchase/ItemEditorPage.vue")
@@ -862,6 +863,7 @@ const routes = [
 	},
 	...boxStickerPrintPages("/planning/box-sticker-prints", PLANNING_BOX_STICKER_PAGES),
 	{ path: "/planning/bulk-close", name: PLANNING_ROUTES.bulkClose, component: PlanningBulkClose },
+	{ path: "/planning/time-and-action-update", name: PLANNING_ROUTES.timeAndActionUpdate, component: PlanningTimeAndActionUpdate },
 	{ path: "/planning/reports", name: PLANNING_ROUTES.reports, component: PlanningReports },
 	{ path: "/planning/dashboard", name: PLANNING_ROUTES.dashboard, component: PlanningDashboard },
 	{ path: "/merch/item-production-details", name: MERCH_ROUTES.ipds, component: IpdList },

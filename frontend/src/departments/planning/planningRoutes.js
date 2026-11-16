@@ -8,6 +8,7 @@ export const PLANNING_ROUTES = {
 	lots: "planning-lots",
 	lot: "planning-lot",
 	lotEdit: "planning-lot-edit",
+	timeAndActionUpdate: "planning-time-and-action-update",
 	productionOrders: "planning-production-orders",
 	productionOrderNew: "planning-production-order-new",
 	productionOrder: "planning-production-order",

@@ -8,7 +8,10 @@ export const LOT_TABS = [
 	{ key: "bom", label: "BOM" },
 ]
 
-export const LOT_VIEW_TABS = LOT_TABS.map((tab) => (tab.key === "lot" ? { ...tab, label: "Summary" } : tab))
+export const LOT_VIEW_TABS = [
+	...LOT_TABS.map((tab) => (tab.key === "lot" ? { ...tab, label: "Summary" } : tab)),
+	{ key: "time-and-action", label: "Time and Action" },
+]
 
 const LEGACY_LOT_TABS = {
 	details: { tab: "lot" },

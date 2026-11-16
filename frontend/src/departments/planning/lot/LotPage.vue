@@ -53,6 +53,9 @@
 							<TabPanel v-else-if="activeTab === 'bom'" value="bom">
 								<LotBomPanel :workspace="workspace" />
 							</TabPanel>
+							<TabPanel v-else-if="activeTab === 'time-and-action'" value="time-and-action">
+								<LotTimeAndActionTab :lot="lotId" :time-and-action="lotTimeAndAction.time_and_action || ''" :load-error="lotTimeAndAction.error || ''" />
+							</TabPanel>
 						</TabPanels>
 					</Tabs>
 				</template>
@@ -75,6 +78,13 @@
 			:name="selectedDocument.name"
 			@hide="documentsRail?.restoreFocus()"
 		/>
+		<CreateTimeAndActionDialog
+			v-model:visible="createTimeAndActionVisible"
+			:lot="lotId"
+			:item="lotTimeAndAction.item || ''"
+			:qty="lotTimeAndAction.qty || 0"
+			@created="timeAndActionCreated"
+		/>
 	</DepartmentPage>
 </template>
 
@@ -88,6 +98,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
 
 import { getLotDocuments, getLotWorkspace } from "../../../api/planning.js"
+import { getLotTimeAndAction } from "../../../api/timeAndAction.js"
 import DepartmentPage from "../../../components/DepartmentPage.vue"
 import DocumentActionStrip from "../../../components/documents/DocumentActionStrip.vue"
 import { preserveListNavigationState } from "../../../router/listDocumentNavigation.js"
@@ -99,13 +110,15 @@ import LotDiaConversionsTab from "./LotDiaConversionsTab.vue"
 import LotIdentity from "./LotIdentity.vue"
 import LotViewMain from "./LotViewMain.vue"
 import { editTabFor } from "./lotEditor.js"
-import { LOT_TABS, LOT_VIEW_TABS } from "./lotLayout.js"
+import { LOT_VIEW_TABS } from "./lotLayout.js"
 import { lotTabCount } from "./lotViews.js"
 import { useLotLayout } from "./useLotLayout.js"
 import "./lot.css"
 import { PLANNING_ROUTES, isCurrentRecordRequest } from "../planningViews.js"
 import LotDocumentDialog from "./LotDocumentDialog.vue"
 import LotDocumentsRail from "./LotDocumentsRail.vue"
+import CreateTimeAndActionDialog from "../time-and-action/CreateTimeAndActionDialog.vue"
+import LotTimeAndActionTab from "../time-and-action/LotTimeAndActionTab.vue"
 
 const props = defineProps({ lotId: { type: String, required: true } })
 const router = useRouter()
@@ -143,13 +156,35 @@ const headerValues = computed(
 )
 const item = computed(() => headerValues.value.get("item"))
 const deliveryDate = computed(() => headerValues.value.get("expected_delivery_date"))
-const { activeTab, expanded, scrollTo } = useLotLayout(LOT_TABS, useRoute(), router)
+const { activeTab, expanded, scrollTo } = useLotLayout(LOT_VIEW_TABS, useRoute(), router)
 if (!expanded.value.includes("process-flow")) expanded.value = [...expanded.value, "process-flow"]
 
-const lotActions = computed(() => workspace.value.permissions?.can_write ? [{
- key: "edit", label: "Edit", icon: "pi pi-pencil", primary: true,
- command: openEditor, disabled: Boolean(acting.value),
-}] : [])
+const lotTimeAndAction = ref({})
+const createTimeAndActionVisible = ref(false)
+const lotActions = computed(() => [
+	...(lotTimeAndAction.value.can_create ? [{
+		key: "create-time-and-action", label: "Create T&A", icon: "pi pi-calendar-plus",
+		command: () => { createTimeAndActionVisible.value = true }, disabled: Boolean(acting.value),
+	}] : []),
+	...(workspace.value.permissions?.can_write ? [{
+		key: "edit", label: "Edit", icon: "pi pi-pencil", primary: true,
+		command: openEditor, disabled: Boolean(acting.value),
+	}] : []),
+])
+async function loadTimeAndAction() {
+	const requestedName = props.lotId
+	lotTimeAndAction.value = {}
+	try {
+		const payload = await getLotTimeAndAction(requestedName)
+		if (requestedName === props.lotId) lotTimeAndAction.value = payload
+	} catch (reason) {
+		if (requestedName === props.lotId) lotTimeAndAction.value = { error: reason?.message || "Unable to load the Time and Action." }
+	}
+}
+function timeAndActionCreated() {
+	loadTimeAndAction()
+	activeTab.value = "time-and-action"
+}
 function openEditor() {
  return router.push({ name: PLANNING_ROUTES.lotEdit, params: { lotId: props.lotId },
   query: { tab: editTabFor(activeTab.value) },
@@ -164,6 +199,7 @@ async function load(refresh = false) {
 	loadError.value = ""
 	workspace.value = {}
 	loadDocuments()
+	loadTimeAndAction()
 	try {
 		const payload = await getLotWorkspace(requestedName)
 		if (isCurrentRecordRequest(requestedName, props.lotId, sequence, loadSequence))

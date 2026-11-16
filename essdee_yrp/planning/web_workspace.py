@@ -89,6 +89,10 @@ def get_capabilities() -> dict:
 		"sewing_plans": _with_label("Sewing Plan", sewing_sections.get("plans")),
 		"finishing_plans": _with_label("Finishing Plan", finishing_sections.get("plans")),
 		"lots": _with_label("Lot", permission_flags("SD YRP Lot", ("read", "write"))),
+		"time_and_action_update": _with_label(
+			"Time and Action Update",
+			permission_flags("SD YRP Time and Action", ("read", "write", "create")),
+		),
 		"production_orders": sales_sections.get("production_orders") or {},
 		"work_orders": fabric_store_sections.get("work_orders") or {},
 		"delivery_challans": fabric_store_sections.get("delivery_challans") or {},
