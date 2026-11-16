@@ -77,7 +77,7 @@ def get_schedule_preview(master: str, start_date: str) -> list[dict]:
 
 @frappe.whitelist()
 def create_time_and_action(
-	against: str, against_id: str, master: str, start_date: str, work_stations: dict | None = None
+	against: str, against_id: str, master: str, start_date: str, work_stations: str | dict | None = None
 ) -> str:
 	frappe.has_permission(TIME_AND_ACTION, "create", throw=True)
 	doc = frappe.new_doc(TIME_AND_ACTION)

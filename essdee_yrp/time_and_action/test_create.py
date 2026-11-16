@@ -89,6 +89,18 @@ class TestCreateTimeAndAction(TimeAndActionTestCase):
 			frappe.get_doc("SD YRP Time and Action", default_name).details[3].work_station, default
 		)
 
+	def test_create_accepts_work_stations_as_json_from_desk(self):
+		_default, other = make_work_stations("TA-TEST-CUT")
+		name = frappe.call(
+			"essdee_yrp.time_and_action.create.create_time_and_action",
+			against="SD YRP Lot",
+			against_id=make_lot(),
+			master=self.master.name,
+			start_date=START,
+			work_stations=frappe.as_json({"TA-TEST-CUT": other}),
+		)
+		self.assertEqual(frappe.get_doc("SD YRP Time and Action", name).details[3].work_station, other)
+
 	def test_second_ta_for_same_lot_is_refused(self):
 		lot = make_lot()
 		create_time_and_action("SD YRP Lot", lot, self.master.name, START)
