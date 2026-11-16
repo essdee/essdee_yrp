@@ -112,10 +112,12 @@ class TestActualDateRules(TimeAndActionTestCase):
 	def complete(self):
 		save_actuals(self.name, {"TA-TEST-YARN": "2026-11-04", "TA-TEST-TRIMS": "2026-11-05"})
 		save_actuals(self.name, {"TA-TEST-KNIT": "2026-11-07"})
-		return save_actuals(self.name, {"TA-TEST-CUT": "2026-11-08"})
+		doc = save_actuals(self.name, {"TA-TEST-CUT": "2026-11-08"})
+		self.assertEqual(doc.status, "In Progress")
+		frappe.db.set_value("SD YRP Time and Action", self.name, "status", "Completed")
 
 	def test_completed_ta_refuses_actual_date_changes(self):
-		self.assertEqual(self.complete().status, "Completed")
+		self.complete()
 		with self.assertRaisesRegex(frappe.ValidationError, "Completed"):
 			save_actuals(self.name, {"TA-TEST-CUT": "2026-11-09"})
 
@@ -124,13 +126,4 @@ class TestActualDateRules(TimeAndActionTestCase):
 		doc = frappe.get_doc("SD YRP Time and Action", self.name)
 		doc.details[0].date = "2026-11-10"
 		with self.assertRaisesRegex(frappe.ValidationError, "Completed"):
-			doc.save()
-
-	def test_reopen_flag_still_runs_dependency_rules(self):
-		self.complete()
-		doc = frappe.get_doc("SD YRP Time and Action", self.name)
-		doc.details[0].actual_date = None
-		doc.flags.reopening = True
-		frappe.flags.in_time_and_action_update = True
-		with self.assertRaisesRegex(frappe.ValidationError, "TA-TEST-KNIT"):
 			doc.save()

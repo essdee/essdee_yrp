@@ -1,6 +1,9 @@
 <template>
     <div v-if="items.length > 0">
-        <h4>Report</h4>
+        <div style="display:flex;width:100%; justify-content: space-between;">
+            <h4>Report</h4>
+            <button v-if="can_complete" @click="make_complete()" class="btn btn-success">Complete T&A</button>
+        </div>
         <table class="table table-sm table-bordered">
             <tr>
                 <th>S.No</th>
@@ -42,6 +45,7 @@
 import { ref, onMounted } from 'vue';
 
 const items = ref([])
+const can_complete = ref(false)
 const time_and_action = cur_frm.doc.__onload?.time_and_action
 
 onMounted(() => {
@@ -51,9 +55,21 @@ onMounted(() => {
         args: { time_and_action },
         callback: (r) => {
             items.value = r.message.rows
+            can_complete.value = r.message.can_complete
         },
     })
 })
+
+function make_complete() {
+    frappe.confirm(__("Complete {0}? Its dates are locked after this.", [time_and_action]), () => {
+        frappe.call({
+            method: "essdee_yrp.time_and_action.update.complete_time_and_action",
+            args: { time_and_action },
+            freeze: true,
+            callback: () => cur_frm.reload_doc(),
+        })
+    })
+}
 
 function date_format(date) {
     return date ? String(date).split("-").reverse().join("-") : ""

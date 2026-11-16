@@ -6,6 +6,7 @@
             <div class="col-md-7" style="padding-top: 27px;">
                 <button class="btn btn-success" @click="load_by_filter()">Show</button>
                 <button v-if="data && data.can_revise && !is_edited" class="btn btn-default ml-3" @click="revise()">Revise Dates</button>
+                <button v-if="data && data.can_complete && !is_edited" class="btn btn-success ml-3" @click="complete()">Complete T&A</button>
                 <template v-if="is_edited">
                     <span class="indicator-pill no-indicator-dot whitespace-nowrap orange ml-3"><span>Not Saved</span></span>
                     <button class="btn btn-default ml-3" @click="load(data.name)">Discard</button>
@@ -236,6 +237,17 @@ function revise() {
         __("Dispatch date changes from {0} to {1}. Revise the dates?", [format_date(last.date), format_date(last.rescheduled_date)]),
         __("Revise"),
     )
+}
+
+function complete() {
+    frappe.confirm(__("Complete {0}? Its dates are locked after this.", [data.value.name]), () => {
+        frappe.call({
+            method: "essdee_yrp.time_and_action.update.complete_time_and_action",
+            args: { time_and_action: data.value.name },
+            freeze: true,
+            callback: () => load(data.value.name),
+        })
+    })
 }
 
 function show_revisions() {

@@ -143,8 +143,13 @@ def get_user_context(doc) -> dict:
 		"is_administrator": frappe.session.user == "Administrator",
 		"can_revise": can_revise(doc, settings),
 		"can_revert": is_time_and_action_admin(settings),
+		"can_complete": can_complete(doc),
 		"can_reopen": doc.status == "Completed" and "System Manager" in frappe.get_roles(),
 	}
+
+
+def can_complete(doc) -> bool:
+	return doc.status == "In Progress" and not get_pending_actions(doc) and doc.has_permission("write")
 
 
 def can_revise(doc, settings) -> bool:
@@ -196,18 +201,34 @@ def revert_time_and_action(time_and_action: str) -> None:
 
 
 @frappe.whitelist()
+def complete_time_and_action(time_and_action: str) -> None:
+	"""Mark a T&A Completed once every action has an actual date; it is locked after."""
+	doc = frappe.get_doc(TIME_AND_ACTION, time_and_action)
+	doc.check_permission("write")
+	if doc.status != "In Progress":
+		frappe.throw(_("Time and Action {0} is {1}.").format(time_and_action, doc.status))
+	pending = get_pending_actions(doc)
+	if pending:
+		frappe.throw(_("Enter actual dates for all actions first. Pending: {0}").format(", ".join(pending)))
+	set_status(doc, "Completed")
+
+
+@frappe.whitelist()
 def reopen_time_and_action(time_and_action: str) -> None:
-	"""Remove the last action's actual date so a Completed T&A is In Progress again. System Manager only."""
+	"""Set a Completed T&A back to In Progress, keeping its dates. System Manager only."""
 	frappe.only_for("System Manager")
 	doc = frappe.get_doc(TIME_AND_ACTION, time_and_action)
 	doc.check_permission("write")
 	if doc.status != "Completed":
 		frappe.throw(_("Time and Action {0} is not Completed.").format(time_and_action))
-	doc.details[-1].actual_date = None
-	doc.details[-1].reason = None
-	doc.flags.reopening = True
-	frappe.flags.in_time_and_action_update = True
-	try:
-		doc.save()
-	finally:
-		frappe.flags.in_time_and_action_update = False
+	set_status(doc, "In Progress")
+
+
+def get_pending_actions(doc) -> list[str]:
+	return [row.action for row in doc.details if not row.actual_date]
+
+
+def set_status(doc, status: str) -> None:
+	doc.status = status
+	doc.flags.changing_status = True
+	doc.save()

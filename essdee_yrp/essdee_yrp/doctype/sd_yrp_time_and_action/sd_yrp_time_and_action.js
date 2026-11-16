@@ -12,7 +12,7 @@ frappe.ui.form.on("SD YRP Time and Action", {
 });
 
 function reopen_time_and_action(frm) {
-	frappe.confirm(__("Reopen {0}? The actual date of the last action is removed.", [frm.doc.name]), () => {
+	frappe.confirm(__("Reopen {0}? Its dates can be changed again.", [frm.doc.name]), () => {
 		frappe.call({
 			method: "essdee_yrp.time_and_action.update.reopen_time_and_action",
 			args: { time_and_action: frm.doc.name },
