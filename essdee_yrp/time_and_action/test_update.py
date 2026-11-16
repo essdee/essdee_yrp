@@ -12,10 +12,11 @@ from essdee_yrp.time_and_action.testing import (
 	use_company_holidays,
 )
 from essdee_yrp.time_and_action.update import (
-	complete_time_and_action,
 	get_update_data,
 	preview_actual_dates,
+	reopen_time_and_action,
 	revert_time_and_action,
+	revise_dates,
 	update_actual_dates,
 )
 
@@ -110,9 +111,7 @@ class TestUpdateActualDates(TimeAndActionTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			update_actual_dates(self.name, [change("NOT-A-STEP", "2026-11-04")], self.modified())
 
-	def test_complete_requires_all_actuals(self):
-		with self.assertRaisesRegex(frappe.ValidationError, "all actions"):
-			complete_time_and_action(self.name)
+	def complete(self):
 		update_actual_dates(
 			self.name,
 			[
@@ -123,8 +122,69 @@ class TestUpdateActualDates(TimeAndActionTestCase):
 			],
 			self.modified(),
 		)
-		complete_time_and_action(self.name)
-		self.assertEqual(frappe.db.get_value(TIME_AND_ACTION, self.name, "status"), "Completed")
+
+	def status(self):
+		return frappe.db.get_value(TIME_AND_ACTION, self.name, "status")
+
+	def test_last_actual_date_completes(self):
+		update_actual_dates(
+			self.name,
+			[change("TA-TEST-YARN", "2026-11-04"), change("TA-TEST-TRIMS", "2026-11-05")],
+			self.modified(),
+		)
+		update_actual_dates(self.name, [change("TA-TEST-KNIT", "2026-11-07")], self.modified())
+		self.assertEqual(self.status(), "In Progress")
+		update_actual_dates(self.name, [change("TA-TEST-CUT", "2026-11-08")], self.modified())
+		self.assertEqual(self.status(), "Completed")
+
+	def test_completed_refuses_actual_date_changes(self):
+		self.complete()
+		with self.assertRaisesRegex(frappe.ValidationError, "Completed"):
+			update_actual_dates(self.name, [change("TA-TEST-CUT", "2026-11-09", "late")], self.modified())
+		with self.assertRaisesRegex(frappe.ValidationError, "Completed"):
+			preview_actual_dates(self.name, [change("TA-TEST-CUT", None)], self.modified())
+
+	def test_completed_refuses_revise(self):
+		self.complete()
+		self.assertFalse(get_update_data(self.name)["can_revise"])
+		with self.assertRaises(frappe.PermissionError):
+			revise_dates(self.name, "customer moved delivery")
+
+	def test_desk_save_cannot_reset_status(self):
+		self.complete()
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		doc.status = "In Progress"
+		doc.save()
+		self.assertEqual(self.status(), "Completed")
+
+	def test_system_manager_reopens(self):
+		self.complete()
+		frappe.set_user(make_user("System Manager"))
+		self.assertTrue(get_update_data(self.name)["can_reopen"])
+		reopen_time_and_action(self.name)
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		self.assertEqual(doc.status, "In Progress")
+		self.assertIsNone(doc.details[-1].actual_date)
+		self.assertEqual(getdate(doc.details[-2].actual_date), getdate("2026-11-07"))
+		update_actual_dates(self.name, [change("TA-TEST-CUT", "2026-11-09", "late")], self.modified())
+		self.assertEqual(self.status(), "Completed")
+
+	def test_reopen_refused_without_system_manager(self):
+		self.complete()
+		frappe.set_user(make_user("T & A User", "T & A Admin"))
+		self.assertFalse(get_update_data(self.name)["can_reopen"])
+		with self.assertRaises(frappe.PermissionError):
+			reopen_time_and_action(self.name)
+		self.assertEqual(self.status(), "Completed")
+
+	def test_reopen_refused_when_not_completed(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "not Completed"):
+			reopen_time_and_action(self.name)
+
+	def test_reopen_through_frappe_call(self):
+		self.complete()
+		frappe.call("essdee_yrp.time_and_action.update.reopen_time_and_action", time_and_action=self.name)
+		self.assertEqual(self.status(), "In Progress")
 
 	def test_revert_requires_ta_admin(self):
 		update_actual_dates(self.name, [change("TA-TEST-YARN", "2026-11-04")], self.modified())

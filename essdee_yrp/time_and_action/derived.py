@@ -55,7 +55,10 @@ def set_row_dates(row, expected, holidays: HolidayCalendar) -> None:
 
 
 def set_summary(doc, holidays: HolidayCalendar) -> None:
-	"""Next pending action, expected end date and end-date delays (negative = late)."""
+	"""Next pending action, end date, end-date delays (negative = late) and status.
+
+	The last row sets the end date, so its actual date completes the T&A.
+	"""
 	pending = [row.action for row in doc.details if not row.actual_date]
 	last = doc.details[-1]
 	expected_end = getdate(last.actual_date or last.rescheduled_date)
@@ -63,3 +66,5 @@ def set_summary(doc, holidays: HolidayCalendar) -> None:
 	doc.end_date = expected_end
 	doc.delay = get_working_day_diff(last.planned_start_date, expected_end, holidays)
 	doc.rescheduled_delay = get_working_day_diff(last.date, expected_end, holidays)
+	if doc.status != "Frozen":
+		doc.status = "Completed" if last.actual_date else "In Progress"

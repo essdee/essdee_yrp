@@ -1,9 +1,6 @@
 <template>
     <div v-if="items.length > 0">
-        <div style="display:flex;width:100%; justify-content: space-between;">
-            <h4>Report</h4>
-            <button v-if="status == 'In Progress'" @click="make_complete()" class="btn btn-success">Complete T&A</button>
-        </div>
+        <h4>Report</h4>
         <table class="table table-sm table-bordered">
             <tr>
                 <th>S.No</th>
@@ -45,7 +42,6 @@
 import { ref, onMounted } from 'vue';
 
 const items = ref([])
-const status = ref(null)
 const time_and_action = cur_frm.doc.__onload?.time_and_action
 
 onMounted(() => {
@@ -55,18 +51,9 @@ onMounted(() => {
         args: { time_and_action },
         callback: (r) => {
             items.value = r.message.rows
-            status.value = r.message.status
         },
     })
 })
-
-function make_complete() {
-    frappe.call({
-        method: "essdee_yrp.time_and_action.update.complete_time_and_action",
-        args: { time_and_action },
-        callback: () => cur_frm.reload_doc(),
-    })
-}
 
 function date_format(date) {
     return date ? String(date).split("-").reverse().join("-") : ""

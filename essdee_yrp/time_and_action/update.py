@@ -143,12 +143,18 @@ def get_user_context(doc) -> dict:
 		"is_administrator": frappe.session.user == "Administrator",
 		"can_revise": can_revise(doc, settings),
 		"can_revert": is_time_and_action_admin(settings),
+		"can_reopen": doc.status == "Completed" and "System Manager" in frappe.get_roles(),
 	}
 
 
 def can_revise(doc, settings) -> bool:
 	role = settings.revised_date_approver_role
-	return bool(role and role in frappe.get_roles() and doc.revised < cint(settings.revising_days_limit))
+	return bool(
+		doc.status == "In Progress"
+		and role
+		and role in frappe.get_roles()
+		and doc.revised < cint(settings.revising_days_limit)
+	)
 
 
 def is_time_and_action_admin(settings) -> bool:
@@ -181,19 +187,27 @@ def revise_dates(time_and_action: str, reason: str) -> None:
 
 
 @frappe.whitelist()
-def complete_time_and_action(time_and_action: str) -> None:
-	doc = frappe.get_doc(TIME_AND_ACTION, time_and_action)
-	doc.check_permission("write")
-	pending = [row.action for row in doc.details if not row.actual_date]
-	if pending:
-		frappe.throw(_("Enter actual dates for all actions first. Pending: {0}").format(", ".join(pending)))
-	doc.status = "Completed"
-	doc.save()
-
-
-@frappe.whitelist()
 def revert_time_and_action(time_and_action: str) -> None:
 	"""Delete a T&A, actual dates included. T&A Admin only."""
 	if not is_time_and_action_admin(frappe.get_single("SD YRP T and A Settings")):
 		frappe.throw(_("Only the T&A Admin role can revert a Time and Action."), frappe.PermissionError)
 	frappe.delete_doc(TIME_AND_ACTION, time_and_action)
+
+
+
+@frappe.whitelist()
+def reopen_time_and_action(time_and_action: str) -> None:
+	"""Remove the last action's actual date so a Completed T&A is In Progress again. System Manager only."""
+	frappe.only_for("System Manager")
+	doc = frappe.get_doc(TIME_AND_ACTION, time_and_action)
+	doc.check_permission("write")
+	if doc.status != "Completed":
+		frappe.throw(_("Time and Action {0} is not Completed.").format(time_and_action))
+	doc.details[-1].actual_date = None
+	doc.details[-1].reason = None
+	doc.flags.reopening = True
+	frappe.flags.in_time_and_action_update = True
+	try:
+		doc.save()
+	finally:
+		frappe.flags.in_time_and_action_update = False

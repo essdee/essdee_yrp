@@ -18,8 +18,7 @@ def validate_actual_dates(doc, before=None, require_reason=True) -> None:
 	before = before or doc.get_doc_before_save()
 	old_rows = {row.action: row for row in (before.details if before else [])}
 	changed = [row for row in doc.details if _is_changed(row, old_rows.get(row.action))]
-	if before and before.status in LOCKED_STATUSES and changed:
-		frappe.throw(_("Time and Action {0} is {1} and cannot be changed.").format(doc.name, before.status))
+	validate_not_locked(doc, before, old_rows, changed)
 	if not changed:
 		return
 	if not frappe.flags.in_time_and_action_update:
@@ -31,6 +30,14 @@ def validate_actual_dates(doc, before=None, require_reason=True) -> None:
 			state.validate_no_dated_successor(row.action)
 		if row.actual_date and str(row.actual_date) != old_actual:
 			state.validate_new_actual(row)
+
+
+def validate_not_locked(doc, before, old_rows, changed) -> None:
+	"""A Frozen or Completed T&A keeps its actual and expected dates; only reopen may change them."""
+	if not before or before.status not in LOCKED_STATUSES or doc.flags.reopening:
+		return
+	if changed or any(str(row.date or "") != str(old_rows[row.action].date or "") for row in doc.details):
+		frappe.throw(_("Time and Action {0} is {1} and cannot be changed.").format(doc.name, before.status))
 
 
 def _get_actual(row) -> str:
