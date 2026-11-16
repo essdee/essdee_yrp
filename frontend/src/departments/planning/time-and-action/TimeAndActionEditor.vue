@@ -26,6 +26,7 @@
 			</header>
 			<div class="ta-editor__scroll">
 				<table class="erp-data-table ta-acts">
+					<colgroup><col class="ta-col-status"><col class="ta-col-action"><col class="ta-col-station"><col class="ta-col-planned"><col class="ta-col-rescheduled"><col class="ta-col-actual"><col class="ta-col-reason"><col class="ta-col-delay"></colgroup>
 					<thead><tr><th>Status</th><th>Action</th><th>Work Station</th><th>Planned Date</th><th>Rescheduled Date</th><th>Actual Date</th><th>Reason</th><th>Delay</th></tr></thead>
 					<tbody>
 						<template v-for="row in rows" :key="row.action">
@@ -35,17 +36,17 @@
 									<small v-if="statusNote(row)" class="ta-acts__sub">{{ statusNote(row) }}</small>
 								</td>
 								<td>
-									<div class="ta-acts__name">{{ row.action }}</div>
-									<div class="ta-acts__meta"><span class="ta-acts__idx">#{{ row.index + 1 }}</span><span>{{ row.department }}</span><span>·</span><span>{{ dayCount(row.lead_time) }} lead</span></div>
-									<div v-if="row.status === 'blocked'" class="ta-acts__waiting"><i class="pi pi-lock" aria-hidden="true" /><span>Waiting for {{ row.blockedBy.join(", ") }}</span></div>
+									<div class="ta-acts__name" :title="row.action">{{ row.action }}</div>
+									<div class="ta-acts__meta" :title="metaLine(row)"><span class="ta-acts__idx">#{{ row.index + 1 }}</span>&nbsp;· {{ row.department }} · {{ dayCount(row.lead_time) }} lead</div>
+									<div v-if="row.status === 'blocked'" class="ta-acts__waiting" :title="`Waiting for ${row.blockedBy.join(', ')}`"><i class="pi pi-lock" aria-hidden="true" /> Waiting for {{ row.blockedBy.join(", ") }}</div>
 								</td>
 								<td><span v-if="row.work_station">{{ row.work_station }}</span><span v-else class="ta-subtle">—</span></td>
-								<td>{{ formatDisplayDate(row.planned_start_date, "") }}</td>
-								<td>
+								<td class="ta-acts__planned">{{ formatDisplayDate(row.planned_start_date, "") }}</td>
+								<td class="ta-acts__rescheduled" :class="{ 'is-shifted': row.rescheduled_date !== row.planned_start_date }">
 									<span v-if="row.oldRescheduledDate" class="ta-acts__moved"><s>{{ formatDisplayDate(row.oldRescheduledDate, "") }}</s><b :class="{ 'is-earlier': row.rescheduled_date < row.oldRescheduledDate }">{{ formatDisplayDate(row.rescheduled_date, "") }}</b></span>
 									<template v-else>{{ formatDisplayDate(row.rescheduled_date, "") }}</template>
 								</td>
-								<td><DateField :model-value="row.inputValue" :aria-label="`Actual Date of ${row.action}`" :disabled="!row.editable" :invalid="Boolean(row.error)" :show-on-focus="false" @update:model-value="(value) => setActual(row, value)" /></td>
+								<td class="ta-acts__actual"><DateField :model-value="row.inputValue" :aria-label="`Actual Date of ${row.action}`" :disabled="!row.editable" :invalid="Boolean(row.error)" :show-on-focus="false" @update:model-value="(value) => setActual(row, value)" /></td>
 								<td>
 									<InputText v-if="row.late && row.editable" :model-value="row.reason || ''" size="small" fluid :invalid="row.needsReason" placeholder="Why late? Required" :aria-label="`Reason for ${row.action}`" @update:model-value="(value) => setReason(row, value)" />
 									<span v-else-if="row.reason">{{ row.reason }}</span>
@@ -140,14 +141,14 @@ const completeMessage = computed(() => {
 
 function rowClass(row) {
 	return {
-		"is-blocked": row.status === "blocked",
-		"is-overdue": row.status === "overdue",
+		[`is-${row.status}`]: true,
 		"is-next": row.index === nextIndex.value && row.status !== "overdue",
 		"is-edited": row.edited && !row.error,
 		"has-error": Boolean(row.error),
 	}
 }
 
+const metaLine = (row) => `#${row.index + 1} · ${row.department} · ${dayCount(row.lead_time)} lead`
 const statusNote = (row) => getStatusNote(row, row.status, { today, isNext: row.index === nextIndex.value })
 const delay = (row) => (row.error ? null : getDelay(row))
 
@@ -224,40 +225,46 @@ editor.load()
 .ta-editor__actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; }
 .ta-editor__buttons { display: flex; align-items: center; gap: 8px; }
 .ta-editor__hint { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
-.ta-editor__scroll { min-width: 0; overflow-x: auto; }
-.ta-acts { table-layout: fixed; min-width: 1000px; }
-.ta-acts th { position: static; white-space: normal; line-height: 1.25; background: var(--erp-surface-soft); }
-.ta-acts th:nth-child(1) { width: 112px; } .ta-acts th:nth-child(2) { width: 200px; } .ta-acts th:nth-child(3) { width: 118px; } .ta-acts th:nth-child(4) { width: 108px; }
-.ta-acts th:nth-child(5) { width: 118px; } .ta-acts th:nth-child(6) { width: 176px; } .ta-acts th:nth-child(8) { width: 128px; }
-.ta-acts td { padding: 9px 12px; }
-.ta-acts td:nth-child(4), .ta-acts td:nth-child(5) { white-space: nowrap; }
-.ta-acts :deep(.p-datepicker-input) { padding-inline: 9px; }
-.ta-editor .ta-acts.erp-data-table > tbody > tr > td { background: var(--ta-row-bg, transparent); box-shadow: none; }
-.ta-editor .ta-acts.erp-data-table > tbody > tr > td:first-child { box-shadow: var(--ta-row-mark, none); }
-.ta-acts tr.is-blocked td { color: var(--erp-text-subtle); }
-.ta-acts tr.is-blocked .ta-acts__name { color: var(--erp-text-muted); }
-.ta-acts tr.is-overdue { --ta-row-mark: inset 3px 0 0 var(--erp-danger); }
-.ta-acts tr.is-next { --ta-row-mark: inset 3px 0 0 var(--erp-accent); }
-.ta-acts tr.is-edited { --ta-row-bg: var(--erp-accent-soft); }
-.ta-acts tr.has-error, .ta-acts tr.ta-acts__error { --ta-row-bg: var(--erp-danger-soft); }
-.ta-acts__name { color: var(--erp-text-muted); }
-.ta-acts tr.is-overdue td:first-child, .ta-acts tr.is-overdue:hover td:first-child { box-shadow: inset 3px 0 0 var(--erp-danger); }
-.ta-acts tr.is-next td:first-child, .ta-acts tr.is-next:hover td:first-child { box-shadow: inset 3px 0 0 var(--erp-accent); }
-.ta-acts tr.is-edited td, .ta-acts tr.is-edited:hover td { background: var(--erp-accent-soft); }
-.ta-acts tr.has-error td, .ta-acts tr.has-error:hover td, .ta-acts tr.ta-acts__error td { background: var(--erp-danger-soft); }
-.ta-acts__name { overflow-wrap: anywhere; font-weight: 600; line-height: 1.3; color: var(--erp-text); }
-.ta-acts__meta { display: flex; flex-wrap: wrap; gap: 0 6px; margin-top: 2px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
+.ta-editor__scroll { min-width: 0; max-height: min(70vh, 760px); overflow: auto; }
+.ta-acts { table-layout: fixed; min-width: 1060px; }
+.ta-col-status { width: 108px; } .ta-col-station { width: 128px; } .ta-col-planned { width: 104px; } .ta-col-rescheduled { width: 116px; }
+.ta-col-actual { width: 176px; } .ta-col-reason { width: 22%; } .ta-col-delay { width: 118px; }
+.ta-editor .ta-acts.erp-data-table > thead > tr > th { position: sticky; top: 0; z-index: 2; padding: 10px 12px; white-space: normal; line-height: 1.25; background: var(--erp-report-head-bg); border-bottom: 1px solid var(--erp-border-strong); color: var(--erp-text-secondary); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr > td { height: 56px; padding: 7px 12px; vertical-align: middle; background: var(--ta-row-bg, transparent); border-bottom: 1px solid var(--erp-border); box-shadow: var(--ta-hover, 0 0 #0000); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr > td:first-child { box-shadow: var(--ta-row-mark, 0 0 #0000), var(--ta-hover, 0 0 #0000); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr:nth-child(even) { --ta-row-bg: color-mix(in srgb, var(--erp-surface-muted) 45%, transparent); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr:hover { --ta-hover: inset 0 0 0 999px color-mix(in srgb, var(--erp-text) 4%, transparent); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-done { --ta-row-bg: color-mix(in srgb, var(--erp-success-soft) 55%, transparent); --ta-row-mark: inset 3px 0 0 var(--erp-success); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-overdue { --ta-row-bg: color-mix(in srgb, var(--erp-danger-soft) 55%, transparent); --ta-row-mark: inset 3px 0 0 var(--erp-danger); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-due { --ta-row-mark: inset 3px 0 0 var(--erp-attention); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-next { --ta-row-bg: color-mix(in srgb, var(--erp-attention-soft) 60%, transparent); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-blocked { --ta-row-bg: transparent; }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-edited { --ta-row-bg: var(--erp-accent-soft); --ta-row-mark: inset 3px 0 0 var(--erp-accent); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.has-error, .ta-editor .ta-acts.erp-data-table > tbody > tr.ta-acts__error { --ta-row-bg: var(--erp-danger-soft); --ta-row-mark: inset 3px 0 0 var(--erp-danger); }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.has-error > td { border-bottom: 0; }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.is-blocked > td { color: var(--erp-text-subtle); }
+.ta-acts tr.is-blocked .ta-acts__name { color: var(--erp-text-muted); font-weight: 500; }
+.ta-acts__name { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-weight: 600; line-height: 1.3; color: var(--erp-text); }
+.ta-acts__meta, .ta-acts__waiting { overflow: hidden; margin-top: 2px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); white-space: nowrap; text-overflow: ellipsis; }
 .ta-acts__idx { color: var(--erp-text-subtle); }
-.ta-acts__waiting { display: flex; align-items: flex-start; gap: 4px; margin-top: 3px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
-.ta-acts__waiting i { margin-top: 3px; font-size: 10px; }
-.ta-acts__sub { display: block; margin-top: 3px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); font-weight: 400; white-space: nowrap; }
-.ta-acts__moved s { display: block; color: var(--erp-text-subtle); font-size: var(--erp-font-size-caption); }
+.ta-acts__waiting i { font-size: 10px; }
+.ta-acts__sub { display: block; margin-top: 2px; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); font-weight: 400; white-space: nowrap; }
+.ta-acts td.ta-acts__planned, .ta-acts td.ta-acts__rescheduled { color: var(--erp-text-muted); white-space: nowrap; }
+.ta-acts td.ta-acts__rescheduled.is-shifted { color: var(--erp-attention-text); font-weight: 600; }
+.ta-acts tr.is-done td.ta-acts__rescheduled.is-shifted, .ta-acts tr.is-blocked td.ta-acts__rescheduled.is-shifted { color: var(--erp-text-secondary); font-weight: 500; }
+.ta-acts__moved s { display: block; color: var(--erp-text-subtle); font-size: var(--erp-font-size-caption); font-weight: 400; }
 .ta-acts__moved b { color: var(--erp-attention-text); font-weight: 600; }
 .ta-acts__moved b.is-earlier { color: var(--erp-success-text); }
+.ta-acts__actual :deep(.p-datepicker-input) { height: 34px; padding-inline: 8px; font-weight: 600; font-size: 13px; color: var(--erp-text); background: var(--erp-surface); border-color: var(--erp-border-strong); }
+.ta-acts__actual :deep(.p-datepicker-dropdown) { height: 34px; }
+.ta-acts tr:not(.is-blocked) .ta-acts__actual :deep(.p-datepicker-input:enabled) { box-shadow: 0 1px 2px rgb(0 0 0 / 6%); }
+.ta-acts__actual :deep(.p-datepicker-input::placeholder) { font-weight: 400; }
+.ta-acts__actual :deep(.p-datepicker-input:disabled) { color: var(--erp-text-subtle); background: var(--erp-surface-muted); border-color: var(--erp-border); }
+.ta-acts :deep(.p-inputtext.p-inputtext-sm) { height: 32px; }
 .ta-acts__delay { font-weight: 600; }
 .ta-acts__delay--late { color: var(--erp-danger); }
 .ta-acts__delay--ok { color: var(--erp-success-text); }
-.ta-acts__error td { padding: 0 12px 10px; }
+.ta-editor .ta-acts.erp-data-table > tbody > tr.ta-acts__error > td { height: auto; padding: 0 12px 10px; }
 .ta-acts__error div { display: flex; align-items: center; gap: 7px; color: var(--erp-danger); font-size: 13px; font-weight: 500; }
 .ta-subtle { color: var(--erp-text-subtle); }
 .ta-label { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
