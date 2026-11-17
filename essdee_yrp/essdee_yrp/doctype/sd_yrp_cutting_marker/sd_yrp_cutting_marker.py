@@ -9,6 +9,10 @@ from yrp.attribute_links import value as _attribute_value
 from yrp.yrp.doctype.yrp_item.yrp_item import get_attribute_details
 from yrp.yrp.doctype.yrp_item_production_detail.yrp_item_production_detail import get_ipd_primary_values
 
+from essdee_yrp.cutting.marker_piece_weight import (
+	MarkerPieceWeightError,
+	get_marker_piece_weight,
+)
 from essdee_yrp.cutting.parent_adapter import (
 	get_detail_doc,
 	get_parent_context,
@@ -37,6 +41,8 @@ class SDYRPCuttingMarker(Document):
 	def before_submit(self):
 		if not self.length or not self.width:
 			frappe.throw("Enter the Values for Length and Width")
+		if not self.required_piece_weight:
+			frappe.throw("Select the panels and ratios so the Required Piece Weight can be calculated")
 
 		if self.version == "V3" and len(self.cutting_marker_groups) == 0:
 			items = []
@@ -59,6 +65,8 @@ class SDYRPCuttingMarker(Document):
 		self.version = ctx.get("version") or "V3"
 		self.is_manual_entry = ctx.get("is_manual_entry") or 0
 
+		self.set_marker_details()
+		self.set_required_piece_weight()
 		if self.required_piece_weight:
 			min_wt = frappe.db.get_single_value("SD YRP MRP Settings", "piece_weight_min") or 0
 			max_wt = frappe.db.get_single_value("SD YRP MRP Settings", "piece_weight_max") or 0
@@ -67,52 +75,75 @@ class SDYRPCuttingMarker(Document):
 					f"Required piece weight {self.required_piece_weight} kg is outside the allowed range ({min_wt} - {max_wt} kg)."
 				)
 
-		if self.get("marker_details"):
-			marker_details = self.marker_details["ratio_items"]
-			items = []
-			if self.selected_type == "Manual":
+	def set_marker_details(self):
+		"""Rebuild ratio and group rows from the editor payload."""
+		if not self.get("marker_details"):
+			return
+		marker_details = self.marker_details["ratio_items"]
+		items = []
+		if self.selected_type == "Manual":
+			for item in marker_details:
+				ratio = round(item["ratio"], 1)
+				str_num = str(ratio)
+				if "." in str_num:
+					precision = int(str_num.split(".")[1]) % 10
+					if not (precision == 5 or precision == 0):
+						frappe.throw(
+							f"Size {_attribute_value(item['size'])}: only 0.5 increments are allowed."
+						)
+				items.append(
+					{
+						"size": _attribute_value(item["size"]),
+						"panel": _attribute_value(item["panel"]),
+						"ratio": ratio,
+					}
+				)
+		else:
+			if self.calculated_parts:
+				panels = self.calculated_parts.split(",")
 				for item in marker_details:
 					ratio = round(item["ratio"], 1)
 					str_num = str(ratio)
 					if "." in str_num:
 						precision = int(str_num.split(".")[1]) % 10
 						if not (precision == 5 or precision == 0):
-							frappe.throw(f"Size {_attribute_value(item['size'])}: only 0.5 increments are allowed.")
-					items.append(
-						{
-							"size": _attribute_value(item["size"]),
-							"panel": _attribute_value(item["panel"]),
-							"ratio": ratio,
-						}
-					)
-			else:
-				if self.calculated_parts:
-					panels = self.calculated_parts.split(",")
-					for item in marker_details:
-						ratio = round(item["ratio"], 1)
-						str_num = str(ratio)
-						if "." in str_num:
-							precision = int(str_num.split(".")[1]) % 10
-							if not (precision == 5 or precision == 0):
-								frappe.throw(f"Size {_attribute_value(item['size'])}: only 0.5 increments are allowed.")
-						for panel in panels:
-							items.append(
-								{"size": _attribute_value(item["size"]), "panel": panel, "ratio": ratio}
+							frappe.throw(
+								f"Size {_attribute_value(item['size'])}: only 0.5 increments are allowed."
 							)
-			self.set("cutting_marker_ratios", items)
+					for panel in panels:
+						items.append({"size": _attribute_value(item["size"]), "panel": panel, "ratio": ratio})
+		self.set("cutting_marker_ratios", items)
 
-			group_items = self.marker_details["group_items"]
-			items2 = []
-			for item in group_items:
-				item["selected"].sort()
-				selected = ",".join(item["selected"])
-				if selected:
-					items2.append(
-						{
-							"group_panels": selected,
-						}
-					)
-			self.set("cutting_marker_groups", items2)
+		group_items = self.marker_details["group_items"]
+		items2 = []
+		for item in group_items:
+			item["selected"].sort()
+			selected = ",".join(item["selected"])
+			if selected:
+				items2.append(
+					{
+						"group_panels": selected,
+					}
+				)
+		self.set("cutting_marker_groups", items2)
+
+	def set_required_piece_weight(self):
+		"""Derive the piece weight from the IPD cutting weights of the selected panels."""
+		panels = [panel.strip() for panel in (self.calculated_parts or "").split(",") if panel.strip()]
+		if not panels:
+			self.required_piece_weight = 0
+			return
+		if self.cutting_order:
+			raise MarkerPieceWeightError(
+				"Required Piece Weight cannot be calculated for a Cutting Order marker: the Cutting Order Detail has no cutting weights."
+			)
+		ipd = frappe.get_value("SD YRP Cutting Plan", self.cutting_plan, "production_detail")
+		ratio_rows = [
+			{"size": row.size, "panel": row.panel, "ratio": row.ratio} for row in self.cutting_marker_ratios
+		]
+		self.required_piece_weight = get_marker_piece_weight(
+			frappe.get_cached_doc("YRP Item Production Detail", ipd), panels, ratio_rows
+		)
 
 
 def fetch_marker_details(marker_details, selected_type):
@@ -354,6 +385,30 @@ def get_web_marker(cutting_plan=None, marker=None, cutting_order=None):
 
 
 @frappe.whitelist()
+def preview_marker_piece_weight(
+	cutting_plan=None, cutting_order=None, selected_type=None, panels=None, ratio_items=None
+):
+	"""Live Required Piece Weight for unsaved panels and ratios; returns the error as a message."""
+	parent_doc, *_ = _web_parent(cutting_plan, cutting_order)
+	parent_doc.check_permission("read")
+	panels = [str(panel).strip() for panel in frappe.parse_json(panels or "[]") if str(panel).strip()]
+	ratio_items = frappe.parse_json(ratio_items or "[]")
+	if selected_type != "Manual":
+		ratio_items = [{"size": row.get("size"), "ratio": row.get("ratio")} for row in ratio_items]
+	if not panels:
+		return {"weight": None, "message": "Select panels to calculate the piece weight."}
+	try:
+		if cutting_order:
+			raise MarkerPieceWeightError(
+				"Required Piece Weight cannot be calculated for a Cutting Order marker: the Cutting Order Detail has no cutting weights."
+			)
+		ipd = frappe.get_cached_doc("YRP Item Production Detail", parent_doc.production_detail)
+		return {"weight": get_marker_piece_weight(ipd, panels, ratio_items), "message": ""}
+	except MarkerPieceWeightError as error:
+		return {"weight": None, "message": str(error)}
+
+
+@frappe.whitelist()
 def save_web_marker(
 	cutting_plan=None,
 	values=None,
@@ -392,7 +447,6 @@ def save_web_marker(
 		"width",
 		"total_no_of_plys",
 		"efficiency",
-		"required_piece_weight",
 	)
 	for fieldname in allowed_fields:
 		if fieldname in values:
@@ -427,7 +481,9 @@ def save_web_marker(
 		ratio_keys.append((size, panel))
 	if set(ratio_keys) != expected_ratio_keys or len(ratio_keys) != len(set(ratio_keys)):
 		frappe.throw("The marker ratios must contain every available size exactly once")
-	if not parent_doc.get("is_manual_entry") and not any(frappe.utils.flt(row.get("ratio")) > 0 for row in ratio_items):
+	if not parent_doc.get("is_manual_entry") and not any(
+		frappe.utils.flt(row.get("ratio")) > 0 for row in ratio_items
+	):
 		frappe.throw("Enter the Ratio Values")
 	if selected_type == "Manual":
 		for row in ratio_items:
