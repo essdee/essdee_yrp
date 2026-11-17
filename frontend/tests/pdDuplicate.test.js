@@ -27,7 +27,7 @@ const rows = {
 const sourceRecord = {
 	...identity, name: "SOURCE", product: "PRODUCT", item: "", lot: "LOT-1",
 	lot_costing_type: "Costing", disabled: 0, gst: 5, additional_rate: 10,
-	production_cost_template: "Production", trade_discounts_template: "Discounts", other_costs_template: "Other",
+	production_cost_template: "Production", trade_discounts_template: "Discounts", other_costs_template: "Other", comments: "Check shrinkage",
 	total_qty: 999, profit: 999,
 	...Object.fromEntries(Object.entries(rows).map(([table, values]) => [
 		table, values.map((row) => ({ ...identity, ...row, net_rate: 999, total_cost: 999, total: 999 })),
@@ -88,6 +88,19 @@ test("Lotwise copy retains editable values and every child table without identit
 	assert.deepEqual(copiedLotwiseDraft({}, { qty_rate_chart: null }), { qty_rate_chart: [] })
 })
 
+test("Lotwise shows the editable cloth GSM column and a Comments section", () => {
+	const meta = pdViews.lotwiseChildMeta("cloth_value", {
+		fields: LOTWISE_TABLE_COLUMNS.cloth_value.map((fieldname) => ({ fieldname, fieldtype: "Data" })),
+	})
+	assert.equal(meta.fields[1].fieldname, "gsm")
+	assert.equal(Boolean(meta.fields[1].read_only), false)
+	assert.deepEqual(LOTWISE_SECTIONS.comments, ["comments"])
+	assert.match(read("../src/departments/pd/components/LotwiseCostSections.vue"), /fieldByName\('comments'\)/)
+	const lotwise = JSON.parse(read("../../essdee_yrp/essdee_yrp/doctype/sd_yrp_lotwise_item_profit/sd_yrp_lotwise_item_profit.json"))
+	assert.equal(lotwise.field_order.at(-1), "comments")
+	assert.equal(lotwise.fields.find((field) => field.fieldname === "comments").fieldtype, "Long Text")
+})
+
 test("Lotwise allows retaining the lot; Product clears its unique Style No", () => {
 	const lotwise = JSON.parse(read("../../essdee_yrp/essdee_yrp/doctype/sd_yrp_lotwise_item_profit/sd_yrp_lotwise_item_profit.json"))
 	assert.equal(lotwise.autoname, "hash")
@@ -146,6 +159,8 @@ test("Lotwise copy loads fresh permissions, watches copy changes and saves as a 
 	assert.equal(page.actionError.value, "")
 	assert.deepEqual(calls[0].options, { name: null, expectedModified: null })
 	assert.deepEqual(calls[0].values, copiedLotwiseDraft({}, sourceRecord))
+	assert.equal(calls[0].values.comments, "Check shrinkage")
+	assert.equal(calls[0].values.cloth_value[0].gsm, 180)
 	route.query = {}
 	await page.load()
 	assert.deepEqual(page.form.value, { gst: 5 })

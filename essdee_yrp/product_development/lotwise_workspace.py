@@ -42,6 +42,7 @@ LOTWISE_FIELDS = (
 	"trade_discounts_template",
 	"other_costs_template",
 	"production_cost_template",
+	"comments",
 )
 LOTWISE_TABLES = (
 	"qty_rate_chart",

@@ -164,6 +164,17 @@
 					/>
 				</div>
 			</section>
+
+			<section class="lotwise-section erp-card">
+				<header><span>08</span><h2>Comments</h2></header>
+				<FormField
+					:field="fieldByName('comments')"
+					:model-value="form.comments"
+					:form="form"
+					:disabled="fieldsDisabled"
+					@update:model-value="emit('update-field', 'comments', $event)"
+				/>
+			</section>
 		</div>
 
 		<LotwiseTotalsRail :values="form" />
