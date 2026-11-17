@@ -238,3 +238,63 @@ function fill_production_order_item(dialog, row) {
 		},
 	});
 }
+
+/** Row PPO: shown for approval Item Groups; picked PPOs join the Production Orders table at once. */
+frappe.ui.form.on("Purchase Order", {
+	setup(frm) {
+		frm.set_query("production_order", "items", (doc, cdt, cdn) => ({
+			query: `${PURCHASE_ORDER_PPO_METHOD}.production_order_query`,
+			filters: { lot: locals[cdt][cdn].lot || "" },
+		}));
+	},
+	refresh(frm) {
+		const baseline = frm.__production_order_baseline;
+		if (!baseline || baseline.name !== frm.doc.name || !frm.is_dirty()) {
+			frm.__production_order_baseline = { name: frm.doc.name, names: (frm.doc.production_orders || []).map((row) => row.production_order) };
+		}
+		load_production_order_item_groups(frm);
+	},
+});
+
+frappe.ui.form.on("Purchase Order Item", {
+	item_code(frm, cdt, cdn) {
+		if (locals[cdt][cdn].production_order) frappe.model.set_value(cdt, cdn, "production_order", "");
+	},
+	production_order(frm) {
+		sync_purchase_order_production_orders(frm);
+	},
+	items_remove(frm) {
+		sync_purchase_order_production_orders(frm);
+	},
+});
+
+async function load_production_order_item_groups(frm) {
+	if ((frm.doc.__onload || {}).production_order_item_groups) return;
+	const response = await frappe.call({ method: `${PURCHASE_ORDER_PPO_METHOD}.get_production_order_item_groups` });
+	frm.doc.__onload = { ...(frm.doc.__onload || {}), production_order_item_groups: response.message || [] };
+	frm.refresh_field("items");
+}
+
+/** Keep loaded rows, drop live additions no item row picks any more, append newly picked PPOs. */
+function sync_purchase_order_production_orders(frm) {
+	if (frm.doc.docstatus !== 0) return;
+	const picked = [...new Set((frm.doc.items || []).map((row) => row.production_order).filter(Boolean))];
+	const baseline = new Set((frm.__production_order_baseline || {}).names || []);
+	for (const row of [...(frm.doc.production_orders || [])]) {
+		if (!baseline.has(row.production_order) && !picked.includes(row.production_order)) frappe.model.clear_doc(row.doctype, row.name);
+	}
+	const present = new Set((frm.doc.production_orders || []).map((row) => row.production_order));
+	for (const production_order of picked.filter((name) => !present.has(name))) {
+		const row = frm.add_child("production_orders", { production_order });
+		frappe.call({
+			method: `${PURCHASE_ORDER_PPO_METHOD}.get_purchase_order_production_order`,
+			args: { production_order },
+			callback(response) {
+				row.item_name = (response.message || {}).item_name || "";
+				frm.refresh_field("production_orders");
+			},
+		});
+	}
+	(frm.doc.production_orders || []).forEach((row, index) => { row.idx = index + 1; });
+	frm.refresh_field("production_orders");
+}

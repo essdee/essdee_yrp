@@ -2,11 +2,17 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-from essdee_yrp.purchase_order_approval import get_live_request
+from essdee_yrp.purchase_order_approval import (
+	get_approval_item_codes,
+	get_approval_item_groups,
+	get_live_request,
+)
 
 PRODUCTION_ORDER_DOCTYPE = "YRP Production Order"
 PRODUCTION_ORDERS_FIELD = "production_orders"
 PRODUCTION_ORDER_ROW_DOCTYPE = "SD YRP Purchase Order Production Order"
+ITEM_PRODUCTION_ORDER_FIELD = "production_order"
+ITEM_LOT_FIELD = "lot"
 YRP_PURCHASE_ORDER_SERIES = "YRP-PO-.YYYY.-"
 
 
@@ -95,12 +101,79 @@ def validate_new_purchase_order_against(doc, method=None) -> None:
 
 
 def validate_purchase_order_against_unchanged(doc, method=None) -> None:
-	"""validate / before_update_after_submit: Production Orders are fixed once inserted."""
+	"""validate / before_update_after_submit: Production Orders are fixed once inserted.
+
+	A Draft may append the Production Orders picked on its item rows.
+	"""
 	if doc.flags.in_insert or doc.is_new():
 		return
 	names = get_production_order_names(doc.get(PRODUCTION_ORDERS_FIELD))
-	if names != get_stored_production_orders(doc.name):
+	stored = get_stored_production_orders(doc.name)
+	if names == stored:
+		return
+	added = [name for name in names if name not in stored]
+	is_item_addition = (
+		cint(doc.docstatus) == 0
+		and [name for name in names if name in stored] == stored
+		and set(added) <= {row.get(ITEM_PRODUCTION_ORDER_FIELD) for row in doc.get("items") or []}
+	)
+	if not is_item_addition:
 		frappe.throw(_("Production Orders cannot be changed after the Purchase Order is created. Use the PPO button."))
+	validated = {row["production_order"]: row for row in get_production_order_rows(added)}
+	for row in doc.get(PRODUCTION_ORDERS_FIELD):
+		if row.production_order in validated:
+			row.item_name = validated[row.production_order]["item_name"]
+
+
+@frappe.whitelist()
+def get_production_order_item_groups() -> list[str]:
+	"""Item Groups whose Purchase Order rows take a Production Order: the MRP Settings approval groups."""
+	return sorted(get_approval_item_groups())
+
+
+def get_item_production_orders(doc) -> list[str]:
+	"""Production Orders picked on approved-group item rows, once each in row order; other rows are cleared."""
+	items = doc.get("items") or []
+	approved = get_approval_item_codes(row.get("item_code") for row in items if row.get(ITEM_PRODUCTION_ORDER_FIELD))
+	names = []
+	for row in items:
+		name = row.get(ITEM_PRODUCTION_ORDER_FIELD)
+		if name and row.get("item_code") not in approved:
+			row.set(ITEM_PRODUCTION_ORDER_FIELD, None)
+		elif name and name not in names:
+			names.append(name)
+	return names
+
+
+def get_lot_production_orders(lot) -> list[str]:
+	"""Production Orders a Lot is linked to (its `production_order`)."""
+	production_order = frappe.db.get_value("SD YRP Lot", lot, "production_order") if lot else None
+	return [production_order] if production_order else []
+
+
+def validate_item_production_order_lots(doc) -> None:
+	"""A row whose Lot is linked to Production Orders may only pick one of them."""
+	for row in doc.get("items") or []:
+		production_order, lot = row.get(ITEM_PRODUCTION_ORDER_FIELD), row.get(ITEM_LOT_FIELD)
+		allowed = get_lot_production_orders(lot) if production_order and lot else []
+		if allowed and production_order not in allowed:
+			frappe.throw(
+				_("Row {0}: Production Order {1} is not linked to Lot {2}. Pick {3}.").format(
+					row.idx, production_order, lot, ", ".join(allowed)
+				)
+			)
+
+
+def append_item_production_orders(doc, method=None) -> None:
+	"""validate: add item-row Production Orders missing from the Production Orders table; never removes any."""
+	present = set(get_production_order_names(doc.get(PRODUCTION_ORDERS_FIELD)))
+	picked = get_item_production_orders(doc)
+	validate_item_production_order_lots(doc)
+	missing = [name for name in picked if name not in present]
+	if not missing:
+		return
+	for row in get_production_order_rows(missing):
+		doc.append(PRODUCTION_ORDERS_FIELD, row)
 
 
 def get_purchase_orders_against(production_order: str) -> list[dict]:
@@ -149,17 +222,22 @@ def can_remove_production_orders(doc) -> bool:
 
 
 def set_production_order_onload(doc, method=None) -> None:
-	"""onload: tell the Desk form whether the PPO button applies."""
+	"""onload: whether the PPO button applies, and the Item Groups whose rows take a PPO."""
 	doc.set_onload("can_manage_production_orders", can_manage_production_orders(doc))
 	doc.set_onload("can_remove_production_orders", can_remove_production_orders(doc))
+	doc.set_onload("production_order_item_groups", get_production_order_item_groups())
 
 
-def get_production_order_options(txt="", page_length=20) -> list[dict]:
-	"""Open Production Orders the user can read, matched on ID or Item."""
+def get_production_order_options(txt="", page_length=20, lot=None) -> list[dict]:
+	"""Open Production Orders the user can read, matched on ID or Item; only the Lot's own when it has any."""
 	like = f"%{(txt or '').strip()}%"
+	filters = {"docstatus": 1, "status": ["!=", "Closed"]}
+	lot_production_orders = get_lot_production_orders(lot) if lot else []
+	if lot_production_orders:
+		filters["name"] = ["in", lot_production_orders]
 	return frappe.get_list(
 		PRODUCTION_ORDER_DOCTYPE,
-		filters={"docstatus": 1, "status": ["!=", "Closed"]},
+		filters=filters,
 		or_filters=[["name", "like", like], ["item", "like", like]],
 		fields=["name", "item"],
 		order_by="modified desc",
@@ -170,16 +248,17 @@ def get_production_order_options(txt="", page_length=20) -> list[dict]:
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def production_order_query(doctype, txt, searchfield, start, page_len, filters):
-	"""Desk Link query: Production Order ID with its Item."""
-	return [(row.name, row.item) for row in get_production_order_options(txt, page_len)]
+	"""Desk Link query: Production Order ID with its Item; `filters.lot` limits it to that Lot's."""
+	lot = (filters or {}).get("lot")
+	return [(row.name, row.item) for row in get_production_order_options(txt, page_len, lot=lot)]
 
 
 @frappe.whitelist()
-def search_production_orders(txt="", page_length=20) -> list[dict]:
-	"""/web Link search: Production Order ID labelled with its Item."""
+def search_production_orders(txt="", page_length=20, lot=None) -> list[dict]:
+	"""/web Link search: Production Order ID labelled with its Item; `lot` limits it to that Lot's."""
 	return [
 		{"name": row.name, "label": row.name, "description": row.item or "", "item": row.item}
-		for row in get_production_order_options(txt, page_length)
+		for row in get_production_order_options(txt, page_length, lot=lot)
 	]
 
 

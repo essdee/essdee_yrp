@@ -491,7 +491,10 @@ doc_events = {
 		"onload": "essdee_yrp.purchase_order_against.set_production_order_onload",
 		"before_insert": "essdee_yrp.purchase_order_against.validate_new_purchase_order_against",
 		"before_validate": "essdee_yrp.purchase_order_lots.sync_linked_lots",
-		"validate": "essdee_yrp.purchase_order_against.validate_purchase_order_against_unchanged",
+		"validate": [
+			"essdee_yrp.purchase_order_against.append_item_production_orders",
+			"essdee_yrp.purchase_order_against.validate_purchase_order_against_unchanged",
+		],
 		"before_save": [
 			"essdee_yrp.purchase_order_approval.apply_draft_approval_status",
 			"essdee_yrp.essdee_yrp.report.sd_yrp_purchase_order_itemwise.mrp_uom_provenance.retire_changed_uom",
