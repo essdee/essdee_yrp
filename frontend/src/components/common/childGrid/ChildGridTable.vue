@@ -16,7 +16,7 @@
 				<template #body="{ index }">{{ index + 1 }}</template>
 			</Column>
 			<Column v-for="(column, index) in visibleColumns" :key="column.key" :column-key="column.key" :style="widthStyle(`var(--child-grid-column-${index})`)">
-				<template #header><span class="child-grid-table__label" :title="column.label">{{ column.label }}<span v-if="column.reqd" class="erp-required-mark" aria-hidden="true">*</span></span></template>
+				<template #header><span class="child-grid-table__label" :title="column.label">{{ column.label }}<span v-if="column.reqd" class="erp-required-mark" aria-hidden="true">*</span></span><span v-if="resize.isResizable(index)" class="report-col-resize child-grid-resize" aria-hidden="true" title="Drag to resize. Double-click to fit." @pointerdown="resize.start($event, index)" @dblclick.prevent="resize.fit($event, index)" /></template>
 				<template #body="slotProps"><slot :name="`cell-${column.key}`" v-bind="slotProps" :column="column">{{ slotProps.data[column.key] }}</slot></template>
 			</Column>
 			<Column v-if="grid.canConfigure.value" column-key="__settings" :style="widthStyle(`${SETTINGS_WIDTH}px`)" class="child-grid-table__trailing">
@@ -48,9 +48,10 @@ import Row from "primevue/row"
 import { computed, ref } from "vue"
 
 import ChildGridSettings from "./ChildGridSettings.vue"
-import { isRowBlank, layoutWidths } from "./childGridColumns.js"
+import { isRowBlank, layoutWidths, minColumnWidth } from "./childGridColumns.js"
 import { vEntryTable } from "./entryTable.js"
 import { useRowSelection } from "./rowSelection.js"
+import { useColumnResize } from "./useColumnResize.js"
 import { useContainerWidth, useGridColumns } from "./useGridColumns.js"
 
 const INDEX_WIDTH = 48
@@ -79,7 +80,15 @@ const selection = useRowSelection(selectableIndexes)
 const root = ref(null)
 const containerWidth = useContainerWidth(root)
 const reservedWidth = computed(() => (isSelectable.value ? SELECT_WIDTH : 0) + (props.showIndex ? INDEX_WIDTH : 0) + (grid.canConfigure.value ? SETTINGS_WIDTH : 0))
-const columnWidths = computed(() => layoutWidths(visibleColumns.value, Math.max(containerWidth.value - 2, 0), reservedWidth.value))
+const layoutColumnWidths = computed(() => layoutWidths(visibleColumns.value, Math.max(containerWidth.value - 2, 0), reservedWidth.value))
+const resize = useColumnResize({
+	columns: visibleColumns,
+	widths: layoutColumnWidths,
+	minimums: computed(() => visibleColumns.value.map(minColumnWidth)),
+	save: grid.save,
+	enabled: grid.canConfigure,
+})
+const columnWidths = computed(() => resize.liveWidths.value || layoutColumnWidths.value)
 const tableWidth = computed(() => columnWidths.value.reduce((sum, width) => sum + width, 0) + reservedWidth.value)
 
 // Columns read widths through CSS variables: DataTable remounts every cell when its column list re-renders.
@@ -111,6 +120,7 @@ function rowIsBlank(index) {
 .child-grid-table__table :deep(th), .child-grid-table__table :deep(td) { overflow: hidden; }
 .child-grid-table__table :deep(td) :is(.p-inputnumber, .p-inputtext, .p-autocomplete, .p-select, .common-field, .link-field__control) { width: 100%; min-width: 0; max-width: 100%; }
 .child-grid-table__table :deep(td .p-inputnumber-input) { width: 100%; min-width: 0; }
+.child-grid-table__table :deep(.p-datatable-thead > tr > th) { position: relative; }
 .child-grid-table__label { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .child-grid-table__table :deep(.child-grid-table__trailing) { padding-inline: 2px; text-align: center; }
 .child-grid-table__table :deep(.child-grid-table__select) { padding-inline: 0; text-align: center; }

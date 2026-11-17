@@ -15,6 +15,7 @@
 				<template v-if="showQuantities">
 					<EntryGrid
 						ref="quantityGrid" validation-field="packing_attribute_details"
+						settings-doctype="YRP Item Production Detail" settings-child-doctype="packing_attribute_details" lock-columns
 						title="Packing Attribute Details"
 						:meta="`Packing attribute: ${draft.packing_attribute || '—'}`"
 						row-header-label="Attribute Value"
@@ -36,6 +37,7 @@
 					<IpdGridNotice grid-key="packing_sizes" />
 					<EntryGrid
 						ref="sizeGrid" validation-field="packing_size_details"
+						settings-doctype="YRP Item Production Detail" settings-child-doctype="packing_size_details" lock-columns
 						title="Packing Size Details"
 						row-header-label="Size"
 						:rows="sizes.rows"
@@ -54,6 +56,7 @@
 					<EntryGrid
 						v-if="assortment.rows.length"
 						ref="assortmentGridRef" validation-field="packing_assortment_json"
+						settings-doctype="YRP Item Production Detail" settings-child-doctype="packing_assortment_json" lock-columns
 						title="Box assortment"
 						:row-header-label="assortment.rowHeaderLabel"
 						:rows="assortment.rows"

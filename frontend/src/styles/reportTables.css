@@ -191,6 +191,11 @@ th:hover > .report-col-resize::after { opacity: .7; }
 .report-col-resize:hover::after,
 .is-column-resizing .report-col-resize:hover::after { opacity: 1; background: var(--erp-accent); }
 th.is-column-movable > .report-col-resize { cursor: col-resize; }
+/* Child grids (EntryGrid, ChildGridTable) reuse the handle inside their header content; narrow screens keep sideways scrolling instead. */
+th:hover .child-grid-resize::after { opacity: .7; }
+@media (max-width: 620px) {
+	.child-grid-resize { display: none; }
+}
 th.is-column-movable { cursor: grab; }
 /* Only the body and the captured element change, so starting a drag does not restyle every cell. */
 body.is-column-moving, body.is-column-moving th.is-column-movable { cursor: grabbing; user-select: none; }

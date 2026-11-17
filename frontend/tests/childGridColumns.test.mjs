@@ -4,20 +4,19 @@ import test from "node:test"
 import {
 	columnDraft,
 	defaultColumnWidth,
-	distributeEvenly,
-	draftPercents,
+	lastSizedIndex,
 	layoutWidths,
 	percentsFromWeights,
 	enterTarget,
 	gridViewEntries,
 	isRowBlank,
 	mergeGridView,
+	resizedWidths,
 	resolveGridColumns,
 	savedEntryWidth,
+	widthDraft,
 } from "../src/components/common/childGrid/childGridColumns.js"
 import { createGridViewStore } from "../src/components/common/childGrid/gridViewStore.js"
-
-const pick = ({ lastKey, lastPercent, others, error }) => ({ lastKey, lastPercent, others, error })
 
 const schema = [
 	{ key: "item", label: "Item", fieldtype: "Link", reqd: 1 },
@@ -108,37 +107,45 @@ test("layout widths take a raised minimum back from wider columns so the table s
 	assert.ok(widths.reduce((sum, width) => sum + width, 0) <= 1000)
 })
 
-test("the last shown column gets 100% minus the others and moves with reorder or hide", () => {
+test("the dialog draft keeps each column's share; saving rescales shown columns to 100% with the last taking the remainder", () => {
 	const draft = columnDraft(schema, resolveGridColumns(schema, [{ fieldname: "qty", width_percent: 30 }, { fieldname: "item", width_percent: 70 }]))
 	assert.deepEqual(draft.map((column) => [column.key, column.visible, column.percent, column.locked]), [
 		["qty", true, 30, false], ["item", true, 70, true], ["done", false, 5, false], ["notes", false, 13, false],
 	])
-	assert.deepEqual(pick(draftPercents(draft)), { lastKey: "item", lastPercent: 70, others: 30, error: "" })
-	draft[2].visible = true
-	assert.deepEqual(pick(draftPercents(draft)), { lastKey: "done", lastPercent: 0, others: 100, error: "Other columns use 100%; reduce them to leave room for Done." })
-	assert.throws(() => gridViewEntries(draft), /reduce them to leave room for Done/)
-	draft[1].percent = 50
 	assert.deepEqual(gridViewEntries(draft), [
 		{ fieldname: "qty", width: 360, width_percent: 30, sticky: 0 },
-		{ fieldname: "item", width: 600, width_percent: 50, sticky: 0 },
-		{ fieldname: "done", width: 240, width_percent: 20, sticky: 0 },
+		{ fieldname: "item", width: 600, width_percent: 70, sticky: 0 },
 	])
-	draft[2].visible = false
-	assert.equal(draftPercents(draft).lastKey, "item")
+	draft[2].visible = true
+	assert.deepEqual(gridViewEntries(draft).map((entry) => [entry.fieldname, entry.width_percent]), [["qty", 28], ["item", 66], ["done", 6]])
+	const reordered = [draft[1], draft[0], draft[3]]
+	assert.deepEqual(gridViewEntries(reordered).map((entry) => [entry.fieldname, entry.width_percent]), [["item", 70], ["qty", 30]])
 })
 
-test("others may not leave the last column under the 3% minimum", () => {
-	const draft = [{ key: "a", label: "A", visible: true, percent: 98 }, { key: "b", label: "B", visible: true, percent: 0 }]
-	assert.match(draftPercents(draft).error, /Other columns use 98%; reduce them to leave room for B/)
-	draft[0].percent = 97
-	assert.equal(draftPercents(draft).error, "")
-	assert.deepEqual(gridViewEntries(draft).map((entry) => entry.width_percent), [97, 3])
+test("a resize keeps the table width: the dragged column takes from the last sized column, both held at their minimum", () => {
+	const widths = [200, 300, 400, 52]
+	const minimums = [60, 60, 120, 52]
+	assert.deepEqual(resizedWidths(widths, { index: 0, last: 2, width: 250, minimums }), [250, 300, 350, 52])
+	assert.deepEqual(resizedWidths(widths, { index: 1, last: 2, width: 100, minimums }), [200, 100, 600, 52])
+	assert.deepEqual(resizedWidths(widths, { index: 0, last: 2, width: 900, minimums }), [480, 300, 120, 52])
+	assert.deepEqual(resizedWidths(widths, { index: 0, last: 2, width: 10, minimums }), [60, 300, 540, 52])
 })
 
-test("distribute evenly splits shown columns and the last takes the remainder on save", () => {
-	const draft = distributeEvenly([{ key: "a", visible: true, percent: 80 }, { key: "b", visible: true, percent: 1 }, { key: "c", visible: true, percent: 1 }, { key: "d", visible: false, percent: 9 }])
-	assert.deepEqual(draft.map((column) => column.percent), [33, 33, 33, 9])
-	assert.deepEqual(gridViewEntries(draft).map((entry) => entry.width_percent), [33, 33, 34])
+test("a resized layout saves as whole percentages of the sized columns, fixed columns left out", () => {
+	const columns = [{ key: "item", reqd: 1 }, { key: "qty" }, { key: "notes" }, { key: "actions", configurable: false }]
+	const draft = widthDraft(columns, [250, 300, 450, 52])
+	assert.deepEqual(draft, [
+		{ key: "item", visible: true, locked: true, percent: 250 },
+		{ key: "qty", visible: true, locked: false, percent: 300 },
+		{ key: "notes", visible: true, locked: false, percent: 450 },
+	])
+	assert.deepEqual(gridViewEntries(draft), [
+		{ fieldname: "item", width: 300, width_percent: 25, sticky: 0 },
+		{ fieldname: "qty", width: 360, width_percent: 30, sticky: 0 },
+		{ fieldname: "notes", width: 540, width_percent: 45, sticky: 0 },
+	])
+	assert.equal(lastSizedIndex(resolveGridColumns(schema, null)), 3)
+	assert.equal(lastSizedIndex([{ key: "a", configurable: false, width: 40 }]), -1)
 })
 
 test("mandatory columns stay in the saved list even if the draft hides them", () => {

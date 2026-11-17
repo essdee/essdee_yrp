@@ -27,6 +27,7 @@
 				<EntryGrid
 					v-if="current"
 					ref="consumptionGrid" validation-field="panel_wise_consumption_matrix_json"
+					settings-doctype="YRP Item Production Detail" settings-child-doctype="panel_wise_consumption_matrix_json" lock-columns
 					:title="current.panel_value"
 					:unit-hint="grid.unitHint"
 					:row-header-label="grid.rowHeaderLabel"
@@ -54,6 +55,7 @@
 					v-for="panel in clothPanels"
 					:key="panel.group_id || 'all'"
 					:ref="(grid) => setClothGrid(panel, grid)" validation-field="panel_wise_cloth_mapping_json"
+					settings-doctype="YRP Item Production Detail" settings-child-doctype="panel_wise_cloth_mapping_json" lock-columns
 					:title="panel.panel_value || 'All panels'"
 					:row-header-label="clothGrid(panel).rowHeaderLabel"
 					:rows="clothGrid(panel).rows"
