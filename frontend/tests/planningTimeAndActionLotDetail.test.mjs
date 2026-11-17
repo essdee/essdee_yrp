@@ -11,11 +11,11 @@ test("Lot Detail scope: a Lot T&A asks PPO Tracking for its lot, a PO T&A for ev
 	assert.deepEqual(getLotDetailScope("YRP Production Order", "PPO-00291"), { ppos: ["PPO-00291"], lots: [] })
 })
 
-test("header shows a Lot Detail button to every reader, after Split T&A", () => {
+test("header shows a Lot Detail button to readers with tracking access, after Split T&A", () => {
 	const header = taSource("TimeAndActionHeader.vue")
-	const button = header.match(/<Button label="Lot Detail"[^>]*>/)?.[0]
+	const button = header.match(/<Button v-if="data.can_view_lot_detail" label="Lot Detail"[^>]*>/)?.[0]
 	assert.ok(button)
-	assert.doesNotMatch(button, /v-if|:disabled/)
+	assert.doesNotMatch(button, /:disabled/)
 	assert.match(button, /emit\('lot-detail'\)/)
 	assert.ok(header.indexOf('label="Split T&A"') < header.indexOf('label="Lot Detail"'))
 	assert.match(header, /defineEmits\(\[[^\]]*"lot-detail"/)
@@ -73,6 +73,6 @@ test("Revert T&A is one shared button gated by can_revert, used by the header an
 	const tab = taSource("LotTimeAndActionTab.vue")
 	assert.ok(tab.indexOf('<slot name="actions"') < tab.indexOf("<RevertTimeAndActionButton"))
 	assert.match(taSource("ProductionOrderTimeAndActionTab.vue"), /@reverted="emit\('changed'\)"/)
-	assert.match(readFileSync(new URL("../src/departments/planning/lot/LotPage.vue", import.meta.url), "utf8"), /@reverted="loadTimeAndAction"/)
+	assert.match(readFileSync(new URL("../src/departments/planning/lot/LotPage.vue", import.meta.url), "utf8"), /@reverted="timeAndAction\.changed"/)
 	assert.match(readFileSync(new URL("../src/api/timeAndAction.js", import.meta.url), "utf8"), /revert_time_and_action`, \{ time_and_action: timeAndAction \}/)
 })

@@ -18,10 +18,15 @@ START = "2026-11-02"
 
 
 def submitted_production_order():
-	name = frappe.db.get_value("YRP Production Order", {"docstatus": 1}, "name")
-	if not name:
-		raise AssertionError("erp-migration-test needs a submitted YRP Production Order")
-	return name
+	"""A submitted Production Order with no linked Lot and no T&A, so a PO T&A can be created on it."""
+	linked = set(frappe.get_all("SD YRP Lot", filters={"production_order": ["is", "set"]}, pluck="production_order"))
+	planned = set(
+		frappe.get_all("SD YRP Time and Action", filters={"against": "YRP Production Order"}, pluck="against_id")
+	)
+	for name in frappe.get_all("YRP Production Order", filters={"docstatus": 1}, pluck="name", order_by="creation desc"):
+		if name not in linked | planned:
+			return name
+	raise AssertionError("erp-migration-test needs a submitted YRP Production Order without Lots or T&A")
 
 
 def make_work_stations(action):
@@ -121,6 +126,17 @@ class TestCreateTimeAndAction(TimeAndActionTestCase):
 		create_time_and_action("SD YRP Lot", lot, self.master.name, START)
 		with self.assertRaisesRegex(frappe.ValidationError, lot):
 			create_time_and_action("YRP Production Order", order, self.master.name, START)
+
+	def test_po_with_linked_lot_cannot_create(self):
+		order = submitted_production_order()
+		lot = make_lot(production_order=order)
+		with self.assertRaisesRegex(frappe.ValidationError, f"{lot}.*Create the T&A from the Lot"):
+			create_time_and_action("YRP Production Order", order, self.master.name, START)
+
+	def test_po_without_linked_lot_can_create(self):
+		order = submitted_production_order()
+		name = create_time_and_action("YRP Production Order", order, self.master.name, START)
+		self.assertEqual(frappe.db.get_value("SD YRP Time and Action", name, "against_id"), order)
 
 	def test_against_must_be_lot_or_production_order(self):
 		with self.assertRaises(frappe.ValidationError):

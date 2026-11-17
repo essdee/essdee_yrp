@@ -38,10 +38,17 @@ class TestProductionOrderTimeAndAction(TimeAndActionTestCase):
 		set_window(3650, 3650)
 		self.master = make_master(STEPS, DEPENDENCIES)
 		self.order = submitted_production_order()
-		self.lots = [make_lot(production_order=self.order) for _index in range(3)]
+		self.lots = [make_lot() for _index in range(3)]
+
+	def link_lots(self, lots=None):
+		for lot in lots or self.lots:
+			frappe.db.set_value(LOT, lot, "production_order", self.order)
 
 	def create_order_time_and_action(self):
-		return create_time_and_action(PRODUCTION_ORDER, self.order, self.master.name, START)
+		"""The PO T&A, then its Lots linked: a PO with linked Lots cannot get a new T&A."""
+		name = create_time_and_action(PRODUCTION_ORDER, self.order, self.master.name, START)
+		self.link_lots()
+		return name
 
 	def test_po_create_builds_rows_against_the_order(self):
 		doc = frappe.get_doc(TIME_AND_ACTION, self.create_order_time_and_action())
@@ -63,9 +70,23 @@ class TestProductionOrderTimeAndAction(TimeAndActionTestCase):
 			create_time_and_action(LOT, self.lots[0], self.master.name, START)
 
 	def test_po_create_blocked_when_a_lot_has_ta(self):
+		self.link_lots([self.lots[1]])
 		create_time_and_action(LOT, self.lots[1], self.master.name, START)
 		with self.assertRaisesRegex(frappe.ValidationError, self.lots[1]):
 			self.create_order_time_and_action()
+
+	def test_po_create_blocked_when_a_lot_is_linked(self):
+		self.link_lots([self.lots[0]])
+		context = get_production_order_time_and_action(self.order)
+		self.assertEqual((context["can_create"], context["create_blocked_reason"]), (False, "linked_lots"))
+		with self.assertRaisesRegex(frappe.ValidationError, "Create the T&A from the Lot"):
+			self.create_order_time_and_action()
+
+	def test_po_ta_stays_when_lots_are_linked_later(self):
+		source = self.create_order_time_and_action()
+		context = get_production_order_time_and_action(self.order)
+		self.assertEqual((context["time_and_action"], context["create_blocked_reason"]), (source, None))
+		self.assertTrue(context["can_convert"])
 
 	def test_linking_lot_with_own_ta_to_po_with_ta_is_refused(self):
 		self.create_order_time_and_action()
@@ -214,7 +235,9 @@ class TestProductionOrderTimeAndAction(TimeAndActionTestCase):
 
 	def test_order_context_for_desk_and_web(self):
 		context = get_production_order_time_and_action(self.order)
-		self.assertEqual((context["time_and_action"], context["can_create"]), (None, True))
+		self.assertEqual(
+			(context["time_and_action"], context["can_create"], context["create_blocked_reason"]), (None, True, None)
+		)
 		source = self.create_order_time_and_action()
 		context = get_production_order_time_and_action(self.order)
 		self.assertEqual((context["time_and_action"], context["status"]), (source, "In Progress"))

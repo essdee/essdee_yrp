@@ -19,6 +19,8 @@ class TestCuttingMarkerRatioValidation(TestCase):
 			marker_details={"ratio_items": [{"size": "M", "panel": "Front", "ratio": ratio}], "group_items": []},
 		)
 		doc.set = lambda field, value: doc.update({field: value})
+		doc.set_marker_details = lambda: SDYRPCuttingMarker.set_marker_details(doc)
+		doc.set_required_piece_weight = lambda: None
 		with (
 			patch(f"{MARKER_MODULE}.get_parent_ref", return_value=("SD YRP Cutting Plan", "CP-1")),
 			patch(f"{MARKER_MODULE}.validate_parent_status"),

@@ -46,6 +46,12 @@ function mountMerchLot(workspace) {
 		"./MerchLotBomTab.vue": stub("bom"),
 		"./MerchLotDocuments.vue": stub("documents"),
 		"./MerchLotPpoPanel.vue": stub("ppo"),
+		"../../planning/time-and-action/CreateTimeAndActionDialog.vue": stub("ta-create"),
+		"../../planning/time-and-action/LotTimeAndActionTab.vue": stub("ta-tab"),
+		"../../planning/time-and-action/useLotTimeAndActionTab.js": {
+			TIME_AND_ACTION_TAB: { key: "time-and-action", label: "Time and Action" },
+			useLotTimeAndActionTab: () => Vue.reactive({ canRead: false, createVisible: false, tabProps: {}, dialogProps: {}, withTab: (tabs) => tabs, actions: () => [], changed() {}, created() {} }),
+		},
 	})
 	const root = mountComponent(component, { lotId: "LOT-1" })
 	const find = type => findNodes(root, node => node.type === type)

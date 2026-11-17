@@ -18,6 +18,7 @@ function buttonsFor(context) {
 }
 
 assert.deepEqual(buttonsFor({ can_create: true }), ["Time and Action/Create T&A"]);
+assert.deepEqual(buttonsFor({ can_create: false, create_blocked_reason: "linked_lots" }), []);
 assert.deepEqual(buttonsFor({ time_and_action: "TA-1", status: "In Progress", can_convert: true }), [
 	"Time and Action/Update T&A",
 	"Time and Action/Convert to Lot T&A",

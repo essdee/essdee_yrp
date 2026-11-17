@@ -8,6 +8,7 @@ from essdee_yrp.time_and_action.create import (
 	LOT,
 	PRODUCTION_ORDER,
 	TIME_AND_ACTION,
+	get_linked_lots,
 	get_production_order_qty,
 	get_time_and_action,
 )
@@ -21,15 +22,19 @@ def get_production_order_time_and_action(production_order: str) -> dict:
 	"""The order's T&A (Frozen included), what the user can do with it, and the Lot T&As converted from it."""
 	order = frappe.get_doc(PRODUCTION_ORDER, production_order)
 	order.check_permission("read")
+	if not frappe.has_permission(TIME_AND_ACTION, "read"):
+		return {"can_read": False}
 	name = get_time_and_action(PRODUCTION_ORDER, production_order)
 	status = frappe.db.get_value(TIME_AND_ACTION, name, "status") if name else None
 	can_write = frappe.has_permission(TIME_AND_ACTION, "create")
+	may_create = bool(not name and order.docstatus != 2 and can_write)
+	has_lots = may_create and bool(get_linked_lots(order.name))
 	return {
+		"can_read": True,
 		"time_and_action": name,
 		"status": status,
-		"can_create": bool(
-			not name and order.docstatus != 2 and can_write and not get_planned_lots(order.name)
-		),
+		"can_create": may_create and not has_lots,
+		"create_blocked_reason": "linked_lots" if has_lots else None,
 		"can_convert": bool(status in CONVERTIBLE_STATUSES and can_write),
 		"copies": get_copies(name) if name else [],
 		"item": order.item,

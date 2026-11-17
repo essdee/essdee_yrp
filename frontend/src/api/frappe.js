@@ -1,5 +1,6 @@
 import { extractServerMessage } from "./errorMessages.js"
 import { announceServerMessages } from "./serverMessages.js"
+import { playDocumentSound } from "../utils/documentSound.js"
 
 const pendingReads = new Map()
 const metadata = new Map()
@@ -92,7 +93,9 @@ export async function callMethod(method, args = {}, requestOptions = {}) {
 	// Generic methods may write. Keep only the explicitly shared readers in one generation.
 	invalidatePendingReads()
 	try {
-		return await invokeMethod(method, args, requestOptions)
+		const message = await invokeMethod(method, args, requestOptions)
+		playDocumentSound(method, args)
+		return message
 	} finally {
 		invalidatePendingReads()
 	}

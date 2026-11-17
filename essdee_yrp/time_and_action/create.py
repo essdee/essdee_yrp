@@ -201,7 +201,7 @@ def validate_can_create(against: str, against_id: str, converted_from: str | Non
 	if against == LOT:
 		_validate_lot_order_has_no_time_and_action(against_id, converted_from)
 	else:
-		_validate_order_lots_have_no_time_and_action(against_id)
+		_validate_order_has_no_lots(against_id)
 
 
 def _validate_lot_order_has_no_time_and_action(lot, converted_from=None):
@@ -215,12 +215,14 @@ def _validate_lot_order_has_no_time_and_action(lot, converted_from=None):
 		)
 
 
-def _validate_order_lots_have_no_time_and_action(order):
-	lots = frappe.get_all(LOT, filters={"production_order": order}, pluck="name")
-	planned = lots and frappe.get_all(
-		TIME_AND_ACTION, filters={"against": LOT, "against_id": ["in", lots]}, pluck="against_id"
-	)
-	if planned:
+def get_linked_lots(order: str) -> list[str]:
+	return frappe.get_all(LOT, filters={"production_order": order}, pluck="name", order_by="name asc")
+
+
+def _validate_order_has_no_lots(order):
+	"""A Production Order with linked Lots plans its T&A on each Lot."""
+	lots = get_linked_lots(order)
+	if lots:
 		frappe.throw(
-			_("Lots {0} of this Production Order already have Time and Action.").format(", ".join(planned))
+			_("Lots {0} are linked to this Production Order. Create the T&A from the Lot.").format(", ".join(lots))
 		)

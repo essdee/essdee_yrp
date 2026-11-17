@@ -126,9 +126,12 @@
    "label": "Efficiency"
   },
   {
+   "description": "Calculated from the IPD cutting weights of the selected panels and size ratios.",
    "fieldname": "required_piece_weight",
    "fieldtype": "Float",
-   "label": "Required Piece Weight (kg)"
+   "label": "Required Piece Weight (kg)",
+   "precision": "4",
+   "read_only": 1
   },
   {
    "fieldname": "cutting_marker_ratios_html",
@@ -197,7 +200,7 @@
    "link_fieldname": "cutting_marker"
   }
  ],
- "modified": "2026-02-06 18:50:59.186756",
+ "modified": "2026-11-17 16:24:43.897915",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Cutting Marker",

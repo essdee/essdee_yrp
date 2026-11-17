@@ -10,7 +10,7 @@ const source = (path) => readFileSync(new URL(path, folder), "utf8")
 test("Planning view shows a Summary tab with the process flow; the editor keeps the Lot tab", () => {
 	assert.equal(LOT_VIEW_TABS[0].label, "Summary")
 	assert.equal(LOT_TABS[0].label, "Lot")
-	assert.match(source("LotPage.vue"), /<Tab v-for="tab in LOT_VIEW_TABS"/)
+	assert.match(source("LotPage.vue"), /<Tab v-for="tab in timeAndAction\.withTab\(LOT_VIEW_TABS\)"/)
 	assert.match(source("LotPage.vue"), /<LotViewMain [^>]*include-empty/)
 	const view = source("LotViewMain.vue")
 	assert.match(view, /import LotProcessFlow from "\.\/flow\/LotProcessFlow\.vue"/)

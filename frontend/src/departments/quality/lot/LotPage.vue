@@ -27,7 +27,7 @@
 				<template #matrix>
 					<Tabs v-model:value="activeTab" scrollable class="lot-tabs erp-tabs">
 						<TabList ref="tabList" class="lot-tablist">
-							<Tab v-for="tab in LOT_TABS" :key="tab.key" :value="tab.key">
+							<Tab v-for="tab in timeAndAction.withTab(LOT_TABS)" :key="tab.key" :value="tab.key">
 								{{ tab.label }}
 								<span v-if="lotTabCount(workspace, tab.key) !== null">{{ lotTabCount(workspace, tab.key) }}</span>
 							</Tab>
@@ -53,6 +53,9 @@
 							<TabPanel v-else-if="activeTab === 'bom'" value="bom">
 								<LotBomPanel :workspace="workspace" />
 							</TabPanel>
+							<TabPanel v-else-if="activeTab === 'time-and-action' && timeAndAction.canRead" value="time-and-action">
+								<LotTimeAndActionTab v-bind="timeAndAction.tabProps" @create="timeAndAction.createVisible = true" @reverted="timeAndAction.changed" />
+							</TabPanel>
 						</TabPanels>
 					</Tabs>
 				</template>
@@ -75,6 +78,7 @@
 			:name="selectedDocument.name"
 			@hide="documentsRail?.restoreFocus()"
 		/>
+		<CreateTimeAndActionDialog v-model:visible="timeAndAction.createVisible" v-bind="timeAndAction.dialogProps" @created="timeAndAction.created" />
 	</DepartmentPage>
 </template>
 
@@ -100,6 +104,9 @@ import LotIdentity from "./LotIdentity.vue"
 import LotViewMain from "./LotViewMain.vue"
 import { editTabFor } from "./lotEditor.js"
 import { LOT_TABS } from "./lotLayout.js"
+import CreateTimeAndActionDialog from "../../planning/time-and-action/CreateTimeAndActionDialog.vue"
+import LotTimeAndActionTab from "../../planning/time-and-action/LotTimeAndActionTab.vue"
+import { TIME_AND_ACTION_TAB, useLotTimeAndActionTab } from "../../planning/time-and-action/useLotTimeAndActionTab.js"
 import { lotTabCount } from "./lotViews.js"
 import { useLotLayout } from "./useLotLayout.js"
 import "./lot.css"
@@ -143,12 +150,13 @@ const headerValues = computed(
 )
 const item = computed(() => headerValues.value.get("item"))
 const deliveryDate = computed(() => headerValues.value.get("expected_delivery_date"))
-const { activeTab, expanded, scrollTo } = useLotLayout(LOT_TABS, useRoute(), router)
+const { activeTab, expanded, scrollTo } = useLotLayout([...LOT_TABS, TIME_AND_ACTION_TAB], useRoute(), router)
+const timeAndAction = useLotTimeAndActionTab({ lotId: () => props.lotId, department: "quality", activeTab, onChanged: () => load(true) })
 
-const lotActions = computed(() => workspace.value.permissions?.can_write ? [{
+const lotActions = computed(() => [...timeAndAction.actions(acting.value), ...(workspace.value.permissions?.can_write ? [{
  key: "edit", label: "Edit", icon: "pi pi-pencil", primary: true,
  command: openEditor, disabled: Boolean(acting.value),
-}] : [])
+}] : [])])
 function openEditor() {
  return router.push({ name: QUALITY_ROUTES.lotEdit, params: { lotId: props.lotId },
   query: { tab: editTabFor(activeTab.value) },

@@ -65,6 +65,25 @@ frappe.ui.form.on("SD YRP Cutting Marker", {
 			frm.set_df_property("cutting_plan", "hidden", 0)
 		}
 	},
+	preview_required_piece_weight(frm) {
+		if (frm.doc.docstatus !== 0 || !frm.marker_ratios) return
+		frappe.call({
+			method: "essdee_yrp.essdee_yrp.doctype.sd_yrp_cutting_marker.sd_yrp_cutting_marker.preview_marker_piece_weight",
+			args: {
+				cutting_plan: frm.doc.cutting_plan,
+				cutting_order: frm.doc.cutting_order,
+				selected_type: frm.doc.selected_type,
+				panels: (frm.doc.calculated_parts || "").split(",").filter(Boolean),
+				ratio_items: frm.marker_ratios.get_ratio_items(),
+			},
+		}).then((r) => {
+			const result = r.message || {}
+			if (result.weight !== null && result.weight !== undefined) {
+				frm.set_value("required_piece_weight", result.weight)
+			}
+			frm.set_df_property("required_piece_weight", "description", result.message || "")
+		})
+	},
 	validate(frm){
 		if(frm.marker_ratios && !frm.doc.__islocal){
 			let items = frm.marker_ratios.get_items()

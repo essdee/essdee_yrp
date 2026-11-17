@@ -17,7 +17,7 @@
 						<TabList>
 							<Tab value="details">Details</Tab>
 							<Tab value="transfers">Quantity Transferred <span>{{ workspace.histories?.transfers?.length || 0 }}</span></Tab>
-							<Tab v-if="showTimeAndAction && workspace.record?.name" value="time_and_action">Time and Action</Tab>
+							<Tab v-if="showTimeAndAction && workspace.record?.name && timeAndAction.context.value?.can_read" value="time_and_action">Time and Action</Tab>
 						</TabList>
 						<TabPanels>
 							<TabPanel value="details">
@@ -30,7 +30,7 @@
 								</div>
 							</TabPanel>
 							<TabPanel value="transfers"><ProductionOrderTransferHistory :rows="workspace.histories?.transfers || []" :view-route-name="transferViewRouteName" /></TabPanel>
-							<TabPanel v-if="showTimeAndAction && workspace.record?.name" value="time_and_action"><ProductionOrderTimeAndActionTab :context="timeAndAction.context.value" :loading="timeAndAction.loading.value" :error="timeAndAction.error.value" @create="createTimeAndActionVisible = true" @changed="timeAndAction.load" /></TabPanel>
+							<TabPanel v-if="showTimeAndAction && workspace.record?.name && timeAndAction.context.value?.can_read" value="time_and_action"><ProductionOrderTimeAndActionTab :update-route-name="timeAndActionUpdateRouteName" :context="timeAndAction.context.value" :loading="timeAndAction.loading.value" :error="timeAndAction.error.value" @create="createTimeAndActionVisible = true" @changed="timeAndAction.load" /></TabPanel>
 						</TabPanels>
 					</Tabs>
 				</template>
@@ -101,6 +101,7 @@ const props = defineProps({
 	listRouteName: { type: String, default: "sales-production-orders" },
 	newRouteName: { type: String, default: "" },
 	showTimeAndAction: { type: Boolean, default: false },
+	timeAndActionUpdateRouteName: { type: String, default: undefined },
 })
 
 const route = useRoute()

@@ -19,7 +19,7 @@
                     <td>{{item.size}}</td>
                     <td v-if="show_panel">{{item.panel}}</td>
                     <td v-if="docstatus == 0 && doctype=='SD YRP Cutting Marker'">
-                        <input type="number" step="1" v-model="item.ratio" class="form-control"  @blur="make_dirty()">
+                        <input type="number" step="1" v-model="item.ratio" class="form-control"  @blur="ratio_changed()">
                     </td>
                     <td v-else>
                         {{item.ratio}}
@@ -99,6 +99,15 @@ function make_dirty(){
     if(!cur_frm.is_dirty()){
         cur_frm.dirty()
     }
+}
+
+function ratio_changed(){
+    make_dirty()
+    cur_frm.trigger("preview_required_piece_weight")
+}
+
+function get_ratio_items(){
+    return JSON.parse(JSON.stringify(items.value))
 }
 
 function add_groups(){
@@ -285,6 +294,7 @@ function get_combination(user_input=null){
         callback:((r)=> {
             items.value = r.message.primary
             grp_items.value = r.message.grp_items
+            cur_frm.trigger("preview_required_piece_weight")
         })
     })
 }
@@ -300,7 +310,8 @@ function create_options(panels){
 
 defineExpose({
     load_data,
-    get_items
+    get_items,
+    get_ratio_items
 })
 
 </script>

@@ -31,7 +31,7 @@
 					<label><span>Width (Inches) *</span><InputNumber v-model="form.width" :min="0" :max-fraction-digits="3" :disabled="!canEdit" fluid /></label>
 					<label><span>Total No Of Plys</span><InputNumber v-model="form.total_no_of_plys" :min="0" :disabled="!canEdit" fluid /></label>
 					<label><span>Efficiency</span><InputNumber v-model="form.efficiency" :min="0" :max="100" suffix="%" :max-fraction-digits="2" :disabled="!canEdit" fluid /></label>
-					<label><span>Required Piece Weight (kg)</span><InputNumber v-model="form.required_piece_weight" :min="0" :max-fraction-digits="4" :disabled="!canEdit" fluid /></label>
+					<label><span>Required Piece Weight (kg)</span><InputNumber :model-value="piecePreview.weight ?? form.required_piece_weight" :max-fraction-digits="4" readonly disabled fluid /><small class="weight-note" :class="{ 'weight-note--error': piecePreview.message }">{{ piecePreview.message || "Calculated from the IPD cutting weights of the selected panels and size ratios." }}</small></label>
 				</div>
 			</section>
 
@@ -140,6 +140,9 @@ const record = ref(null)
 const editingExisting = ref(false)
 const context = ref({ panels: [], sizes: [] })
 const form = reactive(emptyForm())
+const piecePreview = reactive({ weight: null, message: "" })
+let previewTimer = null
+let previewRequest = 0
 const cleanSignature = ref("")
 const signature = computed(() => JSON.stringify(form))
 const dirty = computed(() => !loading.value && signature.value !== cleanSignature.value)
@@ -174,6 +177,32 @@ watch(
 	([visible]) => { if (visible) load() },
 )
 
+watch(
+	() => JSON.stringify([canEdit.value, form.selected_type, form.panels, form.ratio_items]),
+	() => {
+		if (!canEdit.value || loading.value) return
+		clearTimeout(previewTimer)
+		previewTimer = setTimeout(previewPieceWeight, 300)
+	},
+)
+
+async function previewPieceWeight() {
+	const request = ++previewRequest
+	try {
+		const result = await callMethod(markerMethod("preview_marker_piece_weight"), {
+			...parentArgs.value,
+			selected_type: form.selected_type,
+			panels: form.panels,
+			ratio_items: form.ratio_items,
+		})
+		if (request !== previewRequest) return
+		piecePreview.weight = result?.weight ?? null
+		piecePreview.message = result?.message || ""
+	} catch (reason) {
+		if (request === previewRequest) piecePreview.message = reason.message || "Unable to calculate the piece weight."
+	}
+}
+
 async function load() {
 	loading.value = true
 	editingExisting.value = false
@@ -188,6 +217,7 @@ async function load() {
 		record.value = data?.marker || null
 		context.value = data?.context || { panels: [], sizes: [] }
 		replaceForm(record.value ? recordForm(record.value) : emptyForm())
+		Object.assign(piecePreview, { weight: null, message: "" })
 		cleanSignature.value = signature.value
 	} catch (reason) {
 		error.value = reason.message || "Unable to load the Cutting Marker."
@@ -246,6 +276,7 @@ async function save(submit) {
 		})
 		record.value = saved
 		replaceForm(recordForm(saved))
+		Object.assign(piecePreview, { weight: null, message: "" })
 		cleanSignature.value = signature.value
 		if (!submit) editingExisting.value = false
 		success.value = submit ? "Marker submitted." : "Draft marker saved."
@@ -364,6 +395,8 @@ function documentDeleted() {
 .marker-section small { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); }
 .marker-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
 .marker-fields label { display: grid; gap: 5px; color: var(--erp-text); font-size: var(--erp-font-size-caption); font-weight: 680; }
+.weight-note { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 500; }
+.weight-note--error { color: var(--erp-danger); }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .section-heading > div { display: grid; gap: 3px; }
 .table-scroll { overflow-x: auto; border: 1px solid var(--erp-border); border-radius: var(--erp-control-radius); }

@@ -488,6 +488,9 @@ frappe.production.ui.CuttingMarker = class {
 	get_items() {
 		return this.vue.get_items();
 	}
+	get_ratio_items() {
+		return this.vue.get_ratio_items();
+	}
 };
 
 frappe.production.ui.CutPanelMovementBundle = class {

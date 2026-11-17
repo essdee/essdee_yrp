@@ -11,7 +11,7 @@
 				<TabPanels>
 					<TabPanel v-for="row in data.lots" :key="row.lot" :value="row.lot">
 						<div class="ta-lot-detail__lot" :data-lot-detail="row.lot">
-							<router-link class="pd-link" :to="`/planning/lots/${encodeURIComponent(row.lot)}`">{{ row.lot }}</router-link>
+							<router-link class="pd-link" :to="departmentLotLocation(route.path, row.lot)">{{ row.lot }}</router-link>
 							<LotStatusPill :status="row.status" />
 							<span>{{ row.item }} · PPO {{ row.ppo }} · Delivery {{ formatDisplayDate(row.delivery, "—") }} · Dispatched {{ formatQuantity(row.dispatch) }} pcs</span>
 						</div>
@@ -34,6 +34,7 @@ import TabPanel from "primevue/tabpanel"
 import TabPanels from "primevue/tabpanels"
 import Tabs from "primevue/tabs"
 import { computed, ref } from "vue"
+import { useRoute } from "vue-router"
 
 import { getPlanningCapabilities, getPpoTracking } from "../../../api/planning.js"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
@@ -41,7 +42,7 @@ import LotStatusPill from "../dashboard/LotStatusPill.vue"
 import TrackingLotDetail from "../dashboard/TrackingLotDetail.vue"
 import { formatQuantity } from "../dashboard/dashboardFormat.js"
 import { visibleProductionReports } from "../planningViews.js"
-import { getLotDetailScope } from "./timeAndAction.js"
+import { departmentLotLocation, getLotDetailScope } from "./timeAndAction.js"
 import "../../../styles/lotProcessFlow.css"
 import "../dashboard/planningDashboard.css"
 
@@ -52,6 +53,7 @@ const props = defineProps({
 	againstId: { type: String, required: true },
 })
 const emit = defineEmits(["update:visible"])
+const route = useRoute()
 const data = ref(null)
 const reports = ref([])
 const activeLot = ref("")
