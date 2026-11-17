@@ -26,6 +26,7 @@
   "cloth_program_additions",
   "assigned_person_name",
   "status",
+  "is_folding_lot",
   "uom",
   "expected_delivery_date",
   "size_set_colour_colour",
@@ -130,6 +131,13 @@
    "label": "Status",
    "no_copy": 1,
    "options": "Open\nClosed"
+  },
+  {
+   "default": "0",
+   "description": "Folding lots need no Item or Production Detail. Only the Folding Lot Role in MRP Settings can change this.",
+   "fieldname": "is_folding_lot",
+   "fieldtype": "Check",
+   "label": "Folding Lot"
   },
   {
    "depends_on": "eval:doc.item",
@@ -558,7 +566,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-16 12:00:00.000000",
+ "modified": "2026-11-17 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Lot",

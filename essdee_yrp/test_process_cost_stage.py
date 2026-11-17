@@ -74,7 +74,10 @@ class ProcessCostStageTest(unittest.TestCase):
 		from essdee_yrp.process_cost import before_validate
 
 		doc = frappe._dict(lot="Lot", process_name="Printing", item="Wrong Item")
-		with patch("essdee_yrp.process_cost.frappe.db.get_value", side_effect=[0, "Garment", "Nos"]):
+		with (
+			patch("essdee_yrp.process_cost.is_folding_lot", return_value=False),
+			patch("essdee_yrp.process_cost.frappe.db.get_value", side_effect=[0, "Garment", "Nos"]),
+		):
 			before_validate(doc)
 		self.assertEqual(doc.item, "Garment")
 		self.assertEqual(doc.uom, "Nos")

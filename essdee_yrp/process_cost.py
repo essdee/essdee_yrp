@@ -7,6 +7,8 @@ from yrp.attribute_links import value as _attribute_value
 from yrp.attribute_values import get_mapping_document
 from yrp.utils import update_if_string_instance
 
+from essdee_yrp.folding_lot import is_folding_lot
+
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
@@ -163,6 +165,8 @@ def before_validate(doc, method=None):
 	else:
 		# Preserve the previous garment Lot fetch while allowing an explicit
 		# cloth Item for processes that use the Lot's separate cloth IPDs.
-		doc.item = attribute_db.get_value("SD YRP Lot", doc.lot, "item")
+		# Folding Lots have no Item, so their Process Cost keeps the chosen one.
+		if not is_folding_lot(doc.lot):
+			doc.item = attribute_db.get_value("SD YRP Lot", doc.lot, "item")
 		if doc.item:
 			doc.uom = frappe.db.get_value("Item", doc.item, "stock_uom")

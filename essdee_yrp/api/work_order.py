@@ -38,6 +38,7 @@ from essdee_yrp.fabric_reference import (
 	get_reference_allocations,
 	serialise_reference_allocations,
 )
+from essdee_yrp.folding_lot import is_folding_lot
 from essdee_yrp.ipd_validations import get_attribute_mapping, get_ipd_attribute_values
 
 
@@ -1437,6 +1438,7 @@ def _get_work_order_selection_context(lot, process_name, check_permission=False)
 			"item_options": [],
 			"auto_item": None,
 			"auto_production_detail": None,
+			"is_folding_lot": is_folding_lot(lot),
 		}
 
 	lot_doc = frappe.get_doc("SD YRP Lot", lot)
@@ -1505,6 +1507,7 @@ def _get_work_order_selection_context(lot, process_name, check_permission=False)
 		# after the user selects one of the filtered Item options.
 		"auto_item": None,
 		"auto_production_detail": None,
+		"is_folding_lot": bool(lot_doc.get("is_folding_lot")),
 	}
 
 

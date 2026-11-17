@@ -7,6 +7,8 @@ from frappe.core.doctype.session_default_settings.session_default_settings impor
 	get_session_default_values,
 )
 
+from essdee_yrp.folding_lot import has_folding_lot_role
+
 
 def boot_session(bootinfo):
 	set_session_defaults(bootinfo)
@@ -14,6 +16,7 @@ def boot_session(bootinfo):
 		"colour": frappe.db.get_single_value("SD YRP IPD Settings", "default_packing_attribute"),
 		"dia": frappe.db.get_single_value("SD YRP IPD Settings", "default_dia_attribute"),
 	}
+	bootinfo["essdee_yrp_can_edit_folding_lot"] = has_folding_lot_role()
 
 
 def set_session_defaults(bootinfo):

@@ -129,8 +129,10 @@ class SDYRPLot(Document):
 		self.total_order_quantity = total_qty
 
 	def validate(self):
+		from essdee_yrp.folding_lot import validate_lot
 		from essdee_yrp.time_and_action.production_order import validate_lot_link
 
+		validate_lot(self)
 		validate_lot_link(self)
 
 	def before_save(self):

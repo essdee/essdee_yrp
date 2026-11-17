@@ -35,6 +35,7 @@ from essdee_yrp.fabric_store.documents.common import (
 	get_effective_fields,
 	get_workspace_base,
 )
+from essdee_yrp.folding_lot import is_folding_lot
 from essdee_yrp.garment_work_order import (
 	calculate_garment_work_order,
 	get_garment_work_order_context,
@@ -684,7 +685,18 @@ def get_work_order_editor(name: str | None = None, source=None, *, _adapter=None
 			_work_order_header_dimensions(doc, dimension_loader()),
 		),
 		"permissions": permissions,
+		"is_folding_lot": is_folding_lot(doc.get("lot")),
 	}
+
+
+def get_work_order_item_schema(item: str) -> dict:
+	"""Item attributes for a manual Folding Work Order row."""
+	frappe.has_permission("YRP Work Order", ptype="create", throw=True)
+	if not item:
+		frappe.throw(_("Item is required."))
+	from essdee_yrp.cutting.web_workspace import _get_stock_item_schema_data
+
+	return _get_stock_item_schema_data(item)
 
 
 def save_work_order_document(

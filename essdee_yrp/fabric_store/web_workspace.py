@@ -1461,6 +1461,11 @@ def get_work_order_editor(name: str | None = None, source=None) -> dict:
 
 
 @frappe.whitelist()
+def get_work_order_item_schema(item: str) -> dict:
+	return work_order_service.get_work_order_item_schema(item)
+
+
+@frappe.whitelist()
 def save_work_order_document(
 	values,
 	name: str | None = None,
