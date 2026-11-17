@@ -6,6 +6,11 @@ from essdee_yrp.web_common import permission_flags
 
 SECTIONS = {
 	"lots": ("SD YRP Lot", _("Lots"), ("read", "create", "write")),
+	"production_orders": (
+		"YRP Production Order",
+		_("Production Orders"),
+		("read", "create", "write", "submit"),
+	),
 	"items": ("Item", _("Items"), ("read", "create", "write")),
 	"item_prices": (
 		"YRP Item Price",

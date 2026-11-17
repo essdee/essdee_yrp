@@ -16,6 +16,13 @@ export function purchaseLauncherItems() {
 			to: "/purchase/lots",
 		},
 		{
+			key: "production_orders",
+			label: "Production Order",
+			description: "Production Orders and the Purchase Orders raised against them.",
+			icon: "pi pi-file-edit",
+			to: "/purchase/production-orders",
+		},
+		{
 			key: "items",
 			label: "Items",
 			description: "Create purchase items and their allowed attribute values.",

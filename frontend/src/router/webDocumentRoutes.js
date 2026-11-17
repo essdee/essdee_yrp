@@ -91,6 +91,8 @@ export const DEPARTMENT_RECORD_ROUTES = {
 	},
 	"/planning": PLANNING_RECORD_ROUTES,
 	"/purchase": {
+		"YRP Production Order": (name) => `/web/purchase/production-orders/${encodeURIComponent(name)}`,
+		"Purchase Order": (name) => `/web/purchase/purchase-orders/${encodeURIComponent(name)}`,
 		"YRP Bill Tracking": (name) => `/web/purchase/bill-tracking/${encodeURIComponent(name)}`,
 		"YRP Goods Received Note": (name) => `/web/purchase/goods-received-notes/${encodeURIComponent(name)}`,
 	},
