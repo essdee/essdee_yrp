@@ -180,14 +180,14 @@
   "render_mode": "Registered Experience"
  },
  {
-  "config": "{\n \"schema_version\": 1,\n \"experience_props\": {\n  \"workspaces\": [\n   \"lots\",\n   \"items\",\n   \"item_prices\",\n   \"bill_tracking\",\n   \"goods_received_notes\",\n   \"purchase_orders\",\n   \"stock_transfers\",\n   \"item_conversions\",\n   \"box_stickers\",\n   \"excel_stickers\",\n   \"reports\"\n  ]\n }\n}",
-  "description": "/web Purchase department workspace only: lots, items, item_prices, bill_tracking, goods_received_notes, purchase_orders, stock_transfers, item_conversions, box_stickers, excel_stickers, reports.",
+  "config": "{\n \"schema_version\": 1,\n \"experience_props\": {\n  \"workspaces\": [\n   \"lots\",\n   \"production_orders\",\n   \"items\",\n   \"item_prices\",\n   \"bill_tracking\",\n   \"goods_received_notes\",\n   \"purchase_orders\",\n   \"stock_transfers\",\n   \"item_conversions\",\n   \"box_stickers\",\n   \"excel_stickers\",\n   \"reports\"\n  ]\n }\n}",
+  "description": "/web Purchase department workspace only: lots, production_orders, items, item_prices, bill_tracking, goods_received_notes, purchase_orders, stock_transfers, item_conversions, box_stickers, excel_stickers, reports.",
   "disabled": 0,
   "docstatus": 0,
   "doctype": "YRP UI Layout",
   "experience_key": "purchase",
   "layout_name": "Purchase",
-  "modified": "2026-10-24 15:05:20.963975",
+  "modified": "2026-11-17 13:00:00.000000",
   "name": "Purchase",
   "render_mode": "Registered Experience"
  },

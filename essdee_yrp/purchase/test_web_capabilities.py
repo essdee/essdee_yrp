@@ -54,6 +54,11 @@ class TestPurchaseWebCapabilities(TestCase):
 				payload = get_capabilities()
 				for key, doctype, permission_types in (
 					("lots", "SD YRP Lot", ("read", "create", "write")),
+					(
+						"production_orders",
+						"YRP Production Order",
+						("read", "create", "write", "submit"),
+					),
 					("items", "Item", ("read", "create", "write")),
 					(
 						"item_prices",

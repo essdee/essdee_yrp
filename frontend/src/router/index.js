@@ -782,6 +782,22 @@ const routes = [
 	{ path: "/purchase/lots/:lotId", name: PURCHASE_ROUTES.lot, component: LotPage, props: true },
 	{ path: "/purchase/lots/:lotId/edit", name: PURCHASE_ROUTES.lotEdit, component: LotEditorPage, props: true },
 	{
+		path: "/purchase/production-orders", name: PURCHASE_ROUTES.productionOrders, component: SalesSection,
+		props: { backTo: "/purchase", backLabel: "Purchase", viewRouteName: PURCHASE_ROUTES.productionOrder, newRouteName: PURCHASE_ROUTES.productionOrderNew, eyebrow: "Purchase" },
+	},
+	{
+		path: "/purchase/production-orders/new", name: PURCHASE_ROUTES.productionOrderNew, component: ProductionOrderEditorPage,
+		props: { backTo: "/purchase/production-orders", backLabel: "Production Orders", viewRouteName: PURCHASE_ROUTES.productionOrder },
+	},
+	{
+		path: "/purchase/production-orders/:productionOrderId/edit", name: PURCHASE_ROUTES.productionOrderEdit, component: ProductionOrderEditorPage,
+		props: idProps("productionOrderId", { backTo: "/purchase/production-orders", backLabel: "Production Orders", viewRouteName: PURCHASE_ROUTES.productionOrder }),
+	},
+	{
+		path: "/purchase/production-orders/:productionOrderId", name: PURCHASE_ROUTES.productionOrder, component: ProductionOrder,
+		props: { backTo: "/purchase/production-orders", backLabel: "Production Orders", viewRouteName: PURCHASE_ROUTES.productionOrder, transferViewRouteName: PURCHASE_ROUTES.productionOrder, editRouteName: PURCHASE_ROUTES.productionOrderEdit, listRouteName: PURCHASE_ROUTES.productionOrders },
+	},
+	{
 		path: "/planning/cutting-plans", name: PLANNING_ROUTES.cuttingPlans, component: CuttingPlans,
 		props: { backTo: "/planning", backLabel: "Planning", viewRouteName: PLANNING_ROUTES.cuttingPlan, newRouteName: PLANNING_ROUTES.cuttingPlanNew },
 	},
