@@ -40,6 +40,13 @@ export const PLANNING_WORKSPACES = [
 		to: "/planning/lots",
 	},
 	{
+		key: "time_and_action_update",
+		label: "Time and Action Update",
+		description: "Actual and rescheduled dates of open T&As.",
+		icon: "pi pi-calendar-clock",
+		to: "/planning/time-and-action-update",
+	},
+	{
 		key: "production_orders",
 		label: "Production Order",
 		description: "Quantities, delivery commitments and approvals.",

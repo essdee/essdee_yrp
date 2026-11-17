@@ -52,6 +52,7 @@ from essdee_yrp.essdee_yrp.doctype.sd_yrp_ipd_settings.sd_yrp_ipd_settings impor
 from essdee_yrp.fabric_requirement import get_stich_details, get_stitching_combination
 from essdee_yrp.ipd_attribute_links import major_stitching_value
 from essdee_yrp.print_helpers import set_attribute_display_values
+from essdee_yrp.time_and_action.cutting_dates import apply_cutting_plan
 
 
 def get_part_list(ipd_doc):
@@ -3001,6 +3002,7 @@ def update_cutting_plan_dates(cutting_plan):
 		},
 		update_modified=False,
 	)
+	apply_cutting_plan(cutting_plan)
 
 
 def update_cutting_order_dates(cutting_order):

@@ -463,19 +463,12 @@ def _project_receipt_group(group, ipd):
 			"planned_item": group.planned_item,
 			"actual_item": group.actual_item,
 		}]
-	planned_item = group.planned_item
-	actual_item = group.actual_item
+	branches = [(group.planned_item, group.actual_item)]
 	rows = []
 	for role, step in sorted(route.items(), key=lambda value: value[1]["position"]):
 		if role != "knitting":
-			planned_item, actual_item = _project_stage_items(
-				ipd,
-				step,
-				group.get("route_item"),
-				planned_item,
-				actual_item,
-			)
-		rows.append(
+			branches = _project_branches(ipd, step, group.get("route_item"), branches)
+		rows.extend(
 			{
 				**base,
 				"process_name": step["process_name"],
@@ -483,23 +476,46 @@ def _project_receipt_group(group, ipd):
 				"planned_item": planned_item,
 				"actual_item": actual_item,
 			}
+			for planned_item, actual_item in branches
 		)
 	return rows
 
 
+def _project_branches(ipd, step, route_item, branches):
+	"""Carry every (planned, actual) branch through one step; a colour split fans out."""
+	projected = []
+	for planned_item, actual_item in branches:
+		projected.extend(_project_stage_items(ipd, step, route_item, planned_item, actual_item))
+	return list(dict.fromkeys(projected))
+
+
 def _project_stage_items(ipd, step, route_item, planned_item, actual_item):
+	"""Return every (planned, actual) output the planned item can become at this step."""
 	if step.get("shape") == "identity":
-		return planned_item, actual_item
+		return [(planned_item, actual_item)]
+	planned_state = _item_state(planned_item)
+	outputs = _stage_output_pairs(ipd, step, route_item, planned_state, _item_state(actual_item))
+	if outputs:
+		return outputs
+	from essdee_yrp.fabric_plan import _route_bypasses_step
+
+	if _route_bypasses_step(ipd, step, route_item, planned_state["attrs"].items()):
+		return [(planned_item, actual_item)]
+	frappe.throw(
+		_("IPD {0} route cannot project {1} through process {2}.").format(
+			ipd.name, planned_item, step["process_name"]
+		)
+	)
+
+
+def _stage_output_pairs(ipd, step, route_item, planned_state, actual_state):
 	from essdee_yrp.api.work_order import _matrix_qty_rows, _resolve_variant, _step_kind
 	from essdee_yrp.fabric_source import _matches_input
 
-	kind = _step_kind(ipd, step)
-	rows = _matrix_qty_rows(ipd, step["process_name"], kind)
+	rows = _matrix_qty_rows(ipd, step["process_name"], _step_kind(ipd, step))
 	exact = [row for row in rows if (row.get("reference_item_variant") or "") == (route_item or "")]
 	generic = [row for row in rows if not row.get("reference_item_variant")]
 	rows = (exact or generic) if route_item else (generic or rows)
-	planned_state = _item_state(planned_item)
-	actual_state = _item_state(actual_item)
 	outputs = []
 	for row in rows:
 		matches = [spec for spec in row.get("input_specs") or [] if _matches_input(planned_state, spec)]
@@ -513,24 +529,7 @@ def _project_stage_items(ipd, step, route_item, planned_item, actual_item):
 		outputs.append(
 			(_resolve_variant(output_item, planned_attrs), _resolve_variant(output_item, actual_attrs))
 		)
-	outputs = list(dict.fromkeys(outputs))
-	if not outputs:
-		from essdee_yrp.fabric_plan import _route_bypasses_step
-
-		if _route_bypasses_step(
-			ipd,
-			step,
-			route_item,
-			planned_state["attrs"].items(),
-		):
-			return planned_item, actual_item
-	if len(outputs) != 1:
-		frappe.throw(
-			_("IPD {0} route cannot uniquely project {1} through process {2}.").format(
-				ipd.name, planned_item, step["process_name"]
-			)
-		)
-	return outputs[0]
+	return list(dict.fromkeys(outputs))
 
 
 def _project_output_attributes(actual_attrs, planned_input_attrs, planned_output_attrs):

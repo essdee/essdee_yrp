@@ -1088,7 +1088,7 @@ class TestFabricStoreWebWorkspace(TestCase):
 		)
 		with (
 			patch(
-				"essdee_yrp.fabric_store.web_workspace.get_purchase_order_item_schema",
+				"essdee_yrp.fabric_store.web_workspace.get_purchase_order_item_schema_data",
 				return_value={"item": "ITEM", "additional_parameters": []},
 			),
 			patch("essdee_yrp.fabric_store.web_workspace._get_supported_document", return_value=doc) as get_supported,

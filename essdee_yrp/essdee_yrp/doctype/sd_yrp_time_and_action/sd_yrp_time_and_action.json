@@ -27,7 +27,11 @@
   "section_break_hshs",
   "details",
   "dependent_details",
-  "time_and_action_revised_dates"
+  "planned_suppliers",
+  "revision_history_tab",
+  "time_and_action_revised_dates",
+  "step_changes_section",
+  "step_changes"
  ],
  "fields": [
   {
@@ -136,8 +140,9 @@
   {
    "fieldname": "delay",
    "fieldtype": "Int",
-   "label": "Delay",
-   "read_only": 1
+   "label": "Running Delay",
+   "read_only": 1,
+   "description": "Working days between the last action's Planned Date and its expected or actual date; negative = late."
   },
   {
    "fieldname": "action",
@@ -149,7 +154,7 @@
   {
    "fieldname": "end_date",
    "fieldtype": "Date",
-   "label": "End Date",
+   "label": "Expected Delivery Date",
    "read_only": 1
   },
   {
@@ -159,10 +164,11 @@
    "options": "SD YRP Time and Action Dependent Detail"
   },
   {
-   "fieldname": "time_and_action_revised_dates",
+   "description": "For information only: where each action is planned. No effect on quantities or dates.",
+   "fieldname": "planned_suppliers",
    "fieldtype": "Table",
-   "label": "Time and Action Revised Dates",
-   "options": "SD YRP Time and Action Revised Date"
+   "label": "Planned Suppliers",
+   "options": "SD YRP Time and Action Planned Supplier"
   },
   {
    "fieldname": "rescheduled_delay",
@@ -175,12 +181,36 @@
    "fieldtype": "Int",
    "label": "Revised",
    "read_only": 1
+  },
+  {
+   "fieldname": "revision_history_tab",
+   "fieldtype": "Tab Break",
+   "label": "Revision History"
+  },
+  {
+   "fieldname": "time_and_action_revised_dates",
+   "fieldtype": "Table",
+   "label": "Revision History",
+   "options": "SD YRP Time and Action Revised Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "step_changes_section",
+   "fieldtype": "Section Break",
+   "label": "Action Changes"
+  },
+  {
+   "fieldname": "step_changes",
+   "fieldtype": "Table",
+   "label": "Action Changes",
+   "options": "SD YRP Time and Action Step Change",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-16 12:00:00.000000",
+ "modified": "2026-11-16 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Time and Action",

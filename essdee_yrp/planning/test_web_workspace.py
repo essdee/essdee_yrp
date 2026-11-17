@@ -116,3 +116,27 @@ class TestPlanningDashboardSection(TestCase):
 
 	def test_dashboard_is_hidden_without_work_order_read(self):
 		self.assertNotIn("dashboard", self.sections({"SD YRP Lot", "YRP Production Order"}))
+
+
+class TestPlanningTimeAndActionSection(TestCase):
+	def sections(self, granted):
+		empty = {"sections": {}}
+		with (
+			patch.object(web_workspace.sewing_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.finishing_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.sales_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.fabric_store_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.cutting_capabilities, "get_capabilities", return_value={}),
+			patch.object(web_workspace, "_reports_section", return_value={"can_read": False}),
+			patch.object(
+				web_workspace.frappe, "has_permission",
+				side_effect=lambda doctype, ptype, doc=None: doctype == "SD YRP Time and Action" and ptype in granted,
+			),
+		):
+			return web_workspace.get_capabilities()["sections"]
+
+	def test_time_and_action_update_card_follows_time_and_action_read(self):
+		self.assertEqual(self.sections({"read", "write"}), {"time_and_action_update": {
+			"label": "Time and Action Update", "can_read": True, "can_write": True, "can_create": False,
+		}})
+		self.assertEqual(self.sections({"write"}), {})

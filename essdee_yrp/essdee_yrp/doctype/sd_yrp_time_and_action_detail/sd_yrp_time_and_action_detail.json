@@ -17,6 +17,7 @@
   "reason",
   "performance",
   "completed",
+  "auto_actual_date",
   "actual_delay",
   "index2",
   "planned_start_date",
@@ -110,6 +111,13 @@
    "read_only": 1
   },
   {
+   "default": "0",
+   "fieldname": "auto_actual_date",
+   "fieldtype": "Check",
+   "label": "Auto Actual Date",
+   "read_only": 1
+  },
+  {
    "fieldname": "index2",
    "fieldtype": "Int",
    "label": "Index2"
@@ -148,7 +156,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-16 12:00:00.000000",
+ "modified": "2026-11-17 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Time and Action Detail",

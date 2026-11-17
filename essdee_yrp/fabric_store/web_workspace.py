@@ -47,6 +47,7 @@ from essdee_yrp.fabric_store.documents.common import (
 )
 from essdee_yrp.print_registry import get_document_print_formats
 from essdee_yrp.purchase.lot_cut_quantity import can_view_lot_cut_quantity
+from essdee_yrp.purchase_order_approval import is_approval_item
 from essdee_yrp.web_common import get_scoped_report_access, report_access_scope
 
 DOCUMENT_KEYS = {
@@ -392,6 +393,13 @@ def get_purchase_order_editor(purchase_order: str | None = None, source=None) ->
 
 @frappe.whitelist()
 def get_purchase_order_item_schema(item: str, purchase_order: str | None = None) -> dict:
+	"""Purchase Order item schema plus whether its rows take a Production Order."""
+	schema = get_purchase_order_item_schema_data(item, purchase_order)
+	schema["is_production_order_item"] = is_approval_item(item)
+	return schema
+
+
+def get_purchase_order_item_schema_data(item: str, purchase_order: str | None = None) -> dict:
 	"""Return the common attribute matrix schema for a Purchase Order item."""
 
 	if purchase_order:
@@ -430,7 +438,7 @@ def search_purchase_order_additional_parameter_values(
 	if not parameter_key:
 		frappe.throw(_("Additional Parameter is required."))
 
-	schema = get_purchase_order_item_schema(item, purchase_order)
+	schema = get_purchase_order_item_schema_data(item, purchase_order)
 	configured_keys = {
 		str(row.get("additional_parameter_key") or "").strip()
 		for row in schema.get("additional_parameters") or []

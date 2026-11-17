@@ -16,9 +16,9 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="sticky-col col1" rowspan="5">{{ item }}</td>
-                                <td class="sticky-col col2" rowspan="5">{{ date_format(start) }}</td>
-                                <td class="sticky-col col3" rowspan="5">{{ date_format(items[item][items[item].length - 1]['date']) }}</td>
+                                <td class="sticky-col col1" rowspan="6">{{ item }}</td>
+                                <td class="sticky-col col2" rowspan="6">{{ date_format(start) }}</td>
+                                <td class="sticky-col col3" rowspan="6">{{ date_format(items[item][items[item].length - 1]['date']) }}</td>
                             </tr>
                             <tr>
                                 <td class="sticky-col col4">Lead Time</td>
@@ -44,6 +44,12 @@
                                     <div :ref="(el) => { if (el) cells[value.action] = el }"></div>
                                 </td>
                             </tr>
+                            <tr>
+                                <td class="sticky-col col4">Planned Suppliers</td>
+                                <td v-for="(value,index) in items[item]">
+                                    <div :ref="(el) => { if (el) supplier_cells[value.action] = el }"></div>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -58,13 +64,40 @@ let items = ref({})
 let start = ref(null)
 let cells = {}
 let controls = {}
+let supplier_cells = {}
+let supplier_controls = {}
 async function load_data(item, start_date){
     items.value = item
     start.value = start_date
     await nextTick()
     for (const rows of Object.values(item)) {
         rows.filter((row) => row.work_station).forEach(make_work_station_control)
+        rows.forEach(make_supplier_control)
     }
+}
+
+function make_supplier_control(row){
+    const control = frappe.ui.form.make_control({
+        parent: $(supplier_cells[row.action]),
+        df: {
+            fieldtype: "MultiSelectList",
+            fieldname: "planned_suppliers",
+            placeholder: __("Planned Suppliers"),
+            get_data: (txt) => frappe.db.get_link_options("Supplier", txt),
+        },
+        render_input: true,
+    })
+    control.set_value(row.planned_suppliers || [])
+    supplier_controls[row.action] = control
+    $(supplier_cells[row.action]).find(".control-label").remove()
+}
+
+function get_planned_suppliers(){
+    return Object.fromEntries(
+        Object.entries(supplier_controls)
+            .map(([action, control]) => [action, control.get_value() || []])
+            .filter(([, suppliers]) => suppliers.length)
+    )
 }
 
 function make_work_station_control(row){
@@ -96,6 +129,7 @@ function date_format(date){
 defineExpose({
     load_data,
     get_work_stations,
+    get_planned_suppliers,
 })
 </script>
 

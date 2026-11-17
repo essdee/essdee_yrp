@@ -32,6 +32,7 @@ from essdee_yrp.fabric_store.documents.common import (
 )
 from essdee_yrp.print_registry import get_document_print_formats
 from essdee_yrp.purchase_order_against import (
+	ITEM_PRODUCTION_ORDER_FIELD,
 	PRODUCTION_ORDERS_FIELD,
 	can_manage_production_orders,
 	can_remove_production_orders,
@@ -431,6 +432,8 @@ def get_purchase_order_editor(name: str | None = None, source=None, *, _adapter=
 			original = _get_purchase_order(source["duplicate_from"])
 			doc.update({fieldname: original.get(fieldname) for fieldname in PURCHASE_ORDER_EDITOR_FIELDS})
 			rows = [row.as_dict() if callable(getattr(row, "as_dict", None)) else dict(row) for row in (original.get("items") or [])]
+			for row in rows:
+				row.pop(ITEM_PRODUCTION_ORDER_FIELD, None)
 			setter = getattr(doc, "set", None)
 			if callable(setter):
 				setter("items", rows)

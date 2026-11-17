@@ -12,7 +12,8 @@
   "revised_date_approver_role",
   "revising_days_limit",
   "assigned_person_editer_role",
-  "t_and_a_admin_role"
+  "t_and_a_admin_role",
+  "step_editor_role"
  ],
  "fields": [
   {
@@ -58,13 +59,20 @@
    "fieldtype": "Link",
    "label": "T & A Admin Role",
    "options": "Role"
+  },
+  {
+   "description": "Can add and remove actions on an In Progress T&A. The T & A Admin Role can too.",
+   "fieldname": "step_editor_role",
+   "fieldtype": "Link",
+   "label": "T&A Step Editor Role",
+   "options": "Role"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-16 12:00:00.000000",
+ "modified": "2026-11-16 21:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP T and A Settings",

@@ -72,7 +72,7 @@
 				@dirty="markDirty"
 				@preparing-change="composerPreparing = $event"
 			>
-				<template #entry-fields="{ values, schema }">
+				<template #entry-fields="{ values, schema, dimensions }">
 					<div class="purchase-order-editor__item-details">
 						<LinkField
 							:model-value="values.delivery_location"
@@ -85,6 +85,20 @@
 							@update:model-value="values.delivery_location = $event"
 						/>
 						<DateField :model-value="values.schedule_date" label="Required by" required :disabled="busy" @update:model-value="setItemRequiredBy(values, $event)" />
+						<LinkField
+							v-if="schema?.is_production_order_item"
+							:model-value="values.production_order"
+							label="Production Order"
+							doctype="YRP Production Order"
+							placeholder="Search PPO ID or item…"
+							:search-handler="(query) => searchPurchaseOrderProductionOrders(query, dimensions?.lot)"
+							:allow-create="false"
+							:show-open-button="false"
+							show-clear
+							:disabled="busy"
+							@update:model-value="setItemProductionOrder(values, $event)"
+							@select="rememberProductionOrderItem"
+						/>
 						<label class="purchase-order-editor__item-check"><Checkbox :model-value="Boolean(values.fetch_delivery_date)" binary :disabled="busy" @update:model-value="values.fetch_delivery_date = $event ? 1 : 0" /><span>Use Item Price lead time</span></label>
 						<label class="purchase-order-editor__item-control"><span class="erp-field-label">Discount %</span><InputNumber :model-value="Number(values.discount_percentage || 0)" :min="0" :max="100" :max-fraction-digits="2" fluid :disabled="busy" @update:model-value="values.discount_percentage = Number($event || 0)" /></label>
 						<label class="purchase-order-editor__item-control purchase-order-editor__item-comments"><span class="erp-field-label">Comments</span><Textarea :model-value="values.comments || ''" rows="1" auto-resize fluid :disabled="busy" @update:model-value="values.comments = $event" /></label>
@@ -135,7 +149,7 @@ import { useToast } from "primevue/usetoast"
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 import { onBeforeRouteLeave, RouterLink } from "vue-router"
 
-import { getPurchaseOrderEditor, getPurchaseOrderItemSchema, previewPurchaseOrderPrices, savePurchaseOrder, searchPurchaseOrderAdditionalParameterValues } from "../../api/fabricStore.js"
+import { getPurchaseOrderEditor, getPurchaseOrderItemSchema, previewPurchaseOrderPrices, savePurchaseOrder, searchPurchaseOrderAdditionalParameterValues, searchPurchaseOrderProductionOrders } from "../../api/fabricStore.js"
 import DateField from "../../components/common/DateField.vue"
 import LinkField from "../../components/common/LinkField.vue"
 import DocumentConfirmationDialog from "../../components/documents/DocumentConfirmationDialog.vue"
@@ -147,6 +161,7 @@ import { useLiveDocument } from "../../composables/useLiveDocument.js"
 import StockItemComposer from "../../components/stock/StockItemComposer.vue"
 import { withNewDocumentDefaults } from "../../utils/newDocumentDefaults.js"
 import PurchaseOrderProductionOrders from "./PurchaseOrderProductionOrders.vue"
+import { productionOrderNames, syncItemProductionOrderRows } from "./purchaseOrderProductionOrders.js"
 import { changePurchaseOrderDeliveryLocation } from "./purchaseOrderDelivery.js"
 import { applyPurchaseOrderPricePreview, applyPurchaseOrderPriceSchedule, createPurchaseOrderDraftRevision, createPurchaseOrderPreviewController, currentPurchaseOrderPreview, loadPurchaseOrderGroups, validatePurchaseOrderItems } from "../../utils/purchaseOrder.js"
 
@@ -163,6 +178,8 @@ const loadFailed = ref(false)
 const editor = ref({})
 const form = reactive({ naming_series: "", supplier: "", transaction_date: "", schedule_date: "", company: "", set_warehouse: "", default_delivery_location: "", deliver_to_supplier: 0, currency: "", terms_and_condition: "", comments: "", is_development: 0, production_orders: [] })
 const itemGroups = ref([])
+const productionOrderBaseline = ref([])
+const productionOrderItems = new Map()
 const dirty = ref(false)
 const sourceRevision = ref(0)
 const discardVisible = ref(false)
@@ -206,6 +223,7 @@ const composerEntryDefaults = computed(() => ({
 	expected_delivery_date: form.schedule_date || "",
 	fetch_delivery_date: 0,
 	discount_percentage: 0,
+	production_order: "",
 	comments: "",
 	additional_parameters: [],
 }))
@@ -271,6 +289,7 @@ function applyEditor(loadedEditor) {
 	if (!props.name && !props.source?.duplicate_from) {
 		Object.assign(form, withNewDocumentDefaults(form, Object.fromEntries(Object.entries(props.newDefaults || {}).filter(([fieldname]) => fieldname in form))))
 	}
+	productionOrderBaseline.value = productionOrderNames(form.production_orders || [])
 	itemGroups.value = loadPurchaseOrderGroups(editor.value.item_groups)
 	dirty.value = false
 }
@@ -312,6 +331,23 @@ async function previewItemPrices(groups, supplier = form.supplier, requireCurren
 		defaultRequiredBy: form.schedule_date,
 	})
 }
+function itemProductionOrders() {
+	return itemGroups.value.flatMap((group) => (group.items || []).map((item) => item.production_order))
+}
+/** Live PPO table: item-row picks join it at once; loaded rows are never removed. */
+function syncProductionOrders(extra = "") {
+	form.production_orders = syncItemProductionOrderRows(form.production_orders, productionOrderBaseline.value, [...itemProductionOrders(), extra], productionOrderItems)
+}
+function setItemProductionOrder(values, value) {
+	values.production_order = value || ""
+	syncProductionOrders(values.production_order)
+}
+function rememberProductionOrderItem(event) {
+	if (!event?.name) return
+	productionOrderItems.set(event.name, event.row?.item || event.row?.description || "")
+	syncProductionOrders(event.name)
+}
+watch(itemGroups, () => syncProductionOrders(), { deep: true })
 function setItemRequiredBy(values, value) {
 	values.schedule_date = value || ""
 	values.expected_delivery_date = value || ""

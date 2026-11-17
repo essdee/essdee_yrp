@@ -108,3 +108,39 @@ class TestActualDateRules(TimeAndActionTestCase):
 		set_window(2, 0)
 		with self.assertRaisesRegex(frappe.ValidationError, "allowed"):
 			save_actuals(self.name, {"TA-TEST-YARN": add_days(nowdate(), 1)})
+
+	def complete(self):
+		save_actuals(self.name, {"TA-TEST-YARN": "2026-11-04", "TA-TEST-TRIMS": "2026-11-05"})
+		save_actuals(self.name, {"TA-TEST-KNIT": "2026-11-07"})
+		doc = save_actuals(self.name, {"TA-TEST-CUT": "2026-11-08"})
+		self.assertEqual(doc.status, "In Progress")
+		frappe.db.set_value("SD YRP Time and Action", self.name, "status", "Completed")
+
+	def test_completed_ta_refuses_actual_date_changes(self):
+		self.complete()
+		with self.assertRaisesRegex(frappe.ValidationError, "Completed"):
+			save_actuals(self.name, {"TA-TEST-CUT": "2026-11-09"})
+
+	def test_completed_ta_refuses_expected_date_changes(self):
+		self.complete()
+		doc = frappe.get_doc("SD YRP Time and Action", self.name)
+		doc.details[0].date = "2026-11-10"
+		with self.assertRaisesRegex(frappe.ValidationError, "Completed"):
+			doc.save()
+
+
+class TestSettingsRules(TimeAndActionTestCase):
+	def assert_refused(self, fieldname):
+		settings = frappe.get_single("SD YRP T and A Settings")
+		settings.set(fieldname, -1)
+		with self.assertRaisesRegex(frappe.ValidationError, "cannot be negative"):
+			settings.save()
+
+	def test_negative_update_last_n_dates_is_refused(self):
+		self.assert_refused("update_last_n_dates")
+
+	def test_negative_update_future_n_dates_is_refused(self):
+		self.assert_refused("update_future_n_dates")
+
+	def test_negative_revising_days_limit_is_refused(self):
+		self.assert_refused("revising_days_limit")

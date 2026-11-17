@@ -14,6 +14,7 @@ from essdee_yrp.finishing.state import (
 	get_finishing_rework_list,
 )
 from essdee_yrp.finishing.status import apply_auto_fp_status
+from essdee_yrp.time_and_action.finishing_dates import apply_packing_goods_received_note
 
 
 def is_finishing_plan_grn(grn):
@@ -122,6 +123,7 @@ def apply_goods_received_note(grn, *, cancelled):
 
 	apply_auto_fp_status(finishing_doc)
 	finishing_doc.save(ignore_permissions=True)
+	apply_packing_goods_received_note(finishing_doc, grn, cancelled)
 
 
 def _update_packing_receipt(finishing_doc, grn, *, cancelled):

@@ -210,6 +210,11 @@ export function searchPurchaseOrderAdditionalParameterValues(item, parameterKey,
 	})
 }
 
+/** Open PPOs; a Lot linked to PPOs limits the list to them. */
+export function searchPurchaseOrderProductionOrders(txt = "", lot = "") {
+	return callRead("essdee_yrp.purchase_order_against.search_production_orders", { txt, lot: lot || undefined })
+}
+
 export function getPurchaseOrderItemPrice(itemDetail, supplier, purchaseOrder = "") {
 	return callMethod(`${WORKSPACE_METHOD}.get_purchase_order_item_price`, {
 		item_detail: itemDetail,

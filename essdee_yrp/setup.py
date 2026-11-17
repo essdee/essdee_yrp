@@ -20,14 +20,15 @@ from essdee_yrp.patches.restore_web_read_indexes import execute as ensure_web_re
 from essdee_yrp.report_permissions import ensure_report_permissions
 from essdee_yrp.web_build import build_web_spa
 
-# Roles referenced by the migrated MRP DocType permissions but not provided by
-# base YRP. Keep these as setup records rather than a Role fixture so migrations
-# never delete or recreate an existing role.
+# Roles referenced by the migrated MRP DocType permissions or MRP role grants but
+# not provided by base YRP. after_install runs before fixtures sync, so a granted
+# role shipped only as a Role fixture would not exist yet on a fresh install.
 MRP_SCHEMA_ROLES = (
 	"Brand QA Manager",
 	"Brand QA User",
 	"CAD User",
 	"Cutting User",
+	"Finishing User",
 	"HR Manager",
 	"HR User",
 	"Merch Manager",

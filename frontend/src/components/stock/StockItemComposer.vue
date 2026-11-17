@@ -75,7 +75,7 @@
 					/>
 				</div>
 
-				<slot name="entry-fields" :values="entryValues" :schema="itemSchema" :editing="Boolean(editing)" />
+				<slot name="entry-fields" :values="entryValues" :schema="itemSchema" :dimensions="dimensionValues" :editing="Boolean(editing)" />
 
 				<div class="stock-composer__quantity-card">
 					<header>

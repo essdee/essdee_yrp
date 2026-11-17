@@ -96,8 +96,8 @@ frappe.production.product_development.ui.ProductGraphics = ProductGraphicsWrappe
 frappe.production.product_development.ui.ProductMeasurementImage =
 	ProductMeasurementImageWrapper;
 
-function mount_component(component, wrapper) {
-	const app = createApp(component);
+function mount_component(component, wrapper, props = null) {
+	const app = createApp(component, props);
 	if (typeof SetVueGlobals === "function") {
 		SetVueGlobals(app);
 	}
@@ -834,9 +834,9 @@ frappe.production.ui.TimeAction = class {
 };
 
 frappe.production.ui.TimeActionReport = class {
-	constructor(wrapper) {
+	constructor(wrapper, time_and_action = null) {
 		this.$wrapper = $(wrapper);
-		const mounted = mount_component(TimeActionReport, this.$wrapper);
+		const mounted = mount_component(TimeActionReport, this.$wrapper, { time_and_action });
 		this.app = mounted.app;
 		this.vue = mounted.vue;
 	}
@@ -854,6 +854,9 @@ frappe.production.ui.TimeActionPreview = class {
 	}
 	get_work_stations() {
 		return this.vue.get_work_stations();
+	}
+	get_planned_suppliers() {
+		return this.vue.get_planned_suppliers();
 	}
 };
 

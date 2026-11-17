@@ -6,12 +6,18 @@
             <div class="col-md-7" style="padding-top: 27px;">
                 <button class="btn btn-success" @click="load_by_filter()">Show</button>
                 <button v-if="data && data.can_revise && !is_edited" class="btn btn-default ml-3" @click="revise()">Revise Dates</button>
+                <button v-if="data && data.can_edit_steps && !is_edited" class="btn btn-default ml-3" @click="update_actions()">Update Action</button>
+                <button v-if="data && data.can_split && !is_edited" class="btn btn-default ml-3" @click="split()">Split T&A</button>
+                <button v-if="data && data.can_complete && !is_edited" class="btn btn-success ml-3" @click="complete()">Complete T&A</button>
                 <template v-if="is_edited">
                     <span class="indicator-pill no-indicator-dot whitespace-nowrap orange ml-3"><span>Not Saved</span></span>
                     <button class="btn btn-default ml-3" @click="load(data.name)">Discard</button>
                     <button class="btn btn-primary ml-3" @click="save()">Save T&A</button>
                 </template>
             </div>
+        </div>
+        <div v-if="is_edited && delivery_message()" class="alert mb-3" :class="data.delivery_days_moved > 0 ? 'alert-danger' : 'alert-success'">
+            {{ delivery_message() }}
         </div>
         <div v-if="data" class="ta-update">
             <div class="ta-summary">
@@ -22,7 +28,7 @@
                 <div><b>Qty</b> {{ data.qty }}</div>
                 <div><b>Start</b> {{ format_date(data.start_date) }}</div>
                 <div :class="{ 'text-danger': data.end_date_delay }"><b>Expected End</b> {{ format_date(data.end_date) }}</div>
-                <div><b>Delay</b> {{ data.delay }} / {{ data.rescheduled_delay }}</div>
+                <div class="running-delay" :class="running_delay_class()" title="Last action's Planned Date vs its Rescheduled or Actual Date, in working days"><b>Running Delay</b> {{ running_delay() }}</div>
                 <div><b>Performance</b> {{ data.performance }}%</div>
                 <div><b>Status</b> {{ data.status }}</div>
             </div>
@@ -38,6 +44,15 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <tr>
+                            <td class="sticky-col" title="Solid: planned with work · Dashed: planned, no work yet · Amber: not planned. Hover a chip for PO / Work Order quantities.">Suppliers</td>
+                            <td v-for="row in data.rows" :key="row.action">
+                                <div class="supplier-chips">
+                                    <span v-for="chip in chips[row.action] || []" :key="chip.supplier" class="supplier-chip" :class="`supplier-chip--${supplierChipTone(chip)}`" :title="supplierChipTitle(chip)">{{ chip.supplier_name || chip.supplier }}</span>
+                                    <span v-if="data.can_edit_suppliers" class="edit-suppliers" title="Planned Suppliers" @click="edit_suppliers(row)">✎</span>
+                                </div>
+                            </td>
+                        </tr>
                         <tr>
                             <td class="sticky-col">Planned Date</td>
                             <td v-for="row in data.rows" :key="row.action">{{ format_date(row.planned_start_date) }}</td>
@@ -100,6 +115,8 @@ import { ref, onMounted, createApp } from 'vue';
 import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css'
 import TandARescheduledDates from "./TandARescheduledDates.vue";
+import { open_update_actions } from "./TandAUpdateActions.js";
+import { plannedSupplierValues, supplierChipTitle, supplierChipTone } from "../../../../frontend/src/departments/planning/time-and-action/supplierChips.js";
 
 const root = ref(null)
 const data = ref(null)
@@ -107,6 +124,7 @@ const changes = ref({})
 const is_edited = ref(false)
 const not_found = ref(null)
 const sample_doc = ref({})
+const chips = ref({})
 let against = null
 let against_id = null
 
@@ -163,6 +181,42 @@ function load(name) {
             not_found.value = null
         },
     })
+    load_chips(name)
+}
+
+function load_chips(name) {
+    frappe.call({
+        method: "essdee_yrp.time_and_action.suppliers.get_supplier_chips",
+        args: { time_and_action: name },
+        callback: (r) => (chips.value = r.message || {}),
+    })
+}
+
+function edit_suppliers(row) {
+    const dialog = new frappe.ui.Dialog({
+        title: __("Planned Suppliers · {0}", [row.action]),
+        fields: [
+            { fieldtype: "HTML", options: `<p class="text-muted">${__("For information only: where this action is planned. Quantities and dates do not change.")}</p>` },
+            {
+                fieldname: "suppliers",
+                fieldtype: "MultiSelectList",
+                label: __("Planned Suppliers"),
+                get_data: (txt) => frappe.db.get_link_options("Supplier", txt),
+            },
+        ],
+        primary_action_label: __("Save"),
+        primary_action: (values) => frappe.call({
+            method: "essdee_yrp.time_and_action.suppliers.set_planned_suppliers",
+            args: { time_and_action: data.value.name, action: row.action, suppliers: JSON.stringify(values.suppliers || []) },
+            callback: (r) => {
+                chips.value = r.message.chips
+                data.value.modified = r.message.modified
+                dialog.hide()
+            },
+        }),
+    })
+    dialog.set_value("suppliers", plannedSupplierValues(chips.value[row.action]))
+    dialog.show()
 }
 
 function preview(action, change) {
@@ -193,6 +247,22 @@ function set_reason(row) {
 }
 
 function save() {
+    if (data.value.delivery_days_moved > 0) {
+        frappe.confirm(`${delivery_message()}. ${__("Save anyway?")}`, update_actual_dates)
+        return
+    }
+    update_actual_dates()
+}
+
+function delivery_message() {
+    const days = data.value?.delivery_days_moved
+    if (!days) return ""
+    const moves = __("Expected delivery date moves from {0} to {1}", [format_date(data.value.delivery_date_before), format_date(data.value.delivery_date_after)])
+    const count = Math.abs(days) === 1 ? __("1 working day") : __("{0} working days", [Math.abs(days)])
+    return days > 0 ? `${moves} — ${__("delayed by {0} more", [count])}` : `${moves} — ${__("pulled in by {0}", [count])}`
+}
+
+function update_actual_dates() {
     frappe.call({
         method: "essdee_yrp.time_and_action.update.update_actual_dates",
         args: { time_and_action: data.value.name, changes: Object.values(changes.value), modified: data.value.modified },
@@ -217,6 +287,40 @@ function revise() {
         __("Dispatch date changes from {0} to {1}. Revise the dates?", [format_date(last.date), format_date(last.rescheduled_date)]),
         __("Revise"),
     )
+}
+
+function update_actions() {
+    open_update_actions(data.value, () => load(data.value.name))
+}
+
+function running_delay() {
+    const days = data.value.delay || 0
+    if (!days) return __("On schedule")
+    const count = Math.abs(days) === 1 ? __("1 working day") : __("{0} working days", [Math.abs(days)])
+    return days < 0 ? __("{0} late", [count]) : __("{0} early", [count])
+}
+
+function running_delay_class() {
+    const days = data.value.delay || 0
+    return days < 0 ? "text-danger" : days > 0 ? "text-success" : "text-muted"
+}
+
+function complete() {
+    frappe.confirm(__("Complete {0}? Its dates are locked after this.", [data.value.name]), () => {
+        frappe.call({
+            method: "essdee_yrp.time_and_action.update.complete_time_and_action",
+            args: { time_and_action: data.value.name },
+            freeze: true,
+            callback: () => load(data.value.name),
+        })
+    })
+}
+
+function split() {
+    frappe.production.time_and_action.open_split_dialog({
+        time_and_action: data.value.name,
+        on_done: () => load(data.value.name),
+    })
 }
 
 function show_revisions() {
@@ -277,6 +381,10 @@ function format_date(value) {
     gap: 8px 24px;
     padding: 10px 0;
 }
+.running-delay {
+    font-size: 15px;
+    font-weight: 700;
+}
 .scroll-container {
     width: 100%;
     max-height: 700px;
@@ -310,6 +418,38 @@ function format_date(value) {
 }
 .action-th {
     max-width: 220px;
+}
+.supplier-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+}
+.supplier-chip {
+    padding: 0 8px;
+    font-size: 11px;
+    line-height: 18px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    cursor: default;
+}
+.supplier-chip--planned {
+    color: white;
+    background: var(--primary, #2490ef);
+}
+.supplier-chip--hollow {
+    color: var(--text-muted, #6c7680);
+    border: 1px dashed var(--gray-500, #98a1a9);
+}
+.supplier-chip--unplanned {
+    color: #8a4b00;
+    background: #fff4d6;
+    border-color: #f0b400;
+}
+.edit-suppliers {
+    cursor: pointer;
+    color: var(--text-muted, #6c7680);
 }
 .cancel-style {
     cursor: pointer;

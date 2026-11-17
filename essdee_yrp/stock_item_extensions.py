@@ -7,6 +7,7 @@ ENTRY_FIELDS = {
 		# round-trip when a Cut Panel Movement creates a Stock Entry.
 		"set_combination",
 	),
+	"Purchase Order": ("production_order",),
 	"YRP Work Order Deliverables": (
 		"fabric_reference_variant",
 		"fabric_reference_allocations",

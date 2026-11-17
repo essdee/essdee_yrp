@@ -18,8 +18,7 @@ def validate_actual_dates(doc, before=None, require_reason=True) -> None:
 	before = before or doc.get_doc_before_save()
 	old_rows = {row.action: row for row in (before.details if before else [])}
 	changed = [row for row in doc.details if _is_changed(row, old_rows.get(row.action))]
-	if before and before.status in LOCKED_STATUSES and changed:
-		frappe.throw(_("Time and Action {0} is {1} and cannot be changed.").format(doc.name, before.status))
+	validate_not_locked(doc, before, old_rows, changed)
 	if not changed:
 		return
 	if not frappe.flags.in_time_and_action_update:
@@ -31,6 +30,18 @@ def validate_actual_dates(doc, before=None, require_reason=True) -> None:
 			state.validate_no_dated_successor(row.action)
 		if row.actual_date and str(row.actual_date) != old_actual:
 			state.validate_new_actual(row)
+
+
+def validate_not_locked(doc, before, old_rows, changed) -> None:
+	"""A Frozen or Completed T&A keeps its dates; its status changes only through Complete or Reopen."""
+	if not before:
+		return
+	if doc.status != before.status and not doc.flags.changing_status:
+		frappe.throw(_("Use Complete T&A or Reopen T&A to change the status of {0}.").format(doc.name))
+	if before.status not in LOCKED_STATUSES:
+		return
+	if changed or any(str(row.date or "") != str(old_rows[row.action].date or "") for row in doc.details):
+		frappe.throw(_("Time and Action {0} is {1} and cannot be changed.").format(doc.name, before.status))
 
 
 def _get_actual(row) -> str:
@@ -47,6 +58,7 @@ class ActualDateState:
 
 	def __init__(self, doc, require_reason=True):
 		self.require_reason = require_reason
+		self.check_window = not doc.flags.auto_actual_date
 		self.actual = {
 			row.action: getdate(row.actual_date) if row.actual_date else None for row in doc.details
 		}
@@ -73,7 +85,8 @@ class ActualDateState:
 			)
 
 	def validate_new_actual(self, row) -> None:
-		validate_window(row.actual_date)
+		if self.check_window:
+			validate_window(row.actual_date)
 		depends_on = self.dependencies.get(row.action, [])
 		missing = [name for name in depends_on if not self.actual.get(name)]
 		if missing:

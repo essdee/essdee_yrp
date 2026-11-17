@@ -356,7 +356,7 @@ class TestApprovalItemsWithoutProductionOrder(TestCase):
 		doc.update({"is_yrp_managed": 1, "status": "Draft"})
 		doc.append("items", {"item_code": yarn_item, "qty": 900, "uom": "Kg", "stock_uom": "Kg", "conversion_factor": 1})
 		hooks = [hook for hook in frappe.get_hooks("doc_events")["Purchase Order"]["validate"] if hook.startswith("essdee_yrp.")]
-		self.assertEqual(hooks, [f"{MODULE}.validate_purchase_order_against_unchanged"])
+		self.assertEqual(hooks, [f"{MODULE}.append_item_production_orders", f"{MODULE}.validate_purchase_order_against_unchanged"])
 		for hook in hooks:
 			frappe.get_attr(hook)(doc)
 		with patch("essdee_yrp.purchase_order_approval._validate_not_locked_for_edit"):

@@ -48,7 +48,7 @@ def department():
 	return frappe.db.get_value("Department", {"is_group": 0}, "name") or frappe.db.get_value("Department", {})
 
 
-def make_master(steps, dependencies):
+def make_master(steps, dependencies, submit=True):
 	"""`steps`: [(action, lead_time)], `dependencies`: {action: [depends_on]}."""
 	for action, lead_time in steps:
 		make_action(action, lead_time)
@@ -68,6 +68,8 @@ def make_master(steps, dependencies):
 		}
 	)
 	doc.insert()
+	if submit:
+		doc.submit()
 	return doc
 
 
