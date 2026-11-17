@@ -17,6 +17,10 @@ export function getWorkOrderEditor(workOrder = "", source = {}) {
 	})
 }
 
+export function getWorkOrderItemSchema(item) {
+	return callMethod(`${WORKSPACE_METHOD}.get_work_order_item_schema`, { item })
+}
+
 export function saveWorkOrder(values, options = {}) {
 	return callMethod(`${WORKSPACE_METHOD}.save_work_order_document`, {
 		values,

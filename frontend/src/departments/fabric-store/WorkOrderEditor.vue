@@ -34,8 +34,9 @@
 					<div class="work-order-editor__fields">
 						<LinkField input-id="field-process_name-value" :reset-version="sourceRevision" :model-value="form.process_name" :label="fieldLabel('process_name', 'Process')" doctype="YRP Process" :required="isRequired('process_name')" show-clear :disabled="loading || (Boolean(saving) && saving !== 'source') || isReadOnly('process_name')" @update:model-value="changeSource('process_name', $event)" />
 						<LinkField input-id="field-lot-value" :reset-version="sourceRevision" :model-value="form.lot" :label="fieldLabel('lot', 'Lot')" doctype="SD YRP Lot" :required="isRequired('lot')" show-clear :disabled="loading || (Boolean(saving) && saving !== 'source') || isReadOnly('lot')" @update:model-value="changeSource('lot', $event)" />
-						<LinkField input-id="field-item-value" :reset-version="sourceRevision" :model-value="form.item" :label="fieldLabel('item', 'Item')" doctype="Item" :required="isRequired('item')" :search-handler="searchAllowedItems" show-clear :disabled="busy || isReadOnly('item') || !selectionContext.options?.length" @update:model-value="changeItem" />
-						<LinkField v-model="form.production_detail" :label="fieldLabel('production_detail', 'Production detail')" doctype="YRP Item Production Detail" :required="isRequired('production_detail')" :disabled="true" />
+						<div v-if="foldingLot" class="work-order-editor__identity"><span>Folding Lot</span><strong><i class="pi pi-clone" aria-hidden="true" />Rows are entered manually</strong></div>
+						<LinkField v-if="!foldingLot" input-id="field-item-value" :reset-version="sourceRevision" :model-value="form.item" :label="fieldLabel('item', 'Item')" doctype="Item" :required="isRequired('item')" :search-handler="searchAllowedItems" show-clear :disabled="busy || isReadOnly('item') || !selectionContext.options?.length" @update:model-value="changeItem" />
+						<LinkField v-if="!foldingLot" v-model="form.production_detail" :label="fieldLabel('production_detail', 'Production detail')" doctype="YRP Item Production Detail" :required="isRequired('production_detail')" :disabled="true" />
 					</div>
 				</section>
 
@@ -83,7 +84,11 @@
 				</section>
 			</div>
 
-			<template v-if="showMatrices">
+			<template v-if="foldingLot">
+				<section class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Inputs</span><h2>Deliverables</h2></div><small>Items sent to the supplier for this process.</small></header><StockItemComposer v-model="deliverableDetails" operation="work_order" :editor="FOLDING_ROW_EDITOR" :schema-loader="loadFoldingItemSchema" :disabled="busy" natural-table-flow @dirty="markDirty" /></section>
+				<section v-if="!noReceivables" class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Outputs</span><h2>Receivables</h2></div><small>Items expected back from the supplier.</small></header><StockItemComposer v-model="receivableDetails" operation="work_order" :editor="FOLDING_ROW_EDITOR" :schema-loader="loadFoldingItemSchema" :disabled="busy" natural-table-flow @dirty="markDirty" /></section>
+			</template>
+			<template v-else-if="showMatrices">
 				<section class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Inputs</span><h2>Deliverables</h2></div><small>Calculated rows remain grouped through the Work Order controller.</small></header><WorkOrderItemMatrix :groups="deliverableDetails" /></section>
 				<section v-if="!noReceivables" class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Outputs</span><h2>Receivables</h2></div></header><WorkOrderItemMatrix :groups="receivableDetails" /></section>
 			</template>
@@ -112,7 +117,7 @@ import { useToast } from "primevue/usetoast"
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 import { onBeforeRouteLeave } from "vue-router"
 
-import { getWorkOrderEditor, getWorkOrderSelectionContext, saveWorkOrder } from "../../api/fabricStore.js"
+import { getWorkOrderEditor, getWorkOrderItemSchema, getWorkOrderSelectionContext, saveWorkOrder } from "../../api/fabricStore.js"
 import { getDoc, searchLinkedDocument } from "../../api/frappe.js"
 import { forgetAutofill } from "../../composables/useSingleOptionAutofill.js"
 import { defaultOption } from "../../utils/supplierDefaults.js"
@@ -126,6 +131,8 @@ import InlinePageNavigation from "../../components/navigation/InlinePageNavigati
 import { useLiveDocument } from "../../composables/useLiveDocument.js"
 import WorkOrderActionPanel from "./WorkOrderActionPanel.vue"
 import WorkOrderItemMatrix from "./WorkOrderItemMatrix.vue"
+import StockItemComposer from "../../components/stock/StockItemComposer.vue"
+import { FOLDING_ROW_EDITOR, isFoldingContext, workOrderRequiredFields } from "./workOrderFolding.js"
 import { applyPlannedEndDate } from "./workOrderDates.js"
 import { changeWorkOrderParty } from "./workOrderAddresses.js"
 import { withNewDocumentDefaults } from "../../utils/newDocumentDefaults.js"
@@ -142,6 +149,7 @@ const form = reactive({})
 const deliverableDetails = ref([])
 const receivableDetails = ref([])
 const selectionContext = ref({})
+const foldingLot = ref(false)
 const dirty = ref(false)
 const sourceRevision = ref(0)
 const discardVisible = ref(false)
@@ -178,7 +186,7 @@ const canSave = computed(() => {
 		? editor.value.fields.filter((field) => isRequired(field.fieldname)).map((field) => field.fieldname)
 		: fallbackRequired
 	const requiredDimensions = dynamicDimensions.value.filter((field) => field.mandatory).map((field) => field.fieldname)
-	return [...new Set([...requiredFields, ...requiredDimensions])].every((fieldname) => hasValue(form[fieldname]))
+	return workOrderRequiredFields([...new Set([...requiredFields, ...requiredDimensions])], foldingLot.value).every((fieldname) => hasValue(form[fieldname]))
 })
 const hasRows = computed(() => deliverableDetails.value.some((group) => group.items?.length) && (noReceivables.value || receivableDetails.value.some((group) => group.items?.length)))
 const calculationMode = computed(() => editor.value.calculation_contexts?.fabric ? "calculate_fabric" : editor.value.calculation_contexts?.garment ? "calculate_garment" : "")
@@ -257,6 +265,7 @@ async function applyEditor(loadedEditor) {
 	deliverableDetails.value = clone(editor.value.deliverable_details)
 	receivableDetails.value = clone(editor.value.receivable_details)
 	selectionContext.value = clone(editor.value.selection_context || {})
+	foldingLot.value = isFoldingContext(editor.value)
 	if (!props.name && !duplicateFrom.value) await applyNewDefaults()
 	dirty.value = false
 }
@@ -299,12 +308,17 @@ async function applySourceChange(fieldname, value) {
 	saving.value = "source"; error.value = ""
 	try {
 		let context = { options: [], item_options: [] }
-		if (candidate.lot && candidate.process_name) context = await getWorkOrderSelectionContext(candidate.lot, candidate.process_name)
-		else if (candidate.lot) {
+		let folding = false
+		if (candidate.lot && candidate.process_name) {
+			context = await getWorkOrderSelectionContext(candidate.lot, candidate.process_name)
+			folding = isFoldingContext(context)
+		} else if (candidate.lot) {
 			const lot = await getDoc("SD YRP Lot", candidate.lot)
-			if (lot.item) context = { options: [{ item: lot.item, production_detail: lot.production_detail }], item_options: [lot.item] }
+			folding = isFoldingContext(lot)
+			if (lot.item && !folding) context = { options: [{ item: lot.item, production_detail: lot.production_detail }], item_options: [lot.item] }
 		}
 		form[fieldname] = value
+		foldingLot.value = folding
 		selectionContext.value = context || {}
 		if (!(context.options || []).some((row) => row.item === form.item && row.production_detail === form.production_detail)) { form.item = ""; form.production_detail = "" }
 		const item = defaultOption(form.item, context.item_options || [])
@@ -360,6 +374,7 @@ function sourceConfirmationVisibilityChanged(visible) {
 	sourceRevision.value += 1
 }
 function clearCalculatedRows() { deliverableDetails.value = []; receivableDetails.value = []; editor.value.calculated_items = []; editor.value.calculation_contexts = {} }
+function loadFoldingItemSchema(_operation, item) { return getWorkOrderItemSchema(item) }
 function searchAllowedItems(text) {
 	const needle = String(text || "").toLowerCase()
 	return Promise.resolve((selectionContext.value.item_options || []).filter((item) => String(item).toLowerCase().includes(needle)).map((item) => ({ name: item, label: item })))

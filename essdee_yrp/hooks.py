@@ -53,6 +53,7 @@ fixtures = [
 					"FG Item Manager",
 					"Factory Manager",
 					"Finishing User",
+					"Folding Lot Manager",
 					"Lot Planner",
 					"Scanner User",
 					"Senior Merch",

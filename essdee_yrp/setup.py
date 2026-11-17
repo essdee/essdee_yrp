@@ -29,6 +29,7 @@ MRP_SCHEMA_ROLES = (
 	"CAD User",
 	"Cutting User",
 	"Finishing User",
+	"Folding Lot Manager",
 	"HR Manager",
 	"HR User",
 	"Merch Manager",

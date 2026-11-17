@@ -43,6 +43,7 @@ frappe.ui.form.on("SD YRP Lot", {
 		})
 		frm.set_df_property("production_order", "read_only", Boolean(frm.doc.production_detail) && !frm.is_new())
 		frm.refresh_field("production_order")
+		frm.set_df_property("is_folding_lot", "read_only", !frappe.boot.essdee_yrp_can_edit_folding_lot)
 
 		if (!frm.is_new()) {
 			frm.add_custom_button(__('Purchase Summary'), function () {

@@ -1,6 +1,6 @@
 import { resolveLotTab } from "./lotLayout.js"
 export const LOT_EDIT_GROUPS = [
-	{ key: "order", eyebrow: "Lot", label: "Lot & order", fields: ["lot_name", "production_order", "item", "production_detail"] },
+	{ key: "order", eyebrow: "Lot", label: "Lot & order", fields: ["lot_name", "production_order", "item", "production_detail", "is_folding_lot"] },
 	{ key: "planning", eyebrow: "Planning", label: "Owner & schedule", fields: ["assigned_person", "season", "expected_delivery_date", "status"] },
 	{ key: "production", eyebrow: "Production", label: "Production settings", fields: ["primary_item_attribute", "size_set_colour", "capacity_planning"] },
 ]

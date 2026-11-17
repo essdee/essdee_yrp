@@ -8,6 +8,8 @@ from frappe.utils import cstr, flt
 from yrp import attribute_links as attribute_db
 from yrp.yrp.doctype.yrp_item.yrp_item import get_parent_item
 
+from essdee_yrp.folding_lot import is_folding_lot, validate_work_order
+
 
 def onload(doc, method=None):
 	"""Render Essdee Work Order items as logical rows with Size columns."""
@@ -38,7 +40,10 @@ def onload(doc, method=None):
 def validate(doc, method=None):
 	set_includes_packing(doc)
 	preserve_dynamic_packing_piece_uom(doc)
-	validate_lot_process_selection(doc)
+	if is_folding_lot(doc.get("lot")):
+		validate_work_order(doc)
+	else:
+		validate_lot_process_selection(doc)
 	if doc.is_new():
 		from essdee_yrp.cloth_execution import stamp_cloth_execution_version
 

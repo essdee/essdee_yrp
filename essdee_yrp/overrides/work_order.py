@@ -15,6 +15,8 @@ from yrp.yrp.doctype.yrp_work_order.yrp_work_order import (
 	set_receivable_process_cost,
 )
 
+from essdee_yrp.folding_lot import validate_work_order_submit
+
 
 class EssdeeWorkOrder(WorkOrder):
 	"""Split garment rates by panel type before falling back to base YRP."""
@@ -49,6 +51,10 @@ class EssdeeWorkOrder(WorkOrder):
 		parent = getattr(super(), "before_update_after_submit", None)
 		if parent:
 			return parent()
+
+	def before_submit(self):
+		validate_work_order_submit(self)
+		return super().before_submit()
 
 	def get_submit_readiness_issues(self):
 		issues = super().get_submit_readiness_issues()

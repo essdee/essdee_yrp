@@ -64,6 +64,7 @@
   "received_type_list",
   "finishing_inward_process",
   "additional_grn_submit_role",
+  "folding_lot_role",
   "quality_inspection_section",
   "default_major_aql_level",
   "column_break_aql",
@@ -235,6 +236,14 @@
    "fieldname": "additional_grn_submit_role",
    "fieldtype": "Link",
    "label": "Additional GRN Submit Role",
+   "options": "Role"
+  },
+  {
+   "default": "Folding Lot Manager",
+   "description": "Only this role can mark a Lot as a Folding Lot and submit Work Orders for Folding Lots.",
+   "fieldname": "folding_lot_role",
+   "fieldtype": "Link",
+   "label": "Folding Lot Role",
    "options": "Role"
   },
   {
@@ -662,7 +671,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-11-17 12:00:00.000000",
+ "modified": "2026-11-17 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP MRP Settings",

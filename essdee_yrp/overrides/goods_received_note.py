@@ -623,6 +623,10 @@ def _new_consumption_plan_kind(grn):
 		or grn.get("from_closed_wo_sewing_details")
 	):
 		return None
+	from essdee_yrp.folding_lot import is_folding_lot
+
+	if is_folding_lot(frappe.db.get_value("YRP Work Order", grn.against_id, "lot")):
+		return "folding"
 	if grn.get("cutting_laysheet"):
 		return "cutting"
 	if grn.get("includes_packing"):
@@ -673,6 +677,10 @@ def preview_consumed_materials(grn):
 
 
 def _calculate_new_consumption_plan(grn, plan_kind):
+	if plan_kind == "folding":
+		from essdee_yrp.folding_lot import calculate_folding_consumption_plan
+
+		return calculate_folding_consumption_plan(grn)
 	if plan_kind == "cutting":
 		from essdee_yrp.essdee_yrp.doctype.sd_yrp_cutting_laysheet.sd_yrp_cutting_laysheet import (
 			calculate_cutting_consumption_plan,

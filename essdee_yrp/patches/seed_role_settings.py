@@ -2,6 +2,7 @@ import frappe
 
 ROLE_DEFAULTS = {
 	("SD YRP MRP Settings", "production_planner_role"): "Production Planner",
+	("SD YRP MRP Settings", "folding_lot_role"): "Folding Lot Manager",
 	("SD YRP T and A Settings", "t_and_a_admin_role"): "T & A Admin",
 }
 

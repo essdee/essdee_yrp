@@ -13,12 +13,14 @@ from essdee_yrp.essdee_yrp.doctype.sd_yrp_lot.sd_yrp_lot import (
 	get_item_details,
 	get_packing_attributes,
 )
+from essdee_yrp.folding_lot import has_folding_lot_role
 from essdee_yrp.purchase.lot_workspace import get_lot_workspace
 from essdee_yrp.web_common import assert_expected_modified, parse_mapping, permission_flags
 
 EDITABLE_FIELDS = (
 	"lot_name", "production_order", "item", "production_detail", "assigned_person", "season",
 	"expected_delivery_date", "status", "size_set_colour", "capacity_planning", "primary_item_attribute",
+	"is_folding_lot",
 )
 IPD_DERIVED = {
 	"uom": "uom", "pack_in_stage": "pack_in_stage", "packing_uom": "packing_uom",
@@ -66,6 +68,7 @@ def _lot_locks(doc, ppo_mode, is_new):
 		"item": ppo_mode,
 		"production_order": not is_new and bool(doc.production_detail),
 		"order_details": bool(doc.has_time_and_action) or bool(doc.is_transferred),
+		"is_folding_lot": not has_folding_lot_role(),
 	}
 
 
