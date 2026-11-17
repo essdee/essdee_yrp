@@ -54,9 +54,9 @@ test("supplier API sends string args and create sends planned suppliers as JSON"
 
 test("editor shows supplier chips per action and edits planned suppliers while allowed", () => {
 	const editor = source("departments/planning/time-and-action/TimeAndActionEditor.vue")
-	assert.match(editor, /<th>Suppliers<\/th>/)
-	assert.match(editor, /<SupplierChips :chips="chips\[row.action\]"/)
-	assert.match(editor, /:editable="Boolean\(data.can_edit_suppliers\)"/)
+	const table = source("departments/planning/time-and-action/TimeAndActionTable.vue")
+	assert.match(table, /<SupplierChips v-if="chips\[row.action\]\?.length \|\| canEditSuppliers" :chips="chips\[row.action\]"/)
+	assert.match(editor, /:can-edit-suppliers="Boolean\(data.can_edit_suppliers\)"/)
 	assert.match(editor, /<PlannedSuppliersDialog/)
 	const chips = source("departments/planning/time-and-action/SupplierChips.vue")
 	assert.match(chips, /supplierChipTitle\(chip\)/)

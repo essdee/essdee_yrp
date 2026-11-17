@@ -30,10 +30,9 @@ test("Lot Time and Action tab offers Split T&A when the server allows it", () =>
 	assert.match(page, /<SplitTimeAndActionDialog/)
 })
 
-test("Time and Action editor toolbar offers Split T&A next to Complete T&A", () => {
-	const editor = source("departments/planning/time-and-action/TimeAndActionEditor.vue")
-	assert.match(editor, /<Button v-if="data.can_split" label="Split T&A"/)
-	assert.match(editor, /<SplitTimeAndActionDialog/)
+test("Time and Action cockpit header offers Split T&A next to Complete T&A", () => {
+	assert.match(source("departments/planning/time-and-action/TimeAndActionHeader.vue"), /<Button v-if="data.can_split" label="Split T&A"/)
+	assert.match(source("departments/planning/time-and-action/TimeAndActionEditor.vue"), /<SplitTimeAndActionDialog/)
 })
 
 test("split dialog searches eligible lots on the server and sends them as JSON", () => {

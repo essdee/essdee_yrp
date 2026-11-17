@@ -25,6 +25,7 @@ ROW_FIELDS = (
 	"date_diff",
 	"performance",
 	"actual_delay",
+	"auto_actual_date",
 )
 LOG_FIELDS = ("revised_on", "revision_no", "action", "planned_date", "from_date", "to_date", "user", "reason")
 

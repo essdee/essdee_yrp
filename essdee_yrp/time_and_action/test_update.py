@@ -117,6 +117,21 @@ class TestUpdateActualDates(TimeAndActionTestCase):
 		self.assertFalse(rows["TA-TEST-CUT"]["can_enter"])
 		self.assertEqual(rows["TA-TEST-CUT"]["depends_on"]["TA-TEST-KNIT"], getdate("2026-11-07"))
 
+	def test_on_time_row_keeps_optional_remarks(self):
+		update_actual_dates(self.name, [change("TA-TEST-YARN", "2026-11-03", "Fabric checked early")], self.modified())
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		self.assertEqual(doc.details[0].reason, "Fabric checked early")
+		update_actual_dates(self.name, [change("TA-TEST-TRIMS", None, "Supplier confirmed")], self.modified())
+		trims = next(row for row in frappe.get_doc(TIME_AND_ACTION, self.name).details if row.action == "TA-TEST-TRIMS")
+		self.assertEqual(trims.reason, "Supplier confirmed")
+
+	def test_update_data_flags_auto_actual_dates(self):
+		doc = frappe.get_doc(TIME_AND_ACTION, self.name)
+		frappe.db.set_value(doc.details[0].doctype, doc.details[0].name, "auto_actual_date", 1)
+		rows = get_update_data(self.name)["rows"]
+		self.assertEqual(rows[0]["auto_actual_date"], 1)
+		self.assertEqual(rows[1]["auto_actual_date"], 0)
+
 	def test_unknown_action_is_refused(self):
 		with self.assertRaises(frappe.ValidationError):
 			update_actual_dates(self.name, [change("NOT-A-STEP", "2026-11-04")], self.modified())

@@ -6,7 +6,7 @@ import { LOT_VIEW_TABS } from "../src/departments/planning/lot/lotLayout.js"
 import { readFileSync } from "node:fs"
 
 import {
-	REPORT_COLUMNS, againstLabel, canEditRow, countStatuses, getBlockedBy, getDelay, getImpact, getNextActionChip, getPendingSummary,
+	REPORT_COLUMNS, STEP_LABELS, againstLabel, againstShortLabel, canEditRow, countStatuses, getBlockedBy, getDelay, getImpact, getPendingSummary,
 	getReviseMessage, getRowStatus, getRunningDelay, getSaveMessage, reportCell, reportTone,
 } from "../src/departments/planning/time-and-action/timeAndAction.js"
 import {
@@ -55,12 +55,9 @@ test("delay cell uses Rescheduled Delay with Planned Delay underneath; negative 
 	assert.equal(getDelay({ actual_date: null }), null)
 })
 
-test("save bar pending summary and list Next Action chip", () => {
+test("save bar pending summary", () => {
 	assert.deepEqual(getPendingSummary({ changes: 1, errors: 0, missingReasons: 1 }), ["1 unsaved change", "1 reason missing"])
 	assert.deepEqual(getPendingSummary({ changes: 2, errors: 1 }), ["2 unsaved changes", "1 date to fix"])
-	assert.deepEqual(getNextActionChip({ next_action: "BUDGET", next_action_date: "2026-11-18" }, "2026-11-16"), { tone: "due", label: "Due 18-11-2026" })
-	assert.deepEqual(getNextActionChip({ next_action: "BUDGET", next_action_date: "2026-11-12" }, "2026-11-16"), { tone: "overdue", label: "Overdue" })
-	assert.equal(getNextActionChip({ next_action: null }), null)
 })
 
 test("rows are editable only on In Progress T&As by the row's department or Administrator", () => {
@@ -92,18 +89,49 @@ test("report view colours negative delays red and positive green", () => {
 	assert.equal(reportTone({ reason: "x" }, REPORT_COLUMNS.find((item) => item.label === "Reason")), "")
 })
 
-test("update page is an accordion without the Desk matrix or Rescheduled Details", () => {
-	const directory = new URL("../src/departments/planning/time-and-action/", import.meta.url)
-	const page = readFileSync(new URL("TimeAndActionUpdate.vue", directory), "utf8")
-	const editor = readFileSync(new URL("TimeAndActionEditor.vue", directory), "utf8")
-	assert.match(page, /Discard changes to \$\{expanded\}\?/)
-	assert.match(page, /<th>Next Action<\/th>/)
-	assert.match(page, /<th>Against<\/th><th>Against ID<\/th>/)
-	assert.doesNotMatch(page, /<th[^>]*>Qty<\/th>/)
-	assert.match(editor, /<th>Planned Date<\/th><th>Freeze Date<\/th><th>Rescheduled Date<\/th>/)
-	for (const label of ["Action", "Work Station", "Planned Date", "Freeze Date", "Rescheduled Date", "Actual Date", "Reason", "Delay"]) assert.match(editor, new RegExp(`<th>${label}</th>`))
-	assert.doesNotMatch(editor, /Rescheduled Details|ta-matrix|<th>Status<\/th>|Planned Delay \{\{/)
-	assert.match(editor, /previewActualDates|setActual/)
+const taSource = (file) => readFileSync(new URL(`../src/departments/planning/time-and-action/${file}`, import.meta.url), "utf8")
+
+test("update page is a split view: queue on the left, the ?ta= T&A in the cockpit", () => {
+	const page = taSource("TimeAndActionUpdate.vue")
+	assert.match(page, /<TimeAndActionQueue v-model:lot="filters.lot" v-model:item="filters.item"/)
+	assert.match(page, /<TimeAndActionEditor v-if="selected" :key="selected" :name="selected"/)
+	assert.match(page, /selected = ref\(route.query.ta \|\| ""\)/)
+	assert.match(page, /query: \{ \.\.\.route\.query, ta: name \|\| undefined \}/)
+	assert.match(page, /Discard changes to \$\{selected\}\?/)
+	assert.doesNotMatch(page, /ta-list__expand|toggle\(/)
+	assert.match(taSource("LotTimeAndActionTab.vue"), /query: \{ lot: lot \|\| undefined, ta: data.name \}/)
+})
+
+test("queue cards show the T&A, running delay chip, item, Lot or PO and dated progress", () => {
+	const queue = taSource("TimeAndActionQueue.vue")
+	assert.match(queue, /Open T&A Queue/)
+	assert.match(queue, /getRunningDelay\(row\.delay\)\.tone === 'late' \? 'late' : 'ok'/)
+	assert.match(queue, /\{\{ againstShortLabel\(row\.against\) \}\} \{\{ row\.against_id \}\}/)
+	assert.match(queue, /\{\{ row\.dated \}\} of \{\{ row\.total \}\} dated/)
+	assert.match(queue, /'is-selected': row\.name === selected/)
+})
+
+test("cockpit table has the split-view columns and keeps the date logic", () => {
+	const table = taSource("TimeAndActionTable.vue")
+	assert.match(table, /<th>Action<\/th><th>Planned \/ Freeze<\/th><th>Rescheduled<\/th><th>Actual Date<\/th><th>Reason<\/th><th class="ta-acts__right">Delay<\/th>/)
+	assert.match(table, /P: \{\{ formatDisplayDate\(row\.planned_start_date, ""\) \}\}/)
+	assert.match(table, /F: \{\{ formatDisplayDate\(row\.date, ""\) \}\}/)
+	assert.match(table, /\{\{ row\.lead_time \}\}d lead/)
+	assert.match(table, /Waiting for \{\{ row\.blockedBy\.join\(", "\) \}\}/)
+	assert.match(table, /v-if="row\.auto_actual_date && !row\.edited"/)
+	assert.match(table, /<InputText v-if="row\.editable"/)
+	assert.match(table, /row\.late \? 'Why late\? Required' : 'Remarks \(optional\)'/)
+	assert.doesNotMatch(table, /Not needed/)
+	assert.doesNotMatch(table, /Rescheduled Details|ta-matrix|<th>Status<\/th>/)
+	assert.match(taSource("TimeAndActionEditor.vue"), /@actual="setActual" @reason="setReason"/)
+	const stepper = taSource("TimeAndActionStepper.vue")
+	assert.match(stepper, /STEP \{\{ row\.index \+ 1 \}\}/)
+	assert.match(stepper, /row\.actual_date \|\| row\.rescheduled_date/)
+})
+
+test("stepper labels and short Against labels", () => {
+	assert.deepEqual(STEP_LABELS, { done: "Done", due: "Due", overdue: "Overdue", blocked: "Locked", error: "Check date" })
+	assert.deepEqual(["SD YRP Lot", "YRP Production Order"].map(againstShortLabel), ["Lot", "PO"])
 })
 
 test("Against column shows the Desk label of the T&A's against DocType", () => {
@@ -114,10 +142,7 @@ test("running delay reads the T&A delay in working days; negative is late", () =
 	assert.deepEqual(getRunningDelay(-5), { tone: "late", text: "5 working days late" })
 	assert.deepEqual(getRunningDelay(1), { tone: "ok", text: "1 working day early" })
 	assert.deepEqual(getRunningDelay(0), { tone: "none", text: "On schedule" })
-	const directory = new URL("../src/departments/planning/time-and-action/", import.meta.url)
-	const page = readFileSync(new URL("TimeAndActionUpdate.vue", directory), "utf8")
-	assert.match(page, /<th>Running Delay<\/th>/)
-	assert.match(page, /getRunningDelay\(row\.delay\)/)
+	assert.match(taSource("TimeAndActionQueue.vue"), /getRunningDelay\(row\.delay\)\.text/)
 })
 
 const STEP_ROWS = [
@@ -144,11 +169,11 @@ test("Update Action dependency options: depends on anything above, must finish b
 test("Update Action summary lists every add and remove", () => {
 	const adds = [{ action: "PRINTING", lead_time: 3, depends_on: ["CUTTING"], required_by: ["SEWING"] }]
 	assert.deepEqual(describeActionChanges(adds, ["YARN"]), ["Remove YARN", "Add PRINTING (3 days) after CUTTING; before SEWING"])
-	const editor = readFileSync(new URL("../src/departments/planning/time-and-action/TimeAndActionEditor.vue", import.meta.url), "utf8")
-	assert.match(editor, /label="Update Action"/)
-	assert.match(editor, /v-if="data\.can_edit_steps"/)
-	assert.doesNotMatch(editor, /label="(Add|Remove) Action"/)
-	assert.match(editor, /getRunningDelay\(data\.value\.delay\)/)
+	const header = taSource("TimeAndActionHeader.vue")
+	assert.match(header, /label="Update Action"/)
+	assert.match(header, /v-if="data\.can_edit_steps"/)
+	assert.doesNotMatch(header, /label="(Add|Remove) Action"/)
+	assert.match(header, /getRunningDelay\(props\.data\.delay\)/)
 })
 
 const EDIT_ROWS = [

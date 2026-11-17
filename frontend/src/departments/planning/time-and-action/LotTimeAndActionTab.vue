@@ -21,7 +21,7 @@
 				</dl>
 				<div class="ta-report__actions">
 					<slot name="actions" :data="data" />
-					<RouterLink v-if="data.status === 'In Progress'" v-slot="{ navigate, href }" custom :to="{ name: PLANNING_ROUTES.timeAndActionUpdate, query: { lot: lot || undefined, time_and_action: data.name } }">
+					<RouterLink v-if="data.status === 'In Progress'" v-slot="{ navigate, href }" custom :to="{ name: PLANNING_ROUTES.timeAndActionUpdate, query: { lot: lot || undefined, ta: data.name } }">
 						<Button as="a" :href="href" label="Update dates" icon="pi pi-calendar" severity="secondary" outlined size="small" @click="navigate" />
 					</RouterLink>
 				</div>

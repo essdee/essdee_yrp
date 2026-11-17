@@ -99,12 +99,13 @@ export function againstLabel(doctype) {
 	return doctype === "SD YRP Lot" ? "Lot" : doctype === "YRP Production Order" ? "Production Order" : doctype || ""
 }
 
-/** Next Action chip of a list row: Overdue once its Rescheduled Date has passed, else Due on that date. */
-export function getNextActionChip(row, today = todayIso()) {
-	if (!row.next_action) return null
-	if (today > row.next_action_date) return { tone: "overdue", label: "Overdue" }
-	return { tone: "due", label: `Due ${formatDisplayDate(row.next_action_date, "")}` }
+/** Short Against label of the queue and the cockpit header: Lot or PO. */
+export function againstShortLabel(doctype) {
+	return doctype === "YRP Production Order" ? "PO" : againstLabel(doctype)
 }
+
+/** Stepper state per row status; blocked reads as Locked until its dependencies are dated. */
+export const STEP_LABELS = { done: "Done", due: "Due", overdue: "Overdue", blocked: "Locked", error: "Check date" }
 
 /** The 12 columns of the Lot "Time and Action" report view, Desk labels and Desk value mapping. */
 export const REPORT_COLUMNS = [
