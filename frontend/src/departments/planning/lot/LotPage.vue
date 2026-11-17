@@ -54,7 +54,7 @@
 								<LotBomPanel :workspace="workspace" />
 							</TabPanel>
 							<TabPanel v-else-if="activeTab === 'time-and-action'" value="time-and-action">
-								<LotTimeAndActionTab :lot="lotId" :time-and-action="lotTimeAndAction.time_and_action || ''" :load-error="lotTimeAndAction.error || ''" :can-create="Boolean(lotTimeAndAction.can_create)" @create="createTimeAndActionVisible = true">
+								<LotTimeAndActionTab :lot="lotId" :time-and-action="lotTimeAndAction.time_and_action || ''" :load-error="lotTimeAndAction.error || ''" :can-create="Boolean(lotTimeAndAction.can_create)" :create-blocked-reason="lotTimeAndAction.create_blocked_reason || ''" @create="createTimeAndActionVisible = true" @reverted="loadTimeAndAction">
 									<template #actions="{ data }">
 										<Button v-if="data.can_split" label="Split T&A" icon="pi pi-clone" severity="secondary" outlined size="small" @click="splitTimeAndActionVisible = true" />
 									</template>

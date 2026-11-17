@@ -7,7 +7,7 @@
 				<template v-for="row in rows" :key="row.action">
 					<tr :class="rowClass(row)">
 						<td>
-							<div class="ta-acts__name" :title="row.action"><span class="ta-acts__idx">#{{ row.index + 1 }}</span> {{ row.action }}<span class="ta-sr"> ({{ STATUS_LABELS[row.status] }})</span></div>
+							<div class="ta-acts__name" :title="row.process_name ? undefined : row.action"><span class="ta-acts__idx">#{{ row.index + 1 }}</span> <ActionQuantities v-if="row.process_name" :time-and-action="timeAndAction" :action="row.action" :process="row.process_name">{{ row.action }}</ActionQuantities><template v-else>{{ row.action }}</template><span class="ta-sr"> ({{ STATUS_LABELS[row.status] }})</span></div>
 							<div class="ta-acts__sub">
 								<span class="ta-acts__meta">{{ row.department }} · {{ row.lead_time }}d lead<template v-if="row.work_station"> · <i class="pi pi-wrench" aria-hidden="true" /> {{ row.work_station }}</template></span>
 								<SupplierChips v-if="chips[row.action]?.length || canEditSuppliers" :chips="chips[row.action]" :action="row.action" :editable="canEditSuppliers" @edit="emit('edit-suppliers', row.action)" />
@@ -48,11 +48,13 @@ import InputText from "primevue/inputtext"
 
 import DateField from "../../../components/common/DateField.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
+import ActionQuantities from "./ActionQuantities.vue"
 import SupplierChips from "./SupplierChips.vue"
 import { STATUS_LABELS, getDelay } from "./timeAndAction.js"
 
 /** Action table of the cockpit: one row per action with its dates, actual date and reason inputs, and delay. */
 const props = defineProps({
+	timeAndAction: { type: String, required: true },
 	rows: { type: Array, required: true },
 	nextIndex: { type: Number, default: -1 },
 	chips: { type: Object, default: () => ({}) },

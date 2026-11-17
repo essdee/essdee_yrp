@@ -12,12 +12,12 @@
 		<div v-else-if="rows.length" class="ta-queue__list" role="listbox" aria-label="Open Time and Actions">
 			<button v-for="row in rows" :key="row.name" type="button" role="option" class="ta-card" :class="{ 'is-selected': row.name === selected }" :aria-selected="row.name === selected" @click="emit('select', row.name)">
 				<span class="ta-card__top">
-					<strong>{{ row.name }}</strong>
+					<strong class="ta-card__against">{{ againstShortLabel(row.against) }} {{ row.against_id }}</strong>
 					<span class="ta-card__delay" :class="`ta-card__delay--${getRunningDelay(row.delay).tone === 'late' ? 'late' : 'ok'}`">{{ getRunningDelay(row.delay).text }}</span>
 				</span>
 				<span class="ta-card__item">{{ row.item }}</span>
 				<span class="ta-card__meta">
-					<span>{{ againstShortLabel(row.against) }} {{ row.against_id }}</span>
+					<span class="ta-card__name">{{ row.name }}</span>
 					<b>{{ row.dated }} of {{ row.total }} dated</b>
 				</span>
 			</button>
@@ -60,7 +60,7 @@ const countLabel = computed(() => (props.loading && !props.rows.length ? "Loadin
 .ta-card:focus-visible { outline: 2px solid var(--erp-accent); outline-offset: 1px; }
 .ta-card.is-selected { background: var(--erp-accent-soft); border-color: var(--erp-accent); box-shadow: inset 3px 0 0 var(--erp-accent); }
 .ta-card__top, .ta-card__meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.ta-card__top strong { font-size: 13px; }
+.ta-card__top strong { min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
 .ta-card__delay { padding: 1px 8px; font-size: var(--erp-font-size-min); font-weight: 700; white-space: nowrap; border-radius: 999px; }
 .ta-card__delay--late { color: var(--erp-danger); background: var(--erp-danger-soft); }
 .ta-card__delay--ok { color: var(--erp-success-text); background: var(--erp-success-soft); }

@@ -68,10 +68,12 @@ def get_lot_time_and_action(lot: str) -> dict:
 	name = get_time_and_action(LOT, lot)
 	if name:
 		frappe.get_doc(TIME_AND_ACTION, name).check_permission("read")
-	can_create = not name and bool(doc.assigned_person) and frappe.has_permission(TIME_AND_ACTION, "create")
+	may_create = not name and frappe.has_permission(TIME_AND_ACTION, "create")
+	needs_assigned_person = bool(may_create and not doc.assigned_person)
 	return {
 		"time_and_action": name,
-		"can_create": bool(can_create),
+		"can_create": bool(may_create and doc.assigned_person),
+		"create_blocked_reason": "no_assigned_person" if needs_assigned_person else None,
 		"item": doc.item,
 		"qty": doc.total_order_quantity,
 	}

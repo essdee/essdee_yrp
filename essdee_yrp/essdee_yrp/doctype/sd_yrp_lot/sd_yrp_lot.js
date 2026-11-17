@@ -442,7 +442,14 @@ async function setup_time_and_action(frm) {
 		}
 		return
 	}
-	if (frm.is_new() || !frm.doc.assigned_person) {
+	const wrapper = $(frm.fields_dict.time_and_action_html.wrapper).empty()
+	if (frm.is_new()) {
+		return
+	}
+	if (!frm.doc.assigned_person) {
+		if (frappe.model.can_create("SD YRP Time and Action")) {
+			wrapper.html(`<p class="text-muted">${__("Please set the Assigned Person to create T&A.")}</p>`)
+		}
 		return
 	}
 	frm.add_custom_button(__("Create T&A"), () => open_time_and_action_dialog(frm), __("Time and Action"))

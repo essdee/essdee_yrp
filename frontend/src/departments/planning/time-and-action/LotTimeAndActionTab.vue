@@ -8,12 +8,13 @@
 				<strong>No Time and Action for this {{ subject }}</strong>
 				<span>Create one from an Action Master to plan every step up to dispatch.</span>
 				<Button v-if="canCreate" label="Create T&A" icon="pi pi-plus" size="small" class="ta-report__create" @click="emit('create')" />
+				<Message v-else-if="createBlockedReason === 'no_assigned_person'" severity="warn" :closable="false" class="ta-report__create">Please set the Assigned Person to create T&A.</Message>
 			</div>
 		</div>
 		<section v-else-if="data" class="ta-report" aria-label="Time and Action">
 			<div class="ta-report__summary">
 				<dl class="ta-report__facts">
-					<div><dt>T&A</dt><dd><DocumentLink doctype="SD YRP Time and Action" :name="data.name" /></dd></div>
+					<div><dt>T&A</dt><dd data-ta-name>{{ data.name }}</dd></div>
 					<div><dt>Master</dt><dd>{{ data.master }}</dd></div>
 					<div><dt>Start Date</dt><dd>{{ formatDisplayDate(data.start_date, "") }}</dd></div>
 					<div><dt>Expected Delivery</dt><dd>{{ formatDisplayDate(data.end_date, "") }}</dd></div>
@@ -21,6 +22,7 @@
 				</dl>
 				<div class="ta-report__actions">
 					<slot name="actions" :data="data" />
+					<RevertTimeAndActionButton :data="data" @reverted="emit('reverted', $event)" />
 					<RouterLink v-if="data.status === 'In Progress'" v-slot="{ navigate, href }" custom :to="{ name: PLANNING_ROUTES.timeAndActionUpdate, query: { lot: lot || undefined, ta: data.name } }">
 						<Button as="a" :href="href" label="Update dates" icon="pi pi-calendar" severity="secondary" outlined size="small" @click="navigate" />
 					</RouterLink>
@@ -47,9 +49,9 @@ import Skeleton from "primevue/skeleton"
 import { ref, watch } from "vue"
 
 import { getUpdateData } from "../../../api/timeAndAction.js"
-import DocumentLink from "../../../components/common/DocumentLink.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import { PLANNING_ROUTES } from "../planningRoutes.js"
+import RevertTimeAndActionButton from "./RevertTimeAndActionButton.vue"
 import TimeAndActionChip from "./TimeAndActionChip.vue"
 import { REPORT_COLUMNS, reportCell, reportTone } from "./timeAndAction.js"
 
@@ -60,8 +62,9 @@ const props = defineProps({
 	timeAndAction: { type: String, default: "" },
 	loadError: { type: String, default: "" },
 	canCreate: { type: Boolean, default: false },
+	createBlockedReason: { type: String, default: "" },
 })
-const emit = defineEmits(["create"])
+const emit = defineEmits(["create", "reverted"])
 const data = ref(null)
 const loading = ref(false)
 const error = ref("")

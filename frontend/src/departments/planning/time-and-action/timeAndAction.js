@@ -135,3 +135,19 @@ export function reportTone(row, column) {
 	const value = Number(row[column.key]) || 0
 	return value < 0 ? "neg" : value > 0 ? "pos" : ""
 }
+
+/** PPO Tracking filters for a T&A's Lot Detail: its Lot, or every Lot of its Production Order. */
+export function getLotDetailScope(against, againstId) {
+	return against === "YRP Production Order" ? { ppos: [againstId], lots: [] } : { ppos: [], lots: [againstId] }
+}
+
+export function getRevertMessage(name, subject = "Lot") {
+	return `This deletes ${name} and all its dates. The ${subject} can then create a new T&A.`
+}
+
+/** Queue rows without the reverted T&A, and the row to open next: the one after it, else the one before. */
+export function removeFromQueue(rows, name) {
+	const index = rows.findIndex((row) => row.name === name)
+	const remaining = rows.filter((row) => row.name !== name)
+	return { rows: remaining, next: remaining[Math.min(Math.max(index, 0), remaining.length - 1)]?.name || "" }
+}

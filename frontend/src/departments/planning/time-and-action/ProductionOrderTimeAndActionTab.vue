@@ -4,10 +4,10 @@
 		<template v-else>
 			<Message v-if="isFrozen(context)" severity="info" :closable="false" class="ppo-ta__frozen">
 				Frozen — converted to Lot T&A<template v-if="context.copies.length">:
-					<span v-for="(copy, index) in context.copies" :key="copy.name"><DocumentLink doctype="SD YRP Time and Action" :name="copy.name" /> ({{ copy.lot }})<template v-if="index < context.copies.length - 1">, </template></span>
+					<span v-for="(copy, index) in context.copies" :key="copy.name">{{ copy.name }} ({{ copy.lot }})<template v-if="index < context.copies.length - 1">, </template></span>
 				</template>
 			</Message>
-			<LotTimeAndActionTab :key="`${context?.time_and_action}-${context?.status}`" subject="Production Order" :time-and-action="context?.time_and_action || ''" :load-error="error" :can-create="Boolean(context?.can_create)" @create="createVisible = true">
+			<LotTimeAndActionTab :key="`${context?.time_and_action}-${context?.status}`" subject="Production Order" :time-and-action="context?.time_and_action || ''" :load-error="error" :can-create="Boolean(context?.can_create)" @create="createVisible = true" @reverted="load">
 				<template #actions>
 					<Button v-if="context?.can_convert" label="Convert to Lot T&A" icon="pi pi-clone" severity="secondary" outlined size="small" @click="convertVisible = true" />
 				</template>
@@ -25,7 +25,6 @@ import Skeleton from "primevue/skeleton"
 import { ref, watch } from "vue"
 
 import { getProductionOrderTimeAndAction } from "../../../api/timeAndAction.js"
-import DocumentLink from "../../../components/common/DocumentLink.vue"
 import ConvertToLotTimeAndActionDialog from "./ConvertToLotTimeAndActionDialog.vue"
 import CreateTimeAndActionDialog from "./CreateTimeAndActionDialog.vue"
 import LotTimeAndActionTab from "./LotTimeAndActionTab.vue"
@@ -64,5 +63,4 @@ watch(() => props.productionOrder, () => {
 
 <style scoped>
 .ppo-ta { display: grid; min-width: 0; gap: var(--erp-space-3); }
-.ppo-ta__frozen :deep(a) { font-weight: 600; }
 </style>
