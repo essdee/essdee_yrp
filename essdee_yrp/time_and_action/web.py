@@ -65,12 +65,15 @@ def get_lot_time_and_action(lot: str) -> dict:
 	"""The Lot's T&A (if any) and the Create T&A dialog facts; like Desk, creating needs an assigned person."""
 	doc = frappe.get_doc(LOT, lot)
 	doc.check_permission("read")
+	if not frappe.has_permission(TIME_AND_ACTION, "read"):
+		return {"can_read": False}
 	name = get_time_and_action(LOT, lot)
 	if name:
 		frappe.get_doc(TIME_AND_ACTION, name).check_permission("read")
 	may_create = not name and frappe.has_permission(TIME_AND_ACTION, "create")
 	needs_assigned_person = bool(may_create and not doc.assigned_person)
 	return {
+		"can_read": True,
 		"time_and_action": name,
 		"can_create": bool(may_create and doc.assigned_person),
 		"create_blocked_reason": "no_assigned_person" if needs_assigned_person else None,

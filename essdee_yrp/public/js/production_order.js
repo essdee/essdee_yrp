@@ -50,6 +50,15 @@ function add_time_and_action_buttons(frm, context) {
 
 function show_time_and_action(frm, context) {
 	frm.dashboard.parent.find(".production-order-time-and-action").remove();
+	if (context.create_blocked_reason === "linked_lots") {
+		frm.dashboard.add_section(
+			`<p class="text-muted">${__("Lots are linked to this Production Order. Create the T&A from the Lot.")}</p>`,
+			__("Time and Action"),
+			"custom production-order-time-and-action",
+		);
+		frm.dashboard.show();
+		return;
+	}
 	if (!context.time_and_action) return;
 	const body = frm.dashboard.add_section(
 		`<p>${time_and_action_summary(context)}</p><div class="production-order-time-and-action-report"></div>`,

@@ -42,7 +42,7 @@
 					</Message>
 					<Tabs v-model:value="activeTab" scrollable class="lot-tabs erp-tabs">
 						<TabList class="lot-tablist">
-							<Tab v-for="tab in LOT_TABS" :key="tab.key" :value="tab.key">
+							<Tab v-for="tab in timeAndAction.withTab(LOT_TABS)" :key="tab.key" :value="tab.key">
 								{{ tab.label }}
 								<span v-if="lotTabCount(workspace, tab.key) !== null">{{ lotTabCount(workspace, tab.key) }}</span>
 							</Tab>
@@ -77,6 +77,9 @@
 									<template #actions><DocumentActionStrip :actions="actions.filter((action) => action.key === 'calculate_bom')" /></template>
 									<MerchLotBomTab :bom="workspace.bom" :additional-items="workspace.bom_additional_items" :can-edit="workspace.capabilities?.update_bom_additional_items?.allowed" :acting="Boolean(acting)" @save="execute('update_bom_additional_items', $event)" @error="actionError = $event" />
 								</LotBomPanel>
+							</TabPanel>
+							<TabPanel v-else-if="activeTab === 'time-and-action' && timeAndAction.canRead" value="time-and-action">
+								<LotTimeAndActionTab v-bind="timeAndAction.tabProps" @create="timeAndAction.createVisible = true" @reverted="timeAndAction.changed" />
 							</TabPanel>
 						</TabPanels>
 					</Tabs>
@@ -123,6 +126,7 @@
 			:confirm-label="confirmationLabel"
 			@confirm="confirmCommand"
 		/>
+		<CreateTimeAndActionDialog v-model:visible="timeAndAction.createVisible" v-bind="timeAndAction.dialogProps" @created="timeAndAction.created" />
 		<DocumentErrorDialog
 			:message="actionError"
 			retry-label="Reload"
@@ -169,6 +173,9 @@ import MerchClothProgramDialog from "./MerchClothProgramDialog.vue"
 import MerchLotBomTab from "./MerchLotBomTab.vue"
 import MerchLotDocuments from "./MerchLotDocuments.vue"
 import MerchLotPpoPanel from "./MerchLotPpoPanel.vue"
+import CreateTimeAndActionDialog from "../../planning/time-and-action/CreateTimeAndActionDialog.vue"
+import LotTimeAndActionTab from "../../planning/time-and-action/LotTimeAndActionTab.vue"
+import { TIME_AND_ACTION_TAB, useLotTimeAndActionTab } from "../../planning/time-and-action/useLotTimeAndActionTab.js"
 import "./lot.css"
 import "./merchLot.css"
 const props = defineProps({ lotId: { type: String, required: true } })
@@ -195,7 +202,8 @@ const header = computed(() =>
 const shellWorkspace = computed(() =>
 	workspace.value.name ? { record: { ...workspace.value, doctype: "SD YRP Lot" } } : {},
 )
-const { activeTab, expanded, scrollTo } = useLotLayout(LOT_TABS, useRoute(), router)
+const { activeTab, expanded, scrollTo } = useLotLayout([...LOT_TABS, TIME_AND_ACTION_TAB], useRoute(), router)
+const timeAndAction = useLotTimeAndActionTab({ lotId: () => props.lotId, department: "accounts", activeTab, onChanged: load })
 const duplicateAction = useDuplicateAction({
 	canCreate: () => workspace.value.permissions?.can_create,
 	newRouteName: ACCOUNTS_ROUTES.lotNew,
@@ -204,6 +212,7 @@ const duplicateAction = useDuplicateAction({
 	router,
 })
 const actions = computed(() => [
+	...timeAndAction.actions(acting.value),
 	...merchLotActions(workspace.value, selectAction, acting.value),
 	...purchaseOrderLinkActions(workspace.value, selectAction, acting.value),
 	...(duplicateAction.value ? [duplicateAction.value] : []),

@@ -6,6 +6,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, getdate, now_datetime
 
+from essdee_yrp.planning.dashboard_workspace import has_dashboard_access
 from essdee_yrp.time_and_action.create import LOT, TIME_AND_ACTION, get_time_and_action
 from essdee_yrp.time_and_action.derived import apply_schedule
 from essdee_yrp.time_and_action.holidays import get_company_holidays
@@ -159,12 +160,14 @@ def get_user_context(doc) -> dict:
 		"departments": departments,
 		"is_administrator": frappe.session.user == "Administrator",
 		"can_revise": can_revise(doc, settings),
-		"can_revert": is_time_and_action_admin(settings),
+		"can_revert": is_time_and_action_admin(settings) and not get_copy_names(doc.name),
 		"can_complete": can_complete(doc),
 		"can_reopen": doc.status == "Completed" and "System Manager" in frappe.get_roles(),
 		"can_edit_steps": doc.status == "In Progress" and has_step_editor_role(settings),
 		"can_split": can_split(doc),
 		"can_edit_suppliers": doc.status == "In Progress" and bool(doc.has_permission("write")),
+		"can_update_dates": doc.status == "In Progress" and bool(doc.has_permission("write")),
+		"can_view_lot_detail": has_dashboard_access(),
 	}
 
 
@@ -248,7 +251,19 @@ def revert_time_and_action(time_and_action: str) -> None:
 	"""Delete a T&A, actual dates included. T&A Admin only."""
 	if not is_time_and_action_admin(frappe.get_single("SD YRP T and A Settings")):
 		frappe.throw(_("Only the T&A Admin role can revert a Time and Action."), frappe.PermissionError)
+	copies = get_copy_names(time_and_action)
+	if copies:
+		frappe.throw(
+			_("Time and Action {0} was copied to {1}. Revert those first.").format(
+				time_and_action, ", ".join(copies)
+			)
+		)
 	frappe.delete_doc(TIME_AND_ACTION, time_and_action)
+
+
+def get_copy_names(time_and_action: str) -> list[str]:
+	"""T&As converted or split from this one."""
+	return frappe.get_all(TIME_AND_ACTION, filters={"copied_from": time_and_action}, pluck="name")
 
 
 @frappe.whitelist()

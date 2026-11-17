@@ -1,6 +1,9 @@
+from unittest.mock import patch
+
 import frappe
 
 from essdee_yrp.time_and_action.create import create_time_and_action
+from essdee_yrp.time_and_action.production_order import get_production_order_time_and_action
 from essdee_yrp.time_and_action.test_create import submitted_production_order
 from essdee_yrp.time_and_action.test_rules import DEPENDENCIES, STEPS, set_window
 from essdee_yrp.time_and_action.testing import (
@@ -9,6 +12,7 @@ from essdee_yrp.time_and_action.testing import (
 	make_master,
 	use_company_holidays,
 )
+from essdee_yrp.time_and_action.update import get_update_data
 from essdee_yrp.time_and_action.web import get_lot_time_and_action, get_open_time_and_actions
 
 TIME_AND_ACTION = "SD YRP Time and Action"
@@ -48,6 +52,26 @@ class TestTimeAndActionWeb(TimeAndActionTestCase):
 		self.assertEqual((context["time_and_action"], context["can_create"]), (None, True))
 		self.assertIsNone(context["create_blocked_reason"])
 		self.assertEqual(context["item"], frappe.db.get_value("SD YRP Lot", lot, "item"))
+
+	def test_contexts_hide_the_ta_without_read_permission(self):
+		real = frappe.has_permission
+
+		def no_time_and_action(doctype, *args, **kwargs):
+			return False if doctype == TIME_AND_ACTION else real(doctype, *args, **kwargs)
+
+		self.assertTrue(get_lot_time_and_action(self.lot)["can_read"])
+		with patch("frappe.has_permission", side_effect=no_time_and_action):
+			self.assertEqual(get_lot_time_and_action(self.lot), {"can_read": False})
+			self.assertEqual(
+				get_production_order_time_and_action(submitted_production_order()), {"can_read": False}
+			)
+
+	def test_update_data_flags_update_dates_and_lot_detail(self):
+		data = get_update_data(self.name)
+		self.assertTrue(data["can_update_dates"])
+		self.assertTrue(data["can_view_lot_detail"])
+		frappe.db.set_value(TIME_AND_ACTION, self.name, "status", "Completed")
+		self.assertFalse(get_update_data(self.name)["can_update_dates"])
 
 	def test_progress_and_next_action(self):
 		row = get_open_time_and_actions(lot=self.lot)[0]

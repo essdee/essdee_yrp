@@ -95,8 +95,8 @@ class TestSplitTimeAndAction(TimeAndActionTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "already has"):
 			split_time_and_action(self.source, [self.targets[0]])
 		order = submitted_production_order()
-		blocked = make_lot(production_order=order)
 		create_time_and_action(PRODUCTION_ORDER, order, self.master.name, START)
+		blocked = make_lot(production_order=order)
 		with self.assertRaisesRegex(frappe.ValidationError, "Convert to Lot T&A"):
 			split_time_and_action(self.source, [blocked])
 

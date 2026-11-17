@@ -4,6 +4,8 @@ import frappe
 from frappe.utils import get_datetime, getdate, now_datetime
 
 from essdee_yrp.time_and_action.create import create_time_and_action
+from essdee_yrp.time_and_action.production_order import convert_to_lot_time_and_action
+from essdee_yrp.time_and_action.test_create import submitted_production_order
 from essdee_yrp.time_and_action.test_rules import DEPENDENCIES, STEPS, set_window
 from essdee_yrp.time_and_action.testing import (
 	TimeAndActionTestCase,
@@ -303,6 +305,28 @@ class TestReviseDatesLog(TimeAndActionTestCase):
 		self.assertEqual(doc.revised, 1)
 		self.assertEqual({row.revision_no for row in doc.time_and_action_revised_dates}, {1})
 		self.assertEqual(len(doc.time_and_action_revised_dates), len(doc.details))
+
+
+class TestRevertConvertedTimeAndAction(TimeAndActionTestCase):
+	def setUp(self):
+		use_company_holidays([], "2025-01-01", "2028-12-31")
+		master = make_master(STEPS, DEPENDENCIES)
+		order = submitted_production_order()
+		self.source = create_time_and_action("YRP Production Order", order, master.name, "2026-11-02")
+		[self.copy] = convert_to_lot_time_and_action(self.source, [make_lot(production_order=order)])
+
+	def test_source_with_copies_cannot_be_reverted(self):
+		self.assertFalse(get_update_data(self.source)["can_revert"])
+		with self.assertRaisesRegex(frappe.ValidationError, self.copy):
+			revert_time_and_action(self.source)
+		self.assertTrue(frappe.db.exists(TIME_AND_ACTION, self.source))
+
+	def test_source_can_be_reverted_after_its_copies(self):
+		self.assertTrue(get_update_data(self.copy)["can_revert"])
+		revert_time_and_action(self.copy)
+		self.assertTrue(get_update_data(self.source)["can_revert"])
+		revert_time_and_action(self.source)
+		self.assertFalse(frappe.db.exists(TIME_AND_ACTION, self.source))
 
 
 def make_user(*roles):

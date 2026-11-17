@@ -161,8 +161,12 @@ class TestConvertCopiesPlannedSuppliers(TimeAndActionTestCase):
 		set_window(3650, 3650)
 		self.master = make_master(STEPS, DEPENDENCIES)
 		self.order = submitted_production_order()
-		self.lot = make_lot(production_order=self.order)
+		self.lot = make_lot()
 		self.suppliers = test_suppliers()
+
+	def link(self, *lots):
+		for lot in lots:
+			frappe.db.set_value(LOT, lot, "production_order", self.order)
 
 	def test_convert_copies_planned_suppliers(self):
 		source = create_time_and_action(
@@ -172,16 +176,18 @@ class TestConvertCopiesPlannedSuppliers(TimeAndActionTestCase):
 			START,
 			planned_suppliers={KNIT: self.suppliers[:2]},
 		)
+		self.link(self.lot)
 		[copy] = convert_to_lot_time_and_action(source, [self.lot])
 		self.assertEqual(planned(copy), [(KNIT, self.suppliers[0]), (KNIT, self.suppliers[1])])
 
 	def test_production_order_ta_reads_actuals_of_linked_lots(self):
 		map_action(KNIT, PROCESS)
-		other_lot = make_lot(production_order=self.order)
+		other_lot = make_lot()
 		insert_work_order(self.lot, self.suppliers[0], 10, 4)
 		insert_work_order(other_lot, self.suppliers[0], 5, 1)
 		insert_work_order(make_lot(), self.suppliers[0], 99, 99)
 		source = create_time_and_action(PRODUCTION_ORDER, self.order, self.master.name, START)
+		self.link(self.lot, other_lot)
 		[entry] = get_row_actuals(source)[KNIT]
 		self.assertEqual((entry["delivered"], entry["received"]), (15, 5))
 

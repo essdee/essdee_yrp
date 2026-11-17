@@ -77,6 +77,8 @@ const PlanningReports = () => import("../departments/planning/PlanningReports.vu
 const PlanningDashboard = () => import("../departments/planning/dashboard/PlanningDashboard.vue")
 const PlanningBulkClose = () => import("../departments/planning/PlanningBulkClose.vue")
 const PlanningTimeAndActionUpdate = () => import("../departments/planning/time-and-action/TimeAndActionUpdate.vue")
+/** Lot departments with their own "Update dates" page, so a department-locked layout can open it; names match lotTimeAndActionUpdateRouteName. */
+const LOT_TIME_AND_ACTION_DEPARTMENTS = ["purchase", "merch", "merch-pd", "merch-purchase", "accounts", "quality"]
 const PlanningActionMasters = () => import("../departments/planning/action-master/ActionMasters.vue")
 const PlanningActionMasterPage = () => import("../departments/planning/action-master/ActionMasterPage.vue")
 const ItemsList = () => import("../departments/purchase/ItemsList.vue")
@@ -893,6 +895,10 @@ const routes = [
 	{ path: "/merch/item-production-details", name: MERCH_ROUTES.ipds, component: IpdList },
 	{ path: "/merch/lots", name: MERCH_ROUTES.lots, component: MerchLotsList },
 	{ path: "/merch/lots/new", name: MERCH_ROUTES.lotNew, component: MerchLotEditorPage },
+	...LOT_TIME_AND_ACTION_DEPARTMENTS.map((department) => ({
+		path: `/${department}/lots/time-and-action-update`, name: `${department}-lot-time-and-action-update`, component: PlanningTimeAndActionUpdate,
+		props: { backTo: `/${department}/lots`, backLabel: "Lots" },
+	})),
 	{ path: "/merch/lots/:lotId", name: MERCH_ROUTES.lot, component: MerchLotPage, props: true },
 	{ path: "/merch/lots/:lotId/edit", name: MERCH_ROUTES.lotEdit, component: MerchLotEditorPage, props: true },
 	{ path: "/merch-pd/lots", name: MERCH_PD_ROUTES.lots, component: MerchPdLotsList },
@@ -929,7 +935,7 @@ const routes = [
 	},
 	{
 		path: "/merch/production-orders/:productionOrderId", name: MERCH_ROUTES.productionOrder, component: ProductionOrder,
-		props: { backTo: "/merch/production-orders", backLabel: "Production Orders", viewRouteName: MERCH_ROUTES.productionOrder, transferViewRouteName: MERCH_ROUTES.productionOrder, editRouteName: MERCH_ROUTES.productionOrderEdit, listRouteName: MERCH_ROUTES.productionOrders },
+		props: { backTo: "/merch/production-orders", backLabel: "Production Orders", viewRouteName: MERCH_ROUTES.productionOrder, transferViewRouteName: MERCH_ROUTES.productionOrder, editRouteName: MERCH_ROUTES.productionOrderEdit, listRouteName: MERCH_ROUTES.productionOrders, showTimeAndAction: true, timeAndActionUpdateRouteName: "merch-lot-time-and-action-update" },
 	},
 	{
 		path: "/merch/work-orders", name: MERCH_ROUTES.workOrders, component: FabricStoreSection,

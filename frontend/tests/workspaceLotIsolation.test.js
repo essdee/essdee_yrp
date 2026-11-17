@@ -17,9 +17,12 @@ import { qualityLauncherItems } from "../src/departments/quality/qualityWorkspac
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
 import { departments } from "../src/departments/registry.js"
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
+import { lotTimeAndActionUpdateRouteName } from "../src/departments/planning/time-and-action/timeAndActionRoutes.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const SHARED_IMPORTS = ["../../fabric-store/FabricDocumentWorkspace.vue", "../../fabric-store/WorkOrderItemMatrix.vue"]
+const SHARED_TIME_AND_ACTION = ["CreateTimeAndActionDialog.vue", "LotTimeAndActionTab.vue", "useLotTimeAndActionTab.js"]
+	.map((name) => `../../planning/time-and-action/${name}`)
+const SHARED_IMPORTS = ["../../fabric-store/FabricDocumentWorkspace.vue", "../../fabric-store/WorkOrderItemMatrix.vue", ...SHARED_TIME_AND_ACTION]
 const WORKSPACES = [
 	{ key: "purchase", prefix: "/purchase", routes: PURCHASE_ROUTES, cards: purchaseLauncherItems, canCreate: true },
 	{ key: "planning", prefix: "/planning", routes: PLANNING_ROUTES, cards: () => PLANNING_WORKSPACES, canCreate: false },
@@ -58,6 +61,8 @@ for (const workspace of WORKSPACES) {
 		assert.equal(router.resolve(`${workspace.prefix}/lots`).name, workspace.routes.lots)
 		assert.equal(router.resolve(`${workspace.prefix}/lots/LOT-1`).name, workspace.routes.lot)
 		assert.equal(router.resolve(`${workspace.prefix}/lots/LOT-1/edit`).name, workspace.routes.lotEdit)
+		const updatePath = workspace.key === "planning" ? "/planning/time-and-action-update" : `${workspace.prefix}/lots/time-and-action-update`
+		assert.equal(router.resolve(updatePath).name, lotTimeAndActionUpdateRouteName(workspace.key))
 		assert.equal(router.resolve(`${workspace.prefix}/lots/new`).name, workspace.canCreate ? workspace.routes.lotNew : workspace.routes.lot)
 		const backLinks = lotFiles(workspace.key).flatMap((file) => [...file.text.matchAll(/back-to="([^"]*)"/g)].map((match) => match[1]))
 		assert.ok(backLinks.length)

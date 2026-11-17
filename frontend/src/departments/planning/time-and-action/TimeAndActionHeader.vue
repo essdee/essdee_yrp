@@ -20,7 +20,7 @@
 				<Button label="Revise Dates" icon="pi pi-refresh" severity="secondary" outlined size="small" :disabled="busy || !data.can_revise" :title="data.can_revise ? 'Make the current Rescheduled Dates the new Freeze Dates' : 'Only the revised-date approver can revise, a limited number of times'" @click="emit('revise')" />
 				<Button v-if="data.can_edit_steps" label="Update Action" icon="pi pi-list" severity="secondary" outlined size="small" :disabled="busy || unsavedCount > 0" :title="unsavedCount ? 'Save or discard your date changes first' : 'Add or remove actions'" @click="emit('steps')" />
 				<Button v-if="data.can_split" label="Split T&A" icon="pi pi-clone" severity="secondary" outlined size="small" :disabled="busy" title="Copy this T&A to other Lots; it continues here" @click="emit('split')" />
-				<Button label="Lot Detail" icon="pi pi-box" severity="secondary" outlined size="small" title="Cutting and process-wise delivered and received pieces, as in PPO Tracking" @click="emit('lot-detail')" />
+				<Button v-if="data.can_view_lot_detail" label="Lot Detail" icon="pi pi-box" severity="secondary" outlined size="small" title="Cutting and process-wise delivered and received pieces, as in PPO Tracking" @click="emit('lot-detail')" />
 				<Button label="Complete T&A" icon="pi pi-check" size="small" :disabled="busy || !data.can_complete || hasErrors" @click="emit('complete')" />
 				<RevertTimeAndActionButton :data="data" :disabled="busy" @reverted="emit('reverted', $event)" />
 			</div>

@@ -221,5 +221,6 @@ test("Lot T&A tab asks for an Assigned Person when that blocks creating", () => 
 	const tab = taSource("LotTimeAndActionTab.vue")
 	assert.match(tab, /v-else-if="createBlockedReason === 'no_assigned_person'"[^>]*>Please set the Assigned Person to create T&A\.<\/Message>/)
 	const page = readFileSync(new URL("../src/departments/planning/lot/LotPage.vue", import.meta.url), "utf8")
-	assert.match(page, /:create-blocked-reason="lotTimeAndAction\.create_blocked_reason \|\| ''"/)
+	assert.match(page, /<LotTimeAndActionTab v-bind="timeAndAction\.tabProps"/)
+	assert.match(taSource("useLotTimeAndActionTab.js"), /createBlockedReason: context\.value\?\.create_blocked_reason \|\| ""/)
 })

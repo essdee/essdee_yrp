@@ -1,5 +1,5 @@
 <template>
-	<DepartmentPage title="Time and Action Update" back-to="/planning" back-label="Planning" flat full-width inline-navigation>
+	<DepartmentPage title="Time and Action Update" :back-to="backTo" :back-label="backLabel" flat full-width inline-navigation>
 		<section class="ta-update erp-workspace" aria-label="Time and Action Update">
 			<TimeAndActionQueue v-model:lot="filters.lot" v-model:item="filters.item" :rows="rows" :selected="selected" :loading="loading" :load-error="loadError" @select="select" @retry="load" />
 			<TimeAndActionEditor v-if="selected" :key="selected" :name="selected" @dirty="dirty = $event" @saved="load" @completed="completed" @reverted="reverted" />
@@ -23,6 +23,10 @@ import TimeAndActionEditor from "./TimeAndActionEditor.vue"
 import TimeAndActionQueue from "./TimeAndActionQueue.vue"
 
 /** Split master-detail: the open T&A queue on the left, the selected T&A (`?ta=`) in the cockpit on the right. */
+defineProps({
+	backTo: { type: String, default: "/planning" },
+	backLabel: { type: String, default: "Planning" },
+})
 const route = useRoute()
 const router = useRouter()
 const filters = reactive({ lot: route.query.lot || "", item: route.query.item || "" })

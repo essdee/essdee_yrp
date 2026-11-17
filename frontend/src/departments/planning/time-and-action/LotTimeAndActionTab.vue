@@ -9,6 +9,7 @@
 				<span>Create one from an Action Master to plan every step up to dispatch.</span>
 				<Button v-if="canCreate" label="Create T&A" icon="pi pi-plus" size="small" class="ta-report__create" @click="emit('create')" />
 				<Message v-else-if="createBlockedReason === 'no_assigned_person'" severity="warn" :closable="false" class="ta-report__create">Please set the Assigned Person to create T&A.</Message>
+				<Message v-else-if="createBlockedReason === 'linked_lots'" severity="warn" :closable="false" class="ta-report__create">Lots are linked to this Production Order. Create the T&A from the Lot.</Message>
 			</div>
 		</div>
 		<section v-else-if="data" class="ta-report" aria-label="Time and Action">
@@ -23,7 +24,7 @@
 				<div class="ta-report__actions">
 					<slot name="actions" :data="data" />
 					<RevertTimeAndActionButton :data="data" @reverted="emit('reverted', $event)" />
-					<RouterLink v-if="data.status === 'In Progress'" v-slot="{ navigate, href }" custom :to="{ name: PLANNING_ROUTES.timeAndActionUpdate, query: { lot: lot || undefined, ta: data.name } }">
+					<RouterLink v-if="data.status === 'In Progress' && data.can_update_dates" v-slot="{ navigate, href }" custom :to="{ name: updateRouteName, query: { lot: lot || undefined, ta: data.name } }">
 						<Button as="a" :href="href" label="Update dates" icon="pi pi-calendar" severity="secondary" outlined size="small" @click="navigate" />
 					</RouterLink>
 				</div>
@@ -63,6 +64,7 @@ const props = defineProps({
 	loadError: { type: String, default: "" },
 	canCreate: { type: Boolean, default: false },
 	createBlockedReason: { type: String, default: "" },
+	updateRouteName: { type: String, default: PLANNING_ROUTES.timeAndActionUpdate },
 })
 const emit = defineEmits(["create", "reverted"])
 const data = ref(null)

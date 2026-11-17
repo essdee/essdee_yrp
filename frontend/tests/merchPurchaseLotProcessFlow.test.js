@@ -12,7 +12,7 @@ test("Merch & Purchase view shows a Summary tab with the process flow; the edito
 	assert.equal(LOT_VIEW_TABS[0].label, "Summary")
 	assert.equal(LOT_TABS[0].label, "Lot")
 	const page = source("MerchLotPage.vue")
-	assert.match(page, /<Tab v-for="tab in LOT_VIEW_TABS"/)
+	assert.match(page, /<Tab v-for="tab in timeAndAction\.withTab\(LOT_VIEW_TABS\)"/)
 	assert.match(page, /expanded\.value = \[\.\.\.expanded\.value, "process-flow"\]/)
 	assert.match(page, /back-to="\/merch-purchase\/lots"/)
 	const view = source("LotViewMain.vue")

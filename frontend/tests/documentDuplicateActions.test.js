@@ -41,7 +41,11 @@ async function viewActions(path, props, overrides, routeParams) {
 	return { actions, duplicateAction: () => actions().find((action) => action.key === "duplicate"), pushes: nav.pushes }
 }
 
-const productionOrder = (canCreate) => ({ "../../api/sales.js": { getProductionOrderWorkspace: async () => ({ record: { name: "PPO-1" }, permissions: { can_create: canCreate }, capabilities: {} }) } })
+const productionOrder = (canCreate) => ({
+	"../../api/sales.js": { getProductionOrderWorkspace: async () => ({ record: { name: "PPO-1" }, permissions: { can_create: canCreate }, capabilities: {} }) },
+	"../planning/time-and-action/productionOrderTimeAndAction.js": { createTimeAndActionActions: () => [] },
+	"../planning/time-and-action/useProductionOrderTimeAndAction.js": { useProductionOrderTimeAndAction: () => ({ context: Vue.ref(null), loading: Vue.ref(false), error: Vue.ref(""), load() {} }) },
+})
 
 test("Production Order Duplicate is menu-only, gated on create and opens the route's new editor", async () => {
 	const view = await viewActions("sales/ProductionOrder", { editRouteName: "merch-production-order-edit" }, productionOrder(true), { productionOrderId: "PPO-1" })

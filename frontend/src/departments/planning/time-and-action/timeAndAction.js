@@ -151,3 +151,9 @@ export function removeFromQueue(rows, name) {
 	const remaining = rows.filter((row) => row.name !== name)
 	return { rows: remaining, next: remaining[Math.min(Math.max(index, 0), remaining.length - 1)]?.name || "" }
 }
+
+/** A Lot page in the current route's department (Merch, else Planning), optionally on `tab`. */
+export function departmentLotLocation(routePath, lot, tab) {
+	const department = String(routePath || "").split("/")[1] === "merch" ? "merch" : "planning"
+	return { path: `/${department}/lots/${encodeURIComponent(lot)}`, query: tab ? { tab } : {} }
+}
