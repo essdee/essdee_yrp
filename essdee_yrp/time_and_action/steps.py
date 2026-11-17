@@ -1,4 +1,4 @@
-"""Add and remove actions on an In Progress T&A (Update Action); one batch, validated together."""
+"""Add, remove and re-link actions on an In Progress T&A (Update Action); one batch, validated together."""
 
 import json
 
@@ -7,30 +7,36 @@ from frappe import _
 from frappe.utils import cint, now_datetime
 
 from essdee_yrp.time_and_action.create import TIME_AND_ACTION, get_work_station
-from essdee_yrp.time_and_action.derived import apply_schedule
+from essdee_yrp.time_and_action.derived import apply_schedule, get_dependencies
 from essdee_yrp.time_and_action.rules import format_date
 from essdee_yrp.time_and_action.update import get_delivery_change, has_step_editor_role, serialize
 
 
 @frappe.whitelist()
 def preview_update_actions(
-	time_and_action: str, add: list | str | None = None, remove: list | str | None = None
+	time_and_action: str,
+	add: list | str | None = None,
+	remove: list | str | None = None,
+	edit: list | str | None = None,
 ) -> dict:
-	"""Apply the adds and removes to an unsaved copy and return the rows and the delivery impact."""
+	"""Apply the changes to an unsaved copy and return the rows and the delivery impact."""
 	doc = get_doc_for_step_edit(time_and_action)
 	before_end = doc.end_date
-	apply_action_changes(doc, add, remove)
+	apply_action_changes(doc, add, remove, edit)
 	return {**serialize(doc), **get_delivery_change(before_end, doc.end_date)}
 
 
 @frappe.whitelist()
 def update_actions(
-	time_and_action: str, add: list | str | None = None, remove: list | str | None = None
+	time_and_action: str,
+	add: list | str | None = None,
+	remove: list | str | None = None,
+	edit: list | str | None = None,
 ) -> None:
-	"""Remove `remove` actions, then add `add` items in order, log each change and save once."""
+	"""Remove `remove`, add `add` in order, then set each `edit` depends-on list; log each change, save once."""
 	doc = get_doc_for_step_edit(time_and_action)
 	before_end = doc.end_date
-	messages = apply_action_changes(doc, add, remove)
+	messages = apply_action_changes(doc, add, remove, edit)
 	doc.save()
 	delivery = _("Expected delivery {0} → {1}.").format(format_date(before_end), format_date(doc.end_date))
 	doc.add_comment("Info", "<br>".join([*messages, delivery]))
@@ -46,13 +52,15 @@ def get_doc_for_step_edit(name: str):
 	return doc
 
 
-def apply_action_changes(doc, add, remove) -> list[str]:
+def apply_action_changes(doc, add, remove, edit=None) -> list[str]:
 	"""Change `doc` in memory and recalculate; returns one timeline line per change."""
 	add, remove = frappe.parse_json(add) or [], frappe.parse_json(remove) or []
-	if not (add or remove):
-		frappe.throw(_("Add or remove at least one action."))
+	edit = frappe.parse_json(edit) or []
+	if not (add or remove or edit):
+		frappe.throw(_("Add, remove or edit at least one action."))
 	messages = [remove_action(doc, action) for action in remove]
 	messages += [add_action(doc, frappe._dict(item)) for item in add]
+	messages += [edit_dependencies(doc, frappe._dict(item)) for item in edit]
 	apply_schedule(doc)
 	return messages
 
@@ -69,6 +77,7 @@ def remove_action(doc, action: str) -> str:
 	doc.dependent_details = [
 		item for item in doc.dependent_details if action not in (item.action, item.dependent_action)
 	]
+	doc.planned_suppliers = [item for item in doc.planned_suppliers if item.action != action]
 	renumber(doc)
 	log_change(doc, "Remove Step", action, before=before)
 	return _("Removed {0}.").format(action)
@@ -95,6 +104,64 @@ def add_action(doc, item) -> str:
 	row.date = row.planned_start_date = row.rescheduled_date
 	log_change(doc, "Add Step", item.action, after=get_step_snapshot(doc, row))
 	return get_add_message(item)
+
+
+def edit_dependencies(doc, item) -> str:
+	"""Replace the depends-on list of an undated step (requirement 31)."""
+	row = get_step(doc, item.action)
+	if row.actual_date:
+		frappe.throw(
+			_("{0} has an actual date, so its dependencies are locked.").format(frappe.bold(item.action))
+		)
+	depends_on = list(dict.fromkeys(item.depends_on or []))
+	validate_dependencies(doc, item.action, depends_on)
+	before = get_dependencies(doc).get(item.action, [])
+	doc.dependent_details = [entry for entry in doc.dependent_details if entry.action != item.action]
+	for dependency in depends_on:
+		doc.append("dependent_details", {"action": item.action, "dependent_action": dependency})
+	renumber(doc)
+	log_change(
+		doc,
+		"Edit Dependencies",
+		item.action,
+		before={"action": item.action, "depends_on": before},
+		after={"action": item.action, "depends_on": depends_on},
+	)
+	return _("Changed {0} dependencies: {1} → {2}.").format(
+		item.action, ", ".join(before) or _("none"), ", ".join(depends_on) or _("none")
+	)
+
+
+def validate_dependencies(doc, action: str, depends_on: list[str]) -> None:
+	"""Refuse self, unknown, cyclic and forward dependencies."""
+	index = {row.action: row_index for row_index, row in enumerate(doc.details)}
+	dependencies = get_dependencies(doc)
+	for dependency in depends_on:
+		if dependency == action:
+			frappe.throw(_("{0} cannot depend on itself.").format(frappe.bold(action)))
+		if dependency not in index:
+			frappe.throw(_("{0} is not part of this Time and Action.").format(dependency))
+		if has_dependency_path(dependencies, dependency, action):
+			frappe.throw(
+				_("{0} cannot depend on {1}: {1} already waits for {0}, which would make a cycle.").format(
+					action, dependency
+				)
+			)
+		if index[dependency] > index[action]:
+			frappe.throw(_("{0} can depend only on actions above it, not {1}.").format(action, dependency))
+
+
+def has_dependency_path(dependencies: dict[str, list[str]], action: str, target: str) -> bool:
+	"""True when `action` waits for `target`, directly or through other actions."""
+	pending, seen = [action], set()
+	while pending:
+		current = pending.pop()
+		if current == target:
+			return True
+		if current not in seen:
+			seen.add(current)
+			pending.extend(dependencies.get(current, []))
+	return False
 
 
 def validate_new_action(doc, item) -> int:
@@ -165,7 +232,7 @@ def get_step_snapshot(doc, row) -> dict:
 
 
 def renumber(doc) -> None:
-	for table in (doc.details, doc.dependent_details):
+	for table in (doc.details, doc.dependent_details, doc.planned_suppliers):
 		for row_index, row in enumerate(table, start=1):
 			row.idx = row_index
 	for row in doc.details:

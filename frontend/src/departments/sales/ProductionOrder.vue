@@ -17,6 +17,7 @@
 						<TabList>
 							<Tab value="details">Details</Tab>
 							<Tab value="transfers">Quantity Transferred <span>{{ workspace.histories?.transfers?.length || 0 }}</span></Tab>
+							<Tab v-if="showTimeAndAction && workspace.record?.name" value="time_and_action">Time and Action</Tab>
 						</TabList>
 						<TabPanels>
 							<TabPanel value="details">
@@ -29,6 +30,7 @@
 								</div>
 							</TabPanel>
 							<TabPanel value="transfers"><ProductionOrderTransferHistory :rows="workspace.histories?.transfers || []" :view-route-name="transferViewRouteName" /></TabPanel>
+							<TabPanel v-if="showTimeAndAction && workspace.record?.name" value="time_and_action"><ProductionOrderTimeAndActionTab :production-order="workspace.record.name" /></TabPanel>
 						</TabPanels>
 					</Tabs>
 				</template>
@@ -84,6 +86,7 @@ import { productionOrderApprovalRequest } from "./productionOrderPendingRequest.
 import { productionOrderConfirmation, productionOrderSuccess } from "./productionOrderMessages.js"
 import ProductionOrderTransferHistory from "./ProductionOrderTransferHistory.vue"
 import ProductionOrderUpdatePriceDialog from "./ProductionOrderUpdatePriceDialog.vue"
+import ProductionOrderTimeAndActionTab from "../planning/time-and-action/ProductionOrderTimeAndActionTab.vue"
 
 const props = defineProps({
 	backTo: { type: String, default: "/sales/production-orders" },
@@ -93,6 +96,7 @@ const props = defineProps({
 	editRouteName: { type: String, default: "sales-production-order-edit" },
 	listRouteName: { type: String, default: "sales-production-orders" },
 	newRouteName: { type: String, default: "" },
+	showTimeAndAction: { type: Boolean, default: false },
 })
 
 const route = useRoute()

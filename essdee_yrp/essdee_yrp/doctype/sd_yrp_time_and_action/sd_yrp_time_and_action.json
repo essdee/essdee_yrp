@@ -27,6 +27,7 @@
   "section_break_hshs",
   "details",
   "dependent_details",
+  "planned_suppliers",
   "revision_history_tab",
   "time_and_action_revised_dates",
   "step_changes_section",
@@ -163,6 +164,13 @@
    "options": "SD YRP Time and Action Dependent Detail"
   },
   {
+   "description": "For information only: where each action is planned. No effect on quantities or dates.",
+   "fieldname": "planned_suppliers",
+   "fieldtype": "Table",
+   "label": "Planned Suppliers",
+   "options": "SD YRP Time and Action Planned Supplier"
+  },
+  {
    "fieldname": "rescheduled_delay",
    "fieldtype": "Int",
    "label": "Rescheduled Delay",
@@ -202,7 +210,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-16 21:00:00.000000",
+ "modified": "2026-11-16 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Time and Action",

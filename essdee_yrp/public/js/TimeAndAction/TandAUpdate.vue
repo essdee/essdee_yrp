@@ -7,6 +7,7 @@
                 <button class="btn btn-success" @click="load_by_filter()">Show</button>
                 <button v-if="data && data.can_revise && !is_edited" class="btn btn-default ml-3" @click="revise()">Revise Dates</button>
                 <button v-if="data && data.can_edit_steps && !is_edited" class="btn btn-default ml-3" @click="update_actions()">Update Action</button>
+                <button v-if="data && data.can_split && !is_edited" class="btn btn-default ml-3" @click="split()">Split T&A</button>
                 <button v-if="data && data.can_complete && !is_edited" class="btn btn-success ml-3" @click="complete()">Complete T&A</button>
                 <template v-if="is_edited">
                     <span class="indicator-pill no-indicator-dot whitespace-nowrap orange ml-3"><span>Not Saved</span></span>
@@ -43,6 +44,15 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <tr>
+                            <td class="sticky-col" title="Solid: planned with work · Dashed: planned, no work yet · Amber: not planned. Hover a chip for PO / Work Order quantities.">Suppliers</td>
+                            <td v-for="row in data.rows" :key="row.action">
+                                <div class="supplier-chips">
+                                    <span v-for="chip in chips[row.action] || []" :key="chip.supplier" class="supplier-chip" :class="`supplier-chip--${supplierChipTone(chip)}`" :title="supplierChipTitle(chip)">{{ chip.supplier_name || chip.supplier }}</span>
+                                    <span v-if="data.can_edit_suppliers" class="edit-suppliers" title="Planned Suppliers" @click="edit_suppliers(row)">✎</span>
+                                </div>
+                            </td>
+                        </tr>
                         <tr>
                             <td class="sticky-col">Planned Date</td>
                             <td v-for="row in data.rows" :key="row.action">{{ format_date(row.planned_start_date) }}</td>
@@ -106,6 +116,7 @@ import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css'
 import TandARescheduledDates from "./TandARescheduledDates.vue";
 import { open_update_actions } from "./TandAUpdateActions.js";
+import { plannedSupplierValues, supplierChipTitle, supplierChipTone } from "../../../../frontend/src/departments/planning/time-and-action/supplierChips.js";
 
 const root = ref(null)
 const data = ref(null)
@@ -113,6 +124,7 @@ const changes = ref({})
 const is_edited = ref(false)
 const not_found = ref(null)
 const sample_doc = ref({})
+const chips = ref({})
 let against = null
 let against_id = null
 
@@ -169,6 +181,42 @@ function load(name) {
             not_found.value = null
         },
     })
+    load_chips(name)
+}
+
+function load_chips(name) {
+    frappe.call({
+        method: "essdee_yrp.time_and_action.suppliers.get_supplier_chips",
+        args: { time_and_action: name },
+        callback: (r) => (chips.value = r.message || {}),
+    })
+}
+
+function edit_suppliers(row) {
+    const dialog = new frappe.ui.Dialog({
+        title: __("Planned Suppliers · {0}", [row.action]),
+        fields: [
+            { fieldtype: "HTML", options: `<p class="text-muted">${__("For information only: where this action is planned. Quantities and dates do not change.")}</p>` },
+            {
+                fieldname: "suppliers",
+                fieldtype: "MultiSelectList",
+                label: __("Planned Suppliers"),
+                get_data: (txt) => frappe.db.get_link_options("Supplier", txt),
+            },
+        ],
+        primary_action_label: __("Save"),
+        primary_action: (values) => frappe.call({
+            method: "essdee_yrp.time_and_action.suppliers.set_planned_suppliers",
+            args: { time_and_action: data.value.name, action: row.action, suppliers: JSON.stringify(values.suppliers || []) },
+            callback: (r) => {
+                chips.value = r.message.chips
+                data.value.modified = r.message.modified
+                dialog.hide()
+            },
+        }),
+    })
+    dialog.set_value("suppliers", plannedSupplierValues(chips.value[row.action]))
+    dialog.show()
 }
 
 function preview(action, change) {
@@ -268,6 +316,13 @@ function complete() {
     })
 }
 
+function split() {
+    frappe.production.time_and_action.open_split_dialog({
+        time_and_action: data.value.name,
+        on_done: () => load(data.value.name),
+    })
+}
+
 function show_revisions() {
     const details = {}
     for (const row of data.value.rows) {
@@ -363,6 +418,38 @@ function format_date(value) {
 }
 .action-th {
     max-width: 220px;
+}
+.supplier-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+}
+.supplier-chip {
+    padding: 0 8px;
+    font-size: 11px;
+    line-height: 18px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    cursor: default;
+}
+.supplier-chip--planned {
+    color: white;
+    background: var(--primary, #2490ef);
+}
+.supplier-chip--hollow {
+    color: var(--text-muted, #6c7680);
+    border: 1px dashed var(--gray-500, #98a1a9);
+}
+.supplier-chip--unplanned {
+    color: #8a4b00;
+    background: #fff4d6;
+    border-color: #f0b400;
+}
+.edit-suppliers {
+    cursor: pointer;
+    color: var(--text-muted, #6c7680);
 }
 .cancel-style {
     cursor: pointer;

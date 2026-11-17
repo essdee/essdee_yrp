@@ -37,7 +37,7 @@ def add(
 	}
 
 
-class TestUpdateActions(TimeAndActionTestCase):
+class StepTestCase(TimeAndActionTestCase):
 	"""Start 02-11-2026, no holidays: YARN 04-11, TRIMS 05-11, KNIT 07-11, CUT 08-11 (delivery)."""
 
 	def setUp(self):
@@ -56,6 +56,8 @@ class TestUpdateActions(TimeAndActionTestCase):
 	def dependencies(self, action):
 		return sorted(row.dependent_action for row in self.doc().dependent_details if row.action == action)
 
+
+class TestUpdateActions(StepTestCase):
 	def test_add_with_depends_on_and_required_by_pushes_dates_out(self):
 		update_actions(self.name, add=[add()])
 		doc = self.doc()
@@ -200,3 +202,74 @@ class TestUpdateActions(TimeAndActionTestCase):
 			remove="[]",
 		)
 		self.assertIn(PRINT, self.rows())
+
+
+def edit(action, *depends_on):
+	return {"action": action, "depends_on": list(depends_on)}
+
+
+class TestEditDependencies(StepTestCase):
+	"""Edit Dependencies (requirement 31) runs in the same Update Action batch."""
+
+	def test_adding_a_dependency_pushes_dates_out(self):
+		update_actions(self.name, edit=[edit("TA-TEST-KNIT", "TA-TEST-YARN", "TA-TEST-TRIMS")])
+		rows = self.rows()
+		self.assertEqual(self.dependencies("TA-TEST-KNIT"), ["TA-TEST-TRIMS", "TA-TEST-YARN"])
+		self.assertEqual(getdate(rows["TA-TEST-KNIT"].rescheduled_date), getdate("2026-11-08"))
+		self.assertEqual(getdate(self.doc().end_date), getdate("2026-11-09"))
+
+	def test_dropping_a_dependency_pulls_dates_in(self):
+		result = preview_update_actions(self.name, edit=[edit("TA-TEST-CUT", "TA-TEST-TRIMS")])
+		self.assertEqual(result["delivery_days_moved"], -2)
+		self.assertEqual(self.dependencies("TA-TEST-CUT"), ["TA-TEST-KNIT", "TA-TEST-TRIMS"])
+		update_actions(self.name, edit=[edit("TA-TEST-CUT", "TA-TEST-TRIMS")])
+		self.assertEqual(self.dependencies("TA-TEST-CUT"), ["TA-TEST-TRIMS"])
+		self.assertEqual(getdate(self.doc().end_date), getdate("2026-11-06"))
+
+	def test_edit_is_logged(self):
+		update_actions(self.name, edit=[edit("TA-TEST-CUT", "TA-TEST-KNIT", "TA-TEST-YARN")])
+		change = self.doc().step_changes[0]
+		self.assertEqual(change.change_type, "Edit Dependencies")
+		self.assertEqual(change.action, "TA-TEST-CUT")
+		self.assertEqual(json.loads(change.before)["depends_on"], ["TA-TEST-KNIT", "TA-TEST-TRIMS"])
+		self.assertEqual(json.loads(change.after)["depends_on"], ["TA-TEST-KNIT", "TA-TEST-YARN"])
+		comment = frappe.get_all(
+			"Comment", filters={"reference_name": self.name, "comment_type": "Info"}, pluck="content"
+		)
+		expected = (
+			"Changed TA-TEST-CUT dependencies: TA-TEST-KNIT, TA-TEST-TRIMS → TA-TEST-KNIT, TA-TEST-YARN."
+		)
+		self.assertTrue(any(expected in text for text in comment))
+
+	def test_cycle_is_refused(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "cycle"):
+			update_actions(self.name, edit=[edit("TA-TEST-YARN", "TA-TEST-CUT")])
+
+	def test_forward_dependency_is_refused(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "above it, not TA-TEST-KNIT"):
+			update_actions(self.name, edit=[edit("TA-TEST-TRIMS", "TA-TEST-KNIT")])
+
+	def test_self_dependency_is_refused(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "itself"):
+			update_actions(self.name, edit=[edit("TA-TEST-KNIT", "TA-TEST-KNIT")])
+
+	def test_dependency_outside_the_ta_is_refused(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "not part of this Time and Action"):
+			update_actions(self.name, edit=[edit("TA-TEST-KNIT", PRINT)])
+
+	def test_editing_a_dated_action_is_refused(self):
+		save_actuals(self.name, {"TA-TEST-YARN": "2026-11-04", "TA-TEST-TRIMS": "2026-11-05"})
+		with self.assertRaisesRegex(frappe.ValidationError, "locked"):
+			update_actions(self.name, edit=[edit("TA-TEST-TRIMS", "TA-TEST-YARN")])
+
+	def test_edit_can_use_an_action_added_in_the_same_batch(self):
+		item = add(required_by=[])
+		update_actions(self.name, add=[item], edit=[edit("TA-TEST-CUT", "TA-TEST-TRIMS", PRINT)])
+		self.assertEqual(self.dependencies("TA-TEST-CUT"), [PRINT, "TA-TEST-TRIMS"])
+
+	def test_frappe_call_with_string_edit(self):
+		args = {"time_and_action": self.name, "edit": json.dumps([edit("TA-TEST-CUT", "TA-TEST-TRIMS")])}
+		result = frappe.call("essdee_yrp.time_and_action.steps.preview_update_actions", **args)
+		self.assertEqual(result["delivery_days_moved"], -2)
+		frappe.call("essdee_yrp.time_and_action.steps.update_actions", **args)
+		self.assertEqual(self.dependencies("TA-TEST-CUT"), ["TA-TEST-TRIMS"])

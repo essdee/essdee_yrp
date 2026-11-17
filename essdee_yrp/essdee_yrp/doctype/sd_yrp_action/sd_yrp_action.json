@@ -12,7 +12,10 @@
   "default_order",
   "column_break_tzmq",
   "lead_time",
-  "default"
+  "default",
+  "actuals_section",
+  "process_name",
+  "purchase_item_groups"
  ],
  "fields": [
   {
@@ -51,12 +54,31 @@
    "fieldname": "default_order",
    "fieldtype": "Int",
    "label": "Default Order"
+  },
+  {
+   "fieldname": "actuals_section",
+   "fieldtype": "Section Break",
+   "label": "Actual Suppliers"
+  },
+  {
+   "description": "Work Orders of this Process for the lot show as actual suppliers on T&A rows.",
+   "fieldname": "process_name",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "YRP Process"
+  },
+  {
+   "description": "Purchase Order lines for the lot whose Item is in these Item Groups show as actual suppliers on T&A rows.",
+   "fieldname": "purchase_item_groups",
+   "fieldtype": "Table MultiSelect",
+   "label": "Purchase Item Groups",
+   "options": "SD YRP Action Item Group"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-16 12:00:00.000000",
+ "modified": "2026-11-16 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Action",

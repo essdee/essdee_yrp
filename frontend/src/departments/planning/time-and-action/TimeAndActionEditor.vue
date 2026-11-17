@@ -21,6 +21,7 @@
 						<Button v-tooltip.left="{ value: REVISE_HELP, class: 'ta-editor__tooltip' }" icon="pi pi-info-circle" text rounded severity="secondary" size="small" aria-label="What Revise Dates does" />
 						<Button label="Revise Dates" icon="pi pi-refresh" severity="secondary" outlined size="small" :disabled="busy || !data.can_revise" :title="data.can_revise ? 'Make the current Rescheduled Dates the new Freeze Dates' : 'Only the revised-date approver can revise, a limited number of times'" @click="openRevise" />
 						<Button v-if="data.can_edit_steps" label="Update Action" icon="pi pi-list" severity="secondary" outlined size="small" :disabled="busy || unsavedCount > 0" :title="unsavedCount ? 'Save or discard your date changes first' : 'Add or remove actions'" @click="stepsVisible = true" />
+						<Button v-if="data.can_split" label="Split T&A" icon="pi pi-clone" severity="secondary" outlined size="small" :disabled="busy" title="Copy this T&A to other Lots; it continues here" @click="splitVisible = true" />
 						<Button label="Complete T&A" icon="pi pi-check" size="small" :disabled="busy || !data.can_complete || counts.error > 0" @click="completeVisible = true" />
 					</div>
 					<span class="ta-editor__hint">{{ data.can_complete ? `All ${rows.length} actions are dated` : `Complete unlocks when every action is dated · ${rows.length - datedCount} left` }}</span>
@@ -28,8 +29,8 @@
 			</header>
 			<div class="ta-editor__scroll">
 				<table class="erp-data-table ta-acts">
-					<colgroup><col class="ta-col-action"><col class="ta-col-station"><col class="ta-col-planned"><col class="ta-col-freeze"><col class="ta-col-rescheduled"><col class="ta-col-actual"><col class="ta-col-reason"><col class="ta-col-delay"></colgroup>
-					<thead><tr><th>Action</th><th>Work Station</th><th>Planned Date</th><th>Freeze Date</th><th>Rescheduled Date</th><th>Actual Date</th><th>Reason</th><th>Delay</th></tr></thead>
+					<colgroup><col class="ta-col-action"><col class="ta-col-station"><col class="ta-col-suppliers"><col class="ta-col-planned"><col class="ta-col-freeze"><col class="ta-col-rescheduled"><col class="ta-col-actual"><col class="ta-col-reason"><col class="ta-col-delay"></colgroup>
+					<thead><tr><th>Action</th><th>Work Station</th><th>Suppliers</th><th>Planned Date</th><th>Freeze Date</th><th>Rescheduled Date</th><th>Actual Date</th><th>Reason</th><th>Delay</th></tr></thead>
 					<tbody>
 						<template v-for="row in rows" :key="row.action">
 							<tr :class="rowClass(row)">
@@ -39,6 +40,7 @@
 									<div v-if="row.status === 'blocked'" class="ta-acts__waiting" :title="`Waiting for ${row.blockedBy.join(', ')}`"><i class="pi pi-lock" aria-hidden="true" /> Waiting for {{ row.blockedBy.join(", ") }}</div>
 								</td>
 								<td><span v-if="row.work_station">{{ row.work_station }}</span><span v-else class="ta-subtle">—</span></td>
+								<td><SupplierChips :chips="chips[row.action]" :action="row.action" :editable="Boolean(data.can_edit_suppliers)" @edit="editSuppliers(row.action)" /></td>
 								<td class="ta-acts__planned">{{ formatDisplayDate(row.planned_start_date, "") }}</td>
 								<td class="ta-acts__planned">{{ formatDisplayDate(row.date, "") }}</td>
 								<td class="ta-acts__rescheduled" :class="{ 'is-shifted': row.rescheduled_date !== row.date }">
@@ -56,7 +58,7 @@
 									<span v-else class="ta-subtle">—</span>
 								</td>
 							</tr>
-							<tr v-if="row.error" class="ta-acts__error"><td colspan="8"><div role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true" />{{ row.error }}</div></td></tr>
+							<tr v-if="row.error" class="ta-acts__error"><td colspan="9"><div role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true" />{{ row.error }}</div></td></tr>
 						</template>
 					</tbody>
 				</table>
@@ -82,6 +84,8 @@
 		</DocumentConfirmationDialog>
 		<DocumentConfirmationDialog v-model:visible="completeVisible" :title="`Complete ${name}?`" :message="completeMessage" confirm-label="Complete T&A" cancel-label="Cancel" severity="primary" icon="pi pi-check-circle" :busy="saving" @confirm="runComplete" />
 		<UpdateActionsDialog v-if="data" v-model:visible="stepsVisible" :name="name" :data="data" @saved="stepsSaved" />
+		<SplitTimeAndActionDialog v-if="data" v-model:visible="splitVisible" :time-and-action="name" />
+		<PlannedSuppliersDialog v-model:visible="suppliersVisible" :action="suppliersAction" :initial="plannedSupplierValues(chips[suppliersAction])" :on-save="(suppliers) => editor.savePlannedSuppliers(suppliersAction, suppliers)" />
 		<Dialog v-model:visible="reviseVisible" modal :header="`Revise Dates of ${name}`" class="erp-dialog--sm">
 			<div class="ta-editor__revise">
 				<p>{{ getReviseMessage(data) }}</p>
@@ -114,6 +118,10 @@ import DocumentConfirmationDialog from "../../../components/documents/DocumentCo
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import TimeAndActionChip from "./TimeAndActionChip.vue"
 import { REVISE_HELP, STATUS_LABELS, dayCount, getDelay, getImpact, getPendingSummary, getReviseMessage, getRunningDelay, getSaveMessage } from "./timeAndAction.js"
+import PlannedSuppliersDialog from "./PlannedSuppliersDialog.vue"
+import SplitTimeAndActionDialog from "./SplitTimeAndActionDialog.vue"
+import SupplierChips from "./SupplierChips.vue"
+import { plannedSupplierValues } from "./supplierChips.js"
 import UpdateActionsDialog from "./UpdateActionsDialog.vue"
 import { useTimeAndActionEditor } from "./useTimeAndActionEditor.js"
 
@@ -123,13 +131,16 @@ const emit = defineEmits(["saved", "completed", "dirty"])
 const vTooltip = Tooltip
 const toast = useToast()
 const editor = useTimeAndActionEditor(props.name)
-const { data, rows, nextIndex, counts, datedCount, missingReasons, unsavedCount, hasChanges, canSave, loading, busy, loadError, reset, setActual, setReason } = editor
+const { data, rows, nextIndex, counts, datedCount, missingReasons, unsavedCount, hasChanges, canSave, loading, busy, loadError, reset, setActual, setReason, chips } = editor
 const error = ref("")
 const saving = ref(false)
 const saveVisible = ref(false)
 const completeVisible = ref(false)
 const reviseVisible = ref(false)
 const stepsVisible = ref(false)
+const splitVisible = ref(false)
+const suppliersVisible = ref(false)
+const suppliersAction = ref("")
 const reviseReason = ref("")
 const reviseError = ref("")
 
@@ -159,6 +170,11 @@ function changeSummary(row) {
 	if (!row.actual_date) return "Actual date cleared"
 	const late = getDelay(row)
 	return `Actual ${formatDisplayDate(row.actual_date, "")} · ${late.tone === "late" ? late.text : "on time"}`
+}
+
+function editSuppliers(action) {
+	suppliersAction.value = action
+	suppliersVisible.value = true
 }
 
 function requestSave() {
@@ -239,9 +255,9 @@ editor.load()
 .ta-editor__buttons { display: flex; align-items: center; gap: 8px; }
 .ta-editor__hint { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
 .ta-editor__scroll { min-width: 0; max-height: min(70vh, 760px); overflow: auto; }
-.ta-acts { table-layout: fixed; min-width: 1080px; }
-.ta-col-station { width: 104px; } .ta-col-planned, .ta-col-freeze, .ta-col-rescheduled { width: 10.5%; }
-.ta-col-actual { width: 180px; } .ta-col-reason { width: 18%; } .ta-col-delay { width: 124px; }
+.ta-acts { table-layout: fixed; min-width: 1260px; }
+.ta-col-action { width: 210px; } .ta-col-station { width: 104px; } .ta-col-suppliers { width: 180px; } .ta-col-planned, .ta-col-freeze, .ta-col-rescheduled { width: 8.5%; }
+.ta-col-actual { width: 180px; } .ta-col-reason { width: 14%; } .ta-col-delay { width: 124px; }
 .ta-editor .ta-acts.erp-data-table > thead > tr > th { position: sticky; top: 0; z-index: 2; padding: 10px 12px; white-space: normal; line-height: 1.25; background: var(--erp-report-head-bg); border-bottom: 1px solid var(--erp-border-strong); color: var(--erp-text-secondary); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr > td { height: 56px; padding: 7px 12px; vertical-align: middle; background: var(--ta-row-bg, transparent); border-bottom: 1px solid var(--erp-border); box-shadow: var(--ta-hover, 0 0 #0000); }
 .ta-editor .ta-acts.erp-data-table > tbody > tr > td:first-child { box-shadow: var(--ta-row-mark, 0 0 #0000), var(--ta-hover, 0 0 #0000); }

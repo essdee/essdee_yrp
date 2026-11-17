@@ -1,7 +1,7 @@
 <template>
 	<Dialog :visible="visible" modal header="Create Time and Action" :closable="!busy" :style="{ width: 'min(980px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="reset">
 		<div class="ta-create">
-			<p class="ta-create__info"><b>Lot</b> {{ lot }} · <b>Item</b> {{ item || "" }} · <b>Qty</b> {{ qty || 0 }}</p>
+			<p class="ta-create__info"><b>{{ againstLabel(against) }}</b> {{ againstId }} · <b>Item</b> {{ item || "" }} · <b>Qty</b> {{ qty || 0 }}</p>
 			<div class="ta-create__fields">
 				<LinkField v-model="master" doctype="SD YRP Action Master" label="Action Master" required :filters="MASTER_FILTERS" :allow-create="false" :show-open-button="false" />
 				<DateField v-model="startDate" label="Start Date *" input-id="ta-create-start-date" />
@@ -11,7 +11,7 @@
 				<p class="ta-create__info"><b>Master</b> {{ preview.master }} · <b>Start Date</b> {{ formatDisplayDate(preview.startDate, "") }} · <b>Dispatch Date</b> {{ formatDisplayDate(preview.rows.at(-1)?.date, "") }}</p>
 				<div class="erp-table-wrap ta-create__scroll" role="region" tabindex="0" aria-label="Time and Action Preview">
 					<table class="erp-data-table">
-						<thead><tr><th class="erp-number">#</th><th>Action</th><th>Department</th><th class="erp-number">Lead Time</th><th>Completion Date</th><th class="ta-create__station">Work Station</th></tr></thead>
+						<thead><tr><th class="erp-number">#</th><th>Action</th><th>Department</th><th class="erp-number">Lead Time</th><th>Completion Date</th><th class="ta-create__station">Work Station</th><th class="ta-create__suppliers">Planned Suppliers</th></tr></thead>
 						<tbody>
 							<tr v-for="(row, index) in preview.rows" :key="row.action">
 								<td class="erp-number ta-create__index">{{ index + 1 }}</td>
@@ -22,6 +22,9 @@
 								<td>
 									<LinkField v-if="row.default_work_station" v-model="workStations[row.action]" doctype="YRP Work Station" :filters="{ action: row.action }" :aria-label="`Work Station of ${row.action}`" :allow-create="false" :show-open-button="false" />
 									<span v-else class="ta-create__subtle">—</span>
+								</td>
+								<td>
+									<LinkMultiSelectField v-model="plannedSuppliers[row.action]" doctype="Supplier" :aria-label="`Planned Suppliers of ${row.action}`" placeholder="None" :max-selected-labels="2" display="chip" />
 								</td>
 							</tr>
 						</tbody>
@@ -47,12 +50,16 @@ import { ref, watch } from "vue"
 import { createTimeAndAction, getSchedulePreview } from "../../../api/timeAndAction.js"
 import DateField from "../../../components/common/DateField.vue"
 import LinkField from "../../../components/common/LinkField.vue"
+import LinkMultiSelectField from "../../../components/common/LinkMultiSelectField.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
+import { withoutEmptySuppliers } from "./supplierChips.js"
+import { againstLabel } from "./timeAndAction.js"
 
-/** Create T&A for a Lot: Action Master and Start Date preview the schedule, Work Stations stay editable, then Create. */
+/** Create T&A for a Lot or Production Order: Action Master and Start Date preview the schedule, Work Stations and Planned Suppliers stay editable, then Create. */
 const props = defineProps({
 	visible: { type: Boolean, default: false },
-	lot: { type: String, required: true },
+	against: { type: String, default: "SD YRP Lot" },
+	againstId: { type: String, required: true },
 	item: { type: String, default: "" },
 	qty: { type: [Number, String], default: 0 },
 })
@@ -62,6 +69,7 @@ const master = ref("")
 const startDate = ref("")
 const preview = ref(null)
 const workStations = ref({})
+const plannedSuppliers = ref({})
 const error = ref("")
 const previewing = ref(false)
 const busy = ref(false)
@@ -71,6 +79,7 @@ function reset() {
 	startDate.value = ""
 	preview.value = null
 	workStations.value = {}
+	plannedSuppliers.value = {}
 	error.value = ""
 }
 
@@ -102,7 +111,7 @@ async function create() {
 	error.value = ""
 	try {
 		const chosen = Object.fromEntries(Object.entries(workStations.value).filter(([, value]) => value))
-		const name = await createTimeAndAction(props.lot, master.value, startDate.value, chosen)
+		const name = await createTimeAndAction(props.against, props.againstId, master.value, startDate.value, chosen, withoutEmptySuppliers(plannedSuppliers.value, preview.value.rows.map((row) => row.action)))
 		emit("created", name)
 		emit("update:visible", false)
 	} catch (reason) {
@@ -123,4 +132,5 @@ async function create() {
 .ta-create__action { font-weight: 600; color: var(--erp-text) !important; }
 .ta-create__index, .ta-create__subtle { color: var(--erp-text-subtle) !important; }
 .ta-create__station { width: 220px; }
+.ta-create__suppliers { width: 260px; }
 </style>

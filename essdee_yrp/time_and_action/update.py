@@ -6,7 +6,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, getdate, now_datetime
 
-from essdee_yrp.time_and_action.create import TIME_AND_ACTION, get_time_and_action
+from essdee_yrp.time_and_action.create import LOT, TIME_AND_ACTION, get_time_and_action
 from essdee_yrp.time_and_action.derived import apply_schedule
 from essdee_yrp.time_and_action.holidays import get_company_holidays
 from essdee_yrp.time_and_action.rules import ActualDateState, validate_actual_dates
@@ -31,7 +31,10 @@ LOG_FIELDS = ("revised_on", "revision_no", "action", "planned_date", "from_date"
 
 @frappe.whitelist()
 def find_time_and_action(against: str, against_id: str) -> str | None:
+	"""The T&A to update; a Frozen one (converted to Lot T&As) is left out."""
 	name = get_time_and_action(against, against_id)
+	if name and frappe.db.get_value(TIME_AND_ACTION, name, "status") == "Frozen":
+		return None
 	if name:
 		frappe.get_doc(TIME_AND_ACTION, name).check_permission("read")
 	return name
@@ -98,6 +101,7 @@ def apply_changes(doc, changes) -> None:
 			frappe.throw(_("Action {0} is not part of this Time and Action.").format(change))
 		row.actual_date = getdate(change["actual_date"]) if change.get("actual_date") else None
 		row.reason = (change.get("reason") or "").strip() or None
+		row.auto_actual_date = 0
 
 
 def serialize(doc) -> dict:
@@ -147,7 +151,14 @@ def get_user_context(doc) -> dict:
 		"can_complete": can_complete(doc),
 		"can_reopen": doc.status == "Completed" and "System Manager" in frappe.get_roles(),
 		"can_edit_steps": doc.status == "In Progress" and has_step_editor_role(settings),
+		"can_split": can_split(doc),
+		"can_edit_suppliers": doc.status == "In Progress" and bool(doc.has_permission("write")),
 	}
+
+
+def can_split(doc) -> bool:
+	"""Split T&A copies an In Progress Lot T&A to other Lots; same write permission as Update."""
+	return doc.status == "In Progress" and doc.against == LOT and bool(doc.has_permission("write"))
 
 
 def can_complete(doc) -> bool:
@@ -206,13 +217,13 @@ def revise_dates(time_and_action: str, reason: str) -> None:
 
 
 def validate_revision_log(doc) -> None:
-	"""Revision History rows are never edited or removed; only Revise Dates appends them."""
+	"""Revision History rows are never edited or removed; only Revise Dates (or a T&A copy) appends them."""
 	before = doc.get_doc_before_save()
 	old_rows = [get_log_values(row) for row in (before.time_and_action_revised_dates if before else [])]
 	new_rows = [get_log_values(row) for row in doc.time_and_action_revised_dates]
 	kept = new_rows[: len(old_rows)] == old_rows
 	appended = len(new_rows) > len(old_rows)
-	if not kept or (appended and not doc.flags.revising_dates):
+	if not kept or (appended and not (doc.flags.revising_dates or doc.flags.copying)):
 		frappe.throw(_("Revision History rows can be added only by Revise Dates and cannot be changed."))
 
 

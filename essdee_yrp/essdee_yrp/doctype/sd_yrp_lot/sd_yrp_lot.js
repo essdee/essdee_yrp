@@ -429,6 +429,13 @@ async function setup_time_and_action(frm) {
 			frappe.route_options = { time_and_action }
 			frappe.set_route("t_and_a_update")
 		}, __("Time and Action"))
+		const { message: source } = await frappe.db.get_value("SD YRP Time and Action", time_and_action, "status")
+		if (source?.status === "In Progress" && frappe.model.can_write("SD YRP Time and Action")) {
+			frm.add_custom_button(__("Split T&A"), () => frappe.production.time_and_action.open_split_dialog({
+				time_and_action,
+				on_done: () => frm.reload_doc(),
+			}), __("Time and Action"))
+		}
 		const admin_role = await frappe.db.get_single_value("SD YRP T and A Settings", "t_and_a_admin_role")
 		if (admin_role && frappe.user.has_role(admin_role)) {
 			frm.add_custom_button(__("Revert T & A"), () => revert_time_and_action(frm, time_and_action), __("Time and Action"))
@@ -454,79 +461,14 @@ function revert_time_and_action(frm, time_and_action) {
 }
 
 function open_time_and_action_dialog(frm) {
-	const info = [
-		[__("Lot"), frm.doc.name],
-		[__("Item"), frm.doc.item || ""],
-		[__("Qty"), frm.doc.total_order_quantity || 0],
-	].map(([label, value]) => `<b>${label}</b> ${frappe.utils.escape_html(String(value))}`).join(" · ")
-	const dialog = new frappe.ui.Dialog({
-		title: __("Create Time and Action"),
-		fields: [
-			{ fieldtype: "HTML", fieldname: "lot_info", options: `<p>${info}</p>` },
-			{
-				label: __("Action Master"),
-				fieldname: "master",
-				fieldtype: "Link",
-				options: "SD YRP Action Master",
-				reqd: 1,
-				get_query: () => ({ filters: { disable: 0, docstatus: 1 } }),
-			},
-			{ label: __("Start Date"), fieldname: "start_date", fieldtype: "Date", reqd: 1 },
-		],
-		primary_action_label: __("Create"),
-		primary_action: (values) => {
-			dialog.disable_primary_action()
-			frappe.call({
-				method: "essdee_yrp.time_and_action.create.create_time_and_action",
-				args: {
-					against: "SD YRP Lot",
-					against_id: frm.doc.name,
-					master: values.master,
-					start_date: values.start_date,
-					work_stations: get_chosen_work_stations(dialog, values.master),
-				},
-				freeze: true,
-				freeze_message: __("Creating Time and Action..."),
-				callback: () => {
-					dialog.hide()
-					frm.reload_doc()
-				},
-				always: () => dialog.enable_primary_action(),
-			})
-		},
-		secondary_action_label: __("Preview"),
-		secondary_action: () => preview_time_and_action(dialog),
+	frappe.production.time_and_action.open_create_dialog({
+		against: "SD YRP Lot",
+		against_id: frm.doc.name,
+		label: __("Lot"),
+		item: frm.doc.item,
+		qty: frm.doc.total_order_quantity,
+		on_created: () => frm.reload_doc(),
 	})
-	dialog.show()
-}
-
-function preview_time_and_action(dialog) {
-	const values = dialog.get_values()
-	if (!values) return
-	frappe.call({
-		method: "essdee_yrp.time_and_action.create.get_schedule_preview",
-		args: { master: values.master, start_date: values.start_date },
-		callback: (response) => {
-			const chosen = get_chosen_work_stations(dialog, values.master)
-			response.message.forEach((row) => (row.work_station = chosen[row.action] || row.work_station))
-			const preview = new frappe.ui.Dialog({
-				title: __("Time and Action Preview"),
-				size: "extra-large",
-				fields: [{ fieldname: "preview_html", fieldtype: "HTML" }],
-				primary_action_label: __("Close"),
-				primary_action: () => preview.hide(),
-			})
-			const view = new frappe.production.ui.TimeActionPreview(preview.fields_dict.preview_html.wrapper)
-			view.load_data({ [values.master]: response.message }, values.start_date)
-			dialog.work_station_preview = { master: values.master, view }
-			preview.show()
-		},
-	})
-}
-
-function get_chosen_work_stations(dialog, master) {
-	const preview = dialog.work_station_preview
-	return preview?.master === master ? preview.view.get_work_stations() : {}
 }
 
 function mount_cloth_program(frm) {

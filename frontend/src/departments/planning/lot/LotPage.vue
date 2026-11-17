@@ -54,7 +54,11 @@
 								<LotBomPanel :workspace="workspace" />
 							</TabPanel>
 							<TabPanel v-else-if="activeTab === 'time-and-action'" value="time-and-action">
-								<LotTimeAndActionTab :lot="lotId" :time-and-action="lotTimeAndAction.time_and_action || ''" :load-error="lotTimeAndAction.error || ''" :can-create="Boolean(lotTimeAndAction.can_create)" @create="createTimeAndActionVisible = true" />
+								<LotTimeAndActionTab :lot="lotId" :time-and-action="lotTimeAndAction.time_and_action || ''" :load-error="lotTimeAndAction.error || ''" :can-create="Boolean(lotTimeAndAction.can_create)" @create="createTimeAndActionVisible = true">
+									<template #actions="{ data }">
+										<Button v-if="data.can_split" label="Split T&A" icon="pi pi-clone" severity="secondary" outlined size="small" @click="splitTimeAndActionVisible = true" />
+									</template>
+								</LotTimeAndActionTab>
 							</TabPanel>
 						</TabPanels>
 					</Tabs>
@@ -80,15 +84,18 @@
 		/>
 		<CreateTimeAndActionDialog
 			v-model:visible="createTimeAndActionVisible"
-			:lot="lotId"
+			against="SD YRP Lot"
+			:against-id="lotId"
 			:item="lotTimeAndAction.item || ''"
 			:qty="lotTimeAndAction.qty || 0"
 			@created="timeAndActionCreated"
 		/>
+		<SplitTimeAndActionDialog v-if="lotTimeAndAction.time_and_action" v-model:visible="splitTimeAndActionVisible" :time-and-action="lotTimeAndAction.time_and_action" />
 	</DepartmentPage>
 </template>
 
 <script setup>
+import Button from "primevue/button"
 import Tab from "primevue/tab"
 import TabList from "primevue/tablist"
 import TabPanel from "primevue/tabpanel"
@@ -119,6 +126,7 @@ import LotDocumentDialog from "./LotDocumentDialog.vue"
 import LotDocumentsRail from "./LotDocumentsRail.vue"
 import CreateTimeAndActionDialog from "../time-and-action/CreateTimeAndActionDialog.vue"
 import LotTimeAndActionTab from "../time-and-action/LotTimeAndActionTab.vue"
+import SplitTimeAndActionDialog from "../time-and-action/SplitTimeAndActionDialog.vue"
 
 const props = defineProps({ lotId: { type: String, required: true } })
 const router = useRouter()
@@ -161,6 +169,7 @@ if (!expanded.value.includes("process-flow")) expanded.value = [...expanded.valu
 
 const lotTimeAndAction = ref({})
 const createTimeAndActionVisible = ref(false)
+const splitTimeAndActionVisible = ref(false)
 const lotActions = computed(() => [
 	...(lotTimeAndAction.value.can_create ? [{
 		key: "create-time-and-action", label: "Create T&A", icon: "pi pi-calendar-plus",

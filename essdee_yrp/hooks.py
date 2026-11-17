@@ -487,6 +487,10 @@ doc_events = {
 	"YRP Work Station": {
 		"before_validate": "essdee_yrp.time_and_action.work_station.validate_default_action_work_station",
 	},
+	"SD YRP Cutting Plan": {
+		"on_update_after_submit": "essdee_yrp.time_and_action.cutting_dates.on_update_after_submit",
+		"on_cancel": "essdee_yrp.time_and_action.cutting_dates.on_cancel",
+	},
 	"Purchase Order": {
 		"onload": "essdee_yrp.purchase_order_against.set_production_order_onload",
 		"before_insert": "essdee_yrp.purchase_order_against.validate_new_purchase_order_against",
@@ -611,6 +615,7 @@ doc_events = {
 			"essdee_yrp.finishing.grn.on_submit",
 			"essdee_yrp.cutting.movement.on_submit",
 			"essdee_yrp.work_order_piece_tracking.on_goods_received_note_submit",
+			"essdee_yrp.time_and_action.work_order_dates.on_goods_received_note_submit",
 			"essdee_yrp.essdee_yrp.doctype.sd_yrp_grn_rework_item.sd_yrp_grn_rework_item.sync_grn_rework",
 		],
 		"on_cancel": [
@@ -619,6 +624,7 @@ doc_events = {
 			"essdee_yrp.finishing.grn.on_cancel",
 			"essdee_yrp.cutting.movement.on_cancel",
 			"essdee_yrp.work_order_piece_tracking.on_goods_received_note_cancel",
+			"essdee_yrp.time_and_action.work_order_dates.on_goods_received_note_cancel",
 			"essdee_yrp.essdee_yrp.doctype.sd_yrp_grn_rework_item.sd_yrp_grn_rework_item.on_grn_cancel",
 		],
 	},

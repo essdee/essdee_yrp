@@ -128,6 +128,11 @@ class SDYRPLot(Document):
 			total_qty += vars(item)["quantity"]
 		self.total_order_quantity = total_qty
 
+	def validate(self):
+		from essdee_yrp.time_and_action.production_order import validate_lot_link
+
+		validate_lot_link(self)
+
 	def before_save(self):
 		if not self.is_new():
 			prev_ppo = frappe.get_value("SD YRP Lot", self.name, "production_order")

@@ -58,6 +58,7 @@ class ActualDateState:
 
 	def __init__(self, doc, require_reason=True):
 		self.require_reason = require_reason
+		self.check_window = not doc.flags.auto_actual_date
 		self.actual = {
 			row.action: getdate(row.actual_date) if row.actual_date else None for row in doc.details
 		}
@@ -84,7 +85,8 @@ class ActualDateState:
 			)
 
 	def validate_new_actual(self, row) -> None:
-		validate_window(row.actual_date)
+		if self.check_window:
+			validate_window(row.actual_date)
 		depends_on = self.dependencies.get(row.action, [])
 		missing = [name for name in depends_on if not self.actual.get(name)]
 		if missing:

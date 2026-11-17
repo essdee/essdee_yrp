@@ -10,7 +10,8 @@ import {
 	getReviseMessage, getRowStatus, getRunningDelay, getSaveMessage, reportCell, reportTone,
 } from "../src/departments/planning/time-and-action/timeAndAction.js"
 import {
-	describeActionChanges, getDependsOnOptions, getInsertSlots, getLastDatedIndex, getRemovableActions, getRequiredByOptions,
+	describeActionChanges, getDependsOn, getDependsOnOptions, getEditDependsOnOptions, getInsertSlots, getLastDatedIndex,
+	getRemovableActions, getRequiredByOptions, pruneEditsForRemove, setDependencyEdit,
 } from "../src/departments/planning/time-and-action/timeAndActionSteps.js"
 import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 
@@ -148,4 +149,37 @@ test("Update Action summary lists every add and remove", () => {
 	assert.match(editor, /v-if="data\.can_edit_steps"/)
 	assert.doesNotMatch(editor, /label="(Add|Remove) Action"/)
 	assert.match(editor, /getRunningDelay\(data\.value\.delay\)/)
+})
+
+const EDIT_ROWS = [
+	{ action: "CUTTING", actual_date: "2026-11-05", depends_on: {} },
+	{ action: "PRINTING", actual_date: null, depends_on: { CUTTING: "2026-11-05" } },
+	{ action: "SEWING", actual_date: null, depends_on: { CUTTING: "2026-11-05" } },
+]
+
+test("Edit Dependencies offers only actions above the row", () => {
+	assert.deepEqual(getEditDependsOnOptions(EDIT_ROWS, "SEWING"), ["CUTTING", "PRINTING"])
+	assert.deepEqual(getEditDependsOnOptions(EDIT_ROWS, "CUTTING"), [])
+	assert.deepEqual(getDependsOn(EDIT_ROWS[2]), ["CUTTING"])
+})
+
+test("Edit Dependencies keeps one edit per action and drops edits back to the original", () => {
+	let edits = setDependencyEdit([], EDIT_ROWS, "SEWING", ["CUTTING", "PRINTING"])
+	assert.deepEqual(edits, [{ action: "SEWING", depends_on: ["CUTTING", "PRINTING"] }])
+	edits = setDependencyEdit(edits, EDIT_ROWS, "SEWING", ["PRINTING"])
+	assert.deepEqual(edits, [{ action: "SEWING", depends_on: ["PRINTING"] }])
+	assert.deepEqual(setDependencyEdit(edits, EDIT_ROWS, "SEWING", ["CUTTING"]), [])
+})
+
+test("Removing an action prunes it from pending dependency edits", () => {
+	const edits = [{ action: "SEWING", depends_on: ["CUTTING", "PRINTING"] }, { action: "PRINTING", depends_on: [] }]
+	assert.deepEqual(pruneEditsForRemove(edits, "PRINTING"), [{ action: "SEWING", depends_on: ["CUTTING"] }])
+})
+
+test("Update Action summary lists dependency edits", () => {
+	const edits = [{ action: "SEWING", depends_on: ["CUTTING", "PRINTING"] }, { action: "PACKING", depends_on: [] }]
+	assert.deepEqual(describeActionChanges([], [], edits), ["Change SEWING dependencies → CUTTING, PRINTING", "Change PACKING dependencies → none"])
+	const dialog = readFileSync(new URL("../src/departments/planning/time-and-action/UpdateActionsDialog.vue", import.meta.url), "utf8")
+	assert.match(dialog, /previewUpdateActions\(props\.name, nextAdds, nextRemoves, nextEdits\)/)
+	assert.match(dialog, /updateActions\(props\.name, adds\.value, removes\.value, edits\.value\)/)
 })

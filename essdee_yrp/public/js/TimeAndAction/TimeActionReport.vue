@@ -11,6 +11,7 @@
                 <th>Department</th>
                 <th>Lead Time</th>
                 <th>Work Station</th>
+                <th>Suppliers</th>
                 <th>Planned Date</th>
                 <th>Freezed Date</th>
                 <th>Rescheduled Date</th>
@@ -26,6 +27,9 @@
                 <td>{{ row.department }}</td>
                 <td>{{ row.lead_time }}</td>
                 <td>{{ row.work_station }}</td>
+                <td>
+                    <span v-for="chip in chips[row.action] || []" :key="chip.supplier" class="supplier-chip" :class="`supplier-chip--${supplierChipTone(chip)}`" :title="supplierChipTitle(chip)">{{ chip.supplier_name || chip.supplier }}</span>
+                </td>
                 <td>{{ date_format(row.planned_start_date) }}</td>
                 <td>{{ date_format(row.date) }}</td>
                 <td>{{ date_format(row.rescheduled_date) }}</td>
@@ -43,10 +47,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { supplierChipTitle, supplierChipTone } from "../../../../frontend/src/departments/planning/time-and-action/supplierChips.js";
 
+const props = defineProps({ time_and_action: { type: String, default: null } })
 const items = ref([])
 const can_complete = ref(false)
-const time_and_action = cur_frm.doc.__onload?.time_and_action
+const chips = ref({})
+const time_and_action = props.time_and_action || cur_frm.doc.__onload?.time_and_action
 
 onMounted(() => {
     if (!time_and_action) return
@@ -57,6 +64,11 @@ onMounted(() => {
             items.value = r.message.rows
             can_complete.value = r.message.can_complete
         },
+    })
+    frappe.call({
+        method: "essdee_yrp.time_and_action.suppliers.get_supplier_chips",
+        args: { time_and_action },
+        callback: (r) => (chips.value = r.message || {}),
     })
 })
 
@@ -79,6 +91,28 @@ function date_format(date) {
 .bg-red {
     background-color: #f8d7da;
     color: #721c24;
+}
+.supplier-chip {
+    display: inline-block;
+    margin: 1px 2px;
+    padding: 0 8px;
+    font-size: 11px;
+    line-height: 18px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+}
+.supplier-chip--planned {
+    color: white;
+    background: var(--primary, #2490ef);
+}
+.supplier-chip--hollow {
+    color: var(--text-muted, #6c7680);
+    border: 1px dashed var(--gray-500, #98a1a9);
+}
+.supplier-chip--unplanned {
+    color: #8a4b00;
+    background: #fff4d6;
+    border-color: #f0b400;
 }
 .bg-green {
     background-color: #d4edda;

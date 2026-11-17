@@ -822,7 +822,7 @@ const routes = [
 	},
 	{
 		path: "/planning/production-orders/:productionOrderId", name: PLANNING_ROUTES.productionOrder, component: ProductionOrder,
-		props: { backTo: "/planning/production-orders", backLabel: "Production Orders", viewRouteName: PLANNING_ROUTES.productionOrder, editRouteName: PLANNING_ROUTES.productionOrderEdit, listRouteName: PLANNING_ROUTES.productionOrders },
+		props: { backTo: "/planning/production-orders", backLabel: "Production Orders", viewRouteName: PLANNING_ROUTES.productionOrder, editRouteName: PLANNING_ROUTES.productionOrderEdit, listRouteName: PLANNING_ROUTES.productionOrders, showTimeAndAction: true },
 	},
 	{
 		path: "/planning/work-orders", name: PLANNING_ROUTES.workOrders, component: FabricStoreSection,

@@ -1,18 +1,22 @@
 <template>
 	<Dialog :visible="visible" modal :header="`Update Action · ${name}`" :closable="!busy" :style="{ width: 'min(920px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="reset">
 		<div class="ta-steps">
-			<p class="ta-steps__info">Completed actions are locked. Remove actions that are not dated yet, or add new ones after the last completed action. Nothing is saved until you confirm.</p>
+			<p class="ta-steps__info">Completed actions are locked. Remove actions that are not dated yet, change what they depend on, or add new ones after the last completed action. Nothing is saved until you confirm.</p>
 			<div class="ta-steps__scroll">
 				<table class="erp-data-table ta-steps__table">
-					<thead><tr><th class="erp-number">#</th><th>Action</th><th class="erp-number">Lead Time</th><th>Rescheduled Date</th><th class="ta-steps__control" /></tr></thead>
+					<thead><tr><th class="erp-number">#</th><th>Action</th><th class="erp-number">Lead Time</th><th>Rescheduled Date</th><th class="ta-steps__depends">Depends On</th><th class="ta-steps__control" /></tr></thead>
 					<tbody>
 						<tr v-for="(row, index) in rows" :key="row.action" :class="{ 'is-done': row.actual_date, 'is-new': isNew(row.action) }">
 							<td class="erp-number">{{ index + 1 }}</td>
 							<td><b>{{ row.action }}</b><span v-if="isNew(row.action)" class="ta-steps__tag">New</span></td>
 							<td class="erp-number">{{ row.lead_time }}</td>
-							<td>
+							<td class="ta-steps__date">
 								<span v-if="row.actual_date"><i class="pi pi-lock" aria-hidden="true" /> Done {{ formatDisplayDate(row.actual_date, "") }}</span>
 								<template v-else>{{ formatDisplayDate(row.rescheduled_date, "") }}</template>
+							</td>
+							<td class="ta-steps__depends">
+								<MultiSelectField v-if="!row.actual_date && !isNew(row.action)" :model-value="dependsOnFor(row)" :options="getEditDependsOnOptions(rows, row.action).map(asOption)" placeholder="None" display="comma" :max-selected-labels="2" :aria-label="`${row.action} depends on`" @update:model-value="changeDependsOn(row.action, $event)" />
+								<span v-else class="ta-steps__muted">{{ getDependsOn(row).join(", ") || "None" }}</span>
 							</td>
 							<td class="ta-steps__control">
 								<Button v-if="!row.actual_date" :icon="isNew(row.action) ? 'pi pi-undo' : 'pi pi-trash'" text rounded size="small" :severity="isNew(row.action) ? 'secondary' : 'danger'" :disabled="busy" :aria-label="`${isNew(row.action) ? 'Undo add of' : 'Remove'} ${row.action}`" :title="isNew(row.action) ? 'Undo add' : 'Remove action'" @click="removeRow(row.action)" />
@@ -37,7 +41,7 @@
 			<ul v-if="summary.length" class="ta-steps__summary"><li v-for="line in summary" :key="line">{{ line }}</li></ul>
 			<span class="ta-impact" :class="`ta-impact--${impact.tone}`">
 				<template v-if="impact.from"><i :class="impact.tone === 'late' ? 'pi pi-exclamation-circle' : 'pi pi-check'" aria-hidden="true" />Expected delivery moves {{ impact.from }} <i class="pi pi-arrow-right" aria-hidden="true" /> {{ impact.to }}, <b>{{ impact.text }}</b></template>
-				<template v-else>{{ summary.length ? impact.text : "Add or remove actions to see the effect on delivery" }}</template>
+				<template v-else>{{ summary.length ? impact.text : "Add, remove or re-link actions to see the effect on delivery" }}</template>
 			</span>
 			<Message v-if="error" severity="error" :closable="false" role="alert">{{ error }}</Message>
 		</div>
@@ -61,9 +65,12 @@ import LinkField from "../../../components/common/LinkField.vue"
 import MultiSelectField from "../../../components/common/MultiSelectField.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import { getImpact } from "./timeAndAction.js"
-import { describeActionChanges, getDependsOnOptions, getInsertSlots, getRequiredByOptions } from "./timeAndActionSteps.js"
+import {
+	describeActionChanges, getDependsOn, getDependsOnOptions, getEditDependsOnOptions, getInsertSlots, getRequiredByOptions,
+	pruneEditsForRemove, setDependencyEdit,
+} from "./timeAndActionSteps.js"
 
-/** One dialog to add and remove T&A actions; the server previews every change and Confirm saves them together. */
+/** One dialog to add, remove and re-link T&A actions; the server previews every change and Confirm saves them together. */
 const props = defineProps({
 	visible: { type: Boolean, default: false },
 	name: { type: String, required: true },
@@ -72,16 +79,18 @@ const props = defineProps({
 const emit = defineEmits(["update:visible", "saved"])
 const adds = ref([])
 const removes = ref([])
+const edits = ref([])
 const preview = ref(null)
 const error = ref("")
 const busy = ref(false)
+let previewRequest = 0
 const form = reactive(emptyForm())
 
 const rows = computed(() => preview.value?.rows || props.data.rows)
 const slots = computed(() => getInsertSlots(rows.value))
 const dependsOnOptions = computed(() => getDependsOnOptions(rows.value, form.after_action))
 const requiredByOptions = computed(() => getRequiredByOptions(rows.value, form.after_action))
-const summary = computed(() => describeActionChanges(adds.value, removes.value))
+const summary = computed(() => describeActionChanges(adds.value, removes.value, edits.value))
 const impact = computed(() => getImpact(preview.value, summary.value.length > 0))
 const canAdd = computed(() => Boolean(form.action && form.lead_time >= 1 && !busy.value && !rows.value.some((row) => row.action === form.action)))
 
@@ -92,6 +101,7 @@ function emptyForm() {
 function reset() {
 	adds.value = []
 	removes.value = []
+	edits.value = []
 	preview.value = null
 	error.value = ""
 	resetForm()
@@ -114,21 +124,33 @@ watch(() => form.after_action, (after) => {
 
 const asOption = (action) => ({ label: action, value: action })
 const isNew = (action) => adds.value.some((item) => item.action === action)
+const dependsOnFor = (row) => edits.value.find((edit) => edit.action === row.action)?.depends_on || getDependsOn(row)
 
-async function refresh(nextAdds, nextRemoves) {
+async function refresh(nextAdds, nextRemoves, nextEdits = edits.value) {
+	const request = ++previewRequest
 	busy.value = true
 	error.value = ""
 	try {
-		preview.value = nextAdds.length || nextRemoves.length ? await previewUpdateActions(props.name, nextAdds, nextRemoves) : null
+		const hasChanges = nextAdds.length || nextRemoves.length || nextEdits.length
+		const result = hasChanges ? await previewUpdateActions(props.name, nextAdds, nextRemoves, nextEdits) : null
+		if (request !== previewRequest) return false
+		preview.value = result
 		adds.value = nextAdds
 		removes.value = nextRemoves
+		edits.value = nextEdits
 		return true
 	} catch (reason) {
-		error.value = reason?.message || "Unable to apply this change."
+		if (request === previewRequest) error.value = reason?.message || "Unable to apply this change."
 		return false
 	} finally {
-		busy.value = false
+		if (request === previewRequest) busy.value = false
 	}
+}
+
+async function changeDependsOn(action, dependsOn) {
+	const previous = edits.value
+	edits.value = setDependencyEdit(previous, props.data.rows, action, dependsOn)
+	if (!(await refresh(adds.value, removes.value, edits.value)) && error.value) edits.value = previous
 }
 
 async function addRow() {
@@ -137,8 +159,9 @@ async function addRow() {
 }
 
 function removeRow(action) {
-	if (isNew(action)) refresh(adds.value.filter((item) => item.action !== action), removes.value)
-	else refresh(adds.value, [...removes.value, action])
+	const nextEdits = pruneEditsForRemove(edits.value, action)
+	if (isNew(action)) refresh(adds.value.filter((item) => item.action !== action), removes.value, nextEdits)
+	else refresh(adds.value, [...removes.value, action], nextEdits)
 }
 
 function undoRemove(action) {
@@ -149,7 +172,7 @@ async function confirm() {
 	busy.value = true
 	error.value = ""
 	try {
-		await updateActions(props.name, adds.value, removes.value)
+		await updateActions(props.name, adds.value, removes.value, edits.value)
 		emit("update:visible", false)
 		emit("saved", summary.value)
 	} catch (reason) {
@@ -168,6 +191,10 @@ async function confirm() {
 .ta-steps__table tr.is-done td { color: var(--erp-text-muted); background: color-mix(in srgb, var(--erp-success-soft) 70%, transparent); }
 .ta-steps__table tr.is-new td { background: color-mix(in srgb, var(--erp-attention-soft) 45%, transparent); }
 .ta-steps__control { width: 48px; text-align: right; }
+.ta-steps__depends { width: 280px; min-width: 220px; }
+.ta-steps__depends :deep(.p-multiselect) { max-width: 260px; }
+.ta-steps__date { white-space: nowrap; }
+.ta-steps__muted { color: var(--erp-text-muted); font-size: 13px; }
 .ta-steps__tag { margin-left: 8px; padding: 1px 6px; color: var(--erp-attention-text); font-size: var(--erp-font-size-caption); font-weight: 600; background: var(--erp-attention-soft); border-radius: 5px; }
 .ta-steps__removed { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--erp-danger); }
 .ta-steps__form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 14px; align-items: end; padding: 12px; background: var(--erp-surface-soft); border: 1px solid var(--erp-border); border-radius: 7px; }

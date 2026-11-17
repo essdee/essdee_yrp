@@ -7,10 +7,10 @@ export function getActionLeadTime(action) {
 		.then((value) => Number(value?.lead_time) || 1)
 }
 
-export function previewUpdateActions(timeAndAction, add, remove) {
-	return callMethod(`${STEPS}.preview_update_actions`, { time_and_action: timeAndAction, add: JSON.stringify(add), remove: JSON.stringify(remove) })
+export function previewUpdateActions(timeAndAction, add, remove, edit = []) {
+	return callMethod(`${STEPS}.preview_update_actions`, { time_and_action: timeAndAction, add: JSON.stringify(add), remove: JSON.stringify(remove), edit: JSON.stringify(edit) })
 }
 
-export function updateActions(timeAndAction, add, remove) {
-	return callMethod(`${STEPS}.update_actions`, { time_and_action: timeAndAction, add: JSON.stringify(add), remove: JSON.stringify(remove) })
+export function updateActions(timeAndAction, add, remove, edit = []) {
+	return callMethod(`${STEPS}.update_actions`, { time_and_action: timeAndAction, add: JSON.stringify(add), remove: JSON.stringify(remove), edit: JSON.stringify(edit) })
 }

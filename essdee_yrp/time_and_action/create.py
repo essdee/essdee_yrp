@@ -88,12 +88,21 @@ def get_schedule_preview(master: str, start_date: str) -> list[dict]:
 
 @frappe.whitelist()
 def create_time_and_action(
-	against: str, against_id: str, master: str, start_date: str, work_stations: str | dict | None = None
+	against: str,
+	against_id: str,
+	master: str,
+	start_date: str,
+	work_stations: str | dict | None = None,
+	planned_suppliers: str | dict | None = None,
 ) -> str:
+	"""`planned_suppliers`: `{action: [supplier]}`, information only."""
+	from essdee_yrp.time_and_action.suppliers import append_planned_suppliers
+
 	frappe.has_permission(TIME_AND_ACTION, "create", throw=True)
 	doc = frappe.new_doc(TIME_AND_ACTION)
 	doc.update({"against": against, "against_id": against_id, "master": master, "start_date": start_date})
 	doc.flags.work_stations = frappe.parse_json(work_stations) if work_stations else {}
+	append_planned_suppliers(doc, planned_suppliers)
 	doc.insert()
 	return doc.name
 
@@ -163,8 +172,12 @@ def set_against_details(doc) -> None:
 			frappe.throw(_("Production Order {0} is cancelled.").format(frappe.bold(source.name)))
 		ipd = source.production_detail
 		doc.item = frappe.db.get_value("YRP Item Production Detail", ipd, "item") if ipd else None
-		doc.qty = sum(flt(row.quantity) for row in source.production_order_details)
+		doc.qty = get_production_order_qty(source)
 	doc.sizes = get_sizes(ipd)
+
+
+def get_production_order_qty(order) -> float:
+	return sum(flt(row.quantity) for row in order.production_order_details)
 
 
 def get_sizes(ipd: str | None) -> str | None:
@@ -180,20 +193,21 @@ def get_time_and_action(against: str, against_id: str) -> str | None:
 	return frappe.db.get_value(TIME_AND_ACTION, {"against": against, "against_id": against_id}, "name")
 
 
-def validate_can_create(against: str, against_id: str) -> None:
+def validate_can_create(against: str, against_id: str, converted_from: str | None = None) -> None:
+	"""`converted_from`: the Production Order T&A a Convert to Lot T&A copies, allowed for its own lots."""
 	existing = get_time_and_action(against, against_id)
 	if existing:
 		frappe.throw(_("{0} {1} already has Time and Action {2}.").format(_(against), against_id, existing))
 	if against == LOT:
-		_validate_lot_order_has_no_time_and_action(against_id)
+		_validate_lot_order_has_no_time_and_action(against_id, converted_from)
 	else:
 		_validate_order_lots_have_no_time_and_action(against_id)
 
 
-def _validate_lot_order_has_no_time_and_action(lot):
+def _validate_lot_order_has_no_time_and_action(lot, converted_from=None):
 	order = frappe.db.get_value(LOT, lot, "production_order")
 	existing = order and get_time_and_action(PRODUCTION_ORDER, order)
-	if existing:
+	if existing and existing != converted_from:
 		frappe.throw(
 			_(
 				"Production Order {0} has Time and Action {1}. Use Convert to Lot T&A on the Production Order."

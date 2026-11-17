@@ -59,6 +59,7 @@
   "grn_cancellation_in_days",
   "dc_grn_letter_head",
   "time_and_action_tracking_order_report_days",
+  "ta_actual_date_percentage",
   "column_break_xjuz",
   "received_type_list",
   "finishing_inward_process",
@@ -223,6 +224,12 @@
    "fieldname": "time_and_action_tracking_order_report_days",
    "fieldtype": "Int",
    "label": "Time and Action Tracking Order Report Days"
+  },
+  {
+   "description": "Auto-set a Lot T&A action's actual date once production reaches this % of the cut quantity. Blank or 0 turns it off.",
+   "fieldname": "ta_actual_date_percentage",
+   "fieldtype": "Percent",
+   "label": "T&A Actual Date %"
   },
   {
    "fieldname": "additional_grn_submit_role",
@@ -655,7 +662,7 @@
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-11-06 12:00:00.000000",
+ "modified": "2026-11-17 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP MRP Settings",

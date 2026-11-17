@@ -2,8 +2,73 @@ frappe.ui.form.on("YRP Production Order", {
 	refresh(frm) {
 		render_lot_ordered_details(frm);
 		render_price_requests(frm);
+		render_time_and_action(frm);
 	},
 });
+
+const PRODUCTION_ORDER_TA_GROUP = __("Time and Action");
+
+function render_time_and_action(frm) {
+	if (frm.is_new()) return;
+	const requested_name = frm.doc.name;
+	frappe.call({
+		method: "essdee_yrp.time_and_action.production_order.get_production_order_time_and_action",
+		args: { production_order: requested_name },
+		callback({ message }) {
+			if (frm.doc.name !== requested_name || !message) return;
+			add_time_and_action_buttons(frm, message);
+			show_time_and_action(frm, message);
+		},
+	});
+}
+
+function add_time_and_action_buttons(frm, context) {
+	const time_and_action = context.time_and_action;
+	if (context.can_create) {
+		frm.add_custom_button(__("Create T&A"), () => frappe.production.time_and_action.open_create_dialog({
+			against: "YRP Production Order",
+			against_id: frm.doc.name,
+			label: __("Production Order"),
+			item: context.item,
+			qty: context.qty,
+			on_created: () => frm.reload_doc(),
+		}), PRODUCTION_ORDER_TA_GROUP);
+	}
+	if (time_and_action && context.status === "In Progress") {
+		frm.add_custom_button(__("Update T&A"), () => {
+			frappe.route_options = { time_and_action };
+			frappe.set_route("t_and_a_update");
+		}, PRODUCTION_ORDER_TA_GROUP);
+	}
+	if (context.can_convert) {
+		frm.add_custom_button(__("Convert to Lot T&A"), () => frappe.production.time_and_action.open_convert_dialog({
+			time_and_action,
+			on_done: () => frm.reload_doc(),
+		}), PRODUCTION_ORDER_TA_GROUP);
+	}
+}
+
+function show_time_and_action(frm, context) {
+	frm.dashboard.parent.find(".production-order-time-and-action").remove();
+	if (!context.time_and_action) return;
+	const body = frm.dashboard.add_section(
+		`<p>${time_and_action_summary(context)}</p><div class="production-order-time-and-action-report"></div>`,
+		__("Time and Action"),
+		"custom production-order-time-and-action",
+	);
+	frm.time_action_report = new frappe.production.ui.TimeActionReport(
+		body.find(".production-order-time-and-action-report").get(0),
+		context.time_and_action,
+	);
+	frm.dashboard.show();
+}
+
+function time_and_action_summary(context) {
+	const link = frappe.utils.get_form_link("SD YRP Time and Action", context.time_and_action, true);
+	const copies = context.copies.map((row) => `${frappe.utils.get_form_link("SD YRP Time and Action", row.name, true)} (${frappe.utils.escape_html(row.lot)})`);
+	if (context.status !== "Frozen") return `${link} · ${frappe.utils.escape_html(__(context.status))}`;
+	return `${link} · <span class="indicator-pill blue">${__("Frozen — converted to Lot T&A")}</span> ${copies.join(", ")}`;
+}
 
 function render_lot_ordered_details(frm) {
 	const field = frm.fields_dict["lot_ordered_html"];

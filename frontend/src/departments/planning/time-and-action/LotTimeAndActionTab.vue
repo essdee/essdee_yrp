@@ -5,7 +5,7 @@
 		<div v-else-if="!timeAndAction" class="erp-empty-state lot-empty">
 			<div>
 				<i class="pi pi-calendar" />
-				<strong>No Time and Action for this Lot</strong>
+				<strong>No Time and Action for this {{ subject }}</strong>
 				<span>Create one from an Action Master to plan every step up to dispatch.</span>
 				<Button v-if="canCreate" label="Create T&A" icon="pi pi-plus" size="small" class="ta-report__create" @click="emit('create')" />
 			</div>
@@ -19,9 +19,12 @@
 					<div><dt>Expected Delivery</dt><dd>{{ formatDisplayDate(data.end_date, "") }}</dd></div>
 					<div><dt>Status</dt><dd><TimeAndActionChip tone="info" :label="data.status" /></dd></div>
 				</dl>
-				<RouterLink v-if="data.status !== 'Completed'" v-slot="{ navigate, href }" custom :to="{ name: PLANNING_ROUTES.timeAndActionUpdate, query: { lot, time_and_action: data.name } }">
-					<Button as="a" :href="href" label="Update dates" icon="pi pi-calendar" severity="secondary" outlined size="small" @click="navigate" />
-				</RouterLink>
+				<div class="ta-report__actions">
+					<slot name="actions" :data="data" />
+					<RouterLink v-if="data.status === 'In Progress'" v-slot="{ navigate, href }" custom :to="{ name: PLANNING_ROUTES.timeAndActionUpdate, query: { lot: lot || undefined, time_and_action: data.name } }">
+						<Button as="a" :href="href" label="Update dates" icon="pi pi-calendar" severity="secondary" outlined size="small" @click="navigate" />
+					</RouterLink>
+				</div>
 			</div>
 			<div class="erp-table-wrap lot-table-wrap" role="region" tabindex="0" aria-label="Time and Action report">
 				<table class="erp-data-table lot-table ta-report__table">
@@ -50,9 +53,10 @@ import { PLANNING_ROUTES } from "../planningRoutes.js"
 import TimeAndActionChip from "./TimeAndActionChip.vue"
 import { REPORT_COLUMNS, reportCell, reportTone } from "./timeAndAction.js"
 
-/** Read-only Time and Action of one Lot: summary facts and the Desk Lot report columns. */
+/** Read-only Time and Action of one Lot or Production Order: summary facts and the Desk Lot report columns. */
 const props = defineProps({
-	lot: { type: String, required: true },
+	lot: { type: String, default: "" },
+	subject: { type: String, default: "Lot" },
 	timeAndAction: { type: String, default: "" },
 	loadError: { type: String, default: "" },
 	canCreate: { type: Boolean, default: false },
@@ -83,6 +87,7 @@ watch(() => props.timeAndAction, load, { immediate: true })
 .ta-report__create { margin-top: var(--erp-space-2); }
 .ta-report { display: grid; min-width: 0; gap: var(--erp-space-3); }
 .ta-report__summary { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; }
+.ta-report__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ta-report__facts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; }
 .ta-report__facts div { display: flex; flex-direction: column; }
 .ta-report__facts dt { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }

@@ -23,8 +23,8 @@ LIST_FIELDS = (
 
 @frappe.whitelist()
 def get_open_time_and_actions(lot: str | None = None, item: str | None = None) -> list[dict]:
-	"""T&As that are not Completed, newest first, with progress and next action; `lot` keeps only that Lot's T&A."""
-	filters = {"status": ["!=", "Completed"]}
+	"""In Progress T&As (not Completed or Frozen), newest first, with progress and next action; `lot` keeps only that Lot's T&A."""
+	filters = {"status": "In Progress"}
 	if lot:
 		filters.update({"against": LOT, "against_id": lot})
 	if item:

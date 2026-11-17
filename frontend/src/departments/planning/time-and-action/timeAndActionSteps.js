@@ -41,6 +41,35 @@ export function describeAdd(item) {
 	return text
 }
 
-export function describeActionChanges(adds, removes) {
-	return [...removes.map((action) => `Remove ${action}`), ...adds.map(describeAdd)]
+export function describeActionChanges(adds, removes, edits = []) {
+	return [...removes.map((action) => `Remove ${action}`), ...adds.map(describeAdd), ...edits.map(describeEdit)]
+}
+
+export function describeEdit(edit) {
+	return `Change ${edit.action} dependencies → ${edit.depends_on.join(", ") || "none"}`
+}
+
+/** Current depends-on list of a serialized row (`depends_on` maps action → actual date). */
+export function getDependsOn(row) {
+	return Object.keys(row?.depends_on || {})
+}
+
+/** An undated action may depend on any action above it. */
+export function getEditDependsOnOptions(rows, action) {
+	return rows.slice(0, Math.max(rows.findIndex((row) => row.action === action), 0)).map((row) => row.action)
+}
+
+/** Upsert the edit for `action`; drop it when it matches the saved list in `originalRows`. */
+export function setDependencyEdit(edits, originalRows, action, dependsOn) {
+	const others = edits.filter((edit) => edit.action !== action)
+	const original = getDependsOn(originalRows.find((row) => row.action === action))
+	const isUnchanged = original.length === dependsOn.length && original.every((name) => dependsOn.includes(name))
+	return isUnchanged ? others : [...others, { action, depends_on: [...dependsOn] }]
+}
+
+/** A removed action leaves the batch's dependency edits, both as the edited action and as a dependency. */
+export function pruneEditsForRemove(edits, action) {
+	return edits
+		.filter((edit) => edit.action !== action)
+		.map((edit) => ({ ...edit, depends_on: edit.depends_on.filter((name) => name !== action) }))
 }

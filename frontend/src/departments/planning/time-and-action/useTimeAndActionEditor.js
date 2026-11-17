@@ -1,6 +1,8 @@
 import { computed, ref, toRaw } from "vue"
 
-import { completeTimeAndAction, getUpdateData, previewActualDates, reviseDates, updateActualDates } from "../../../api/timeAndAction.js"
+import {
+	completeTimeAndAction, getSupplierChips, getUpdateData, previewActualDates, reviseDates, setPlannedSuppliers, updateActualDates,
+} from "../../../api/timeAndAction.js"
 import { canEditRow, countStatuses, getBlockedBy, getRowStatus, isLate, todayIso } from "./timeAndAction.js"
 
 /** State of one T&A editor: server data, pending changes, per-row server errors; the server validates every date. */
@@ -12,6 +14,7 @@ export function useTimeAndActionEditor(name) {
 	const loading = ref(false)
 	const busy = ref(false)
 	const loadError = ref("")
+	const chips = ref({})
 	const today = todayIso()
 
 	const baseRows = computed(() => Object.fromEntries((base.value?.rows || []).map((row) => [row.action, row])))
@@ -48,8 +51,9 @@ export function useTimeAndActionEditor(name) {
 		loading.value = true
 		loadError.value = ""
 		try {
-			const payload = await getUpdateData(name)
+			const [payload, supplierChips] = await Promise.all([getUpdateData(name), getSupplierChips(name)])
 			base.value = payload
+			chips.value = supplierChips
 			reset()
 		} catch (reason) {
 			loadError.value = reason?.message || "Unable to load this Time and Action."
@@ -111,6 +115,14 @@ export function useTimeAndActionEditor(name) {
 		await completeTimeAndAction(name)
 	}
 
+	/** Planned suppliers save on their own; pending date changes keep working against the new `modified`. */
+	async function savePlannedSuppliers(action, suppliers) {
+		const result = await setPlannedSuppliers(name, action, suppliers)
+		chips.value = result.chips
+		base.value.modified = result.modified
+		data.value.modified = result.modified
+	}
+
 	async function revise(reason) {
 		await reviseDates(name, reason)
 		await load()
@@ -119,5 +131,6 @@ export function useTimeAndActionEditor(name) {
 	return {
 		data, rows, nextIndex, counts, datedCount, missingReasons, unsavedCount, hasChanges, canSave,
 		loading, busy, loadError, today, load, reset, setActual, setReason, save, complete, revise,
+		chips, savePlannedSuppliers,
 	}
 }
