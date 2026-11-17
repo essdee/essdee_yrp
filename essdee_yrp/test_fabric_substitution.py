@@ -500,8 +500,59 @@ class TestLotFabricConversionRebuild(unittest.TestCase):
 			"CLOTH-32-AMEL",
 		)
 
-		self.assertEqual(result, ("CLOTH-36-AMEL", "CLOTH-32-AMEL"))
+		self.assertEqual(result, [("CLOTH-36-AMEL", "CLOTH-32-AMEL")])
 		route_bypasses.assert_called_once()
+
+	@patch("essdee_yrp.fabric_plan._route_bypasses_step", return_value=False)
+	@patch("essdee_yrp.fabric_source._matches_input", return_value=True)
+	@patch("essdee_yrp.api.work_order._resolve_variant")
+	@patch("essdee_yrp.fabric_substitution._item_state")
+	@patch("essdee_yrp.api.work_order._matrix_qty_rows")
+	@patch("essdee_yrp.api.work_order._step_kind", return_value="swap")
+	def test_dyeing_projects_every_colour_the_planned_greige_can_become(
+		self, _step_kind, matrix_rows, item_state, resolve_variant, _matches, _bypasses
+	):
+		item_state.side_effect = [
+			{"item": "CLOTH", "attrs": {"Dia": "20", "Colour": "Greige"}},
+			{"item": "CLOTH", "attrs": {"Dia": "18", "Colour": "Greige"}},
+		]
+		matrix_rows.return_value = [
+			{
+				"output_item": "CLOTH",
+				"input_specs": [{"attrs": {"Dia": "20", "Colour": "Greige"}}],
+				"out_attrs": {"Dia": "20", "Colour": colour},
+			}
+			for colour in ("Mustard", "Navy", "Mustard")
+		]
+		resolve_variant.side_effect = lambda item, attrs: f"{item}-{attrs['Dia']}-{attrs['Colour']}"
+		step = {"process_name": "DYEING", "shape": "swap", "attribute": "Colour"}
+
+		result = fabric_substitution._project_stage_items(
+			frappe._dict(name="IPD-1"), step, None, "CLOTH-20-Greige", "CLOTH-18-Greige"
+		)
+
+		self.assertEqual(result, [
+			("CLOTH-20-Mustard", "CLOTH-18-Mustard"),
+			("CLOTH-20-Navy", "CLOTH-18-Navy"),
+		])
+
+	@patch("essdee_yrp.fabric_plan._route_bypasses_step", return_value=False)
+	@patch("essdee_yrp.fabric_substitution._item_state")
+	@patch("essdee_yrp.api.work_order._matrix_qty_rows", return_value=[])
+	@patch("essdee_yrp.api.work_order._step_kind", return_value="swap")
+	def test_stage_without_any_output_still_fails(
+		self, _step_kind, _matrix_rows, item_state, _bypasses
+	):
+		item_state.side_effect = [
+			{"item": "CLOTH", "attrs": {"Dia": "20", "Colour": "Greige"}},
+			{"item": "CLOTH", "attrs": {"Dia": "18", "Colour": "Greige"}},
+		]
+		step = {"process_name": "DYEING", "shape": "swap", "attribute": "Colour"}
+
+		with self.assertRaisesRegex(frappe.ValidationError, "cannot project"):
+			fabric_substitution._project_stage_items(
+				frappe._dict(name="IPD-1"), step, None, "CLOTH-20-Greige", "CLOTH-18-Greige"
+			)
 
 	@patch("essdee_yrp.fabric_substitution._rebuild_lot_fabric_conversions")
 	@patch("essdee_yrp.fabric_substitution.get_default_knitting_grn_context")
@@ -597,8 +648,8 @@ class TestLotFabricConversionRebuild(unittest.TestCase):
 			"washing": {"process_name": "WASHING", "position": 2},
 		}
 		project_stage.side_effect = [
-			("DYE-PLANNED", "DYE-ACTUAL"),
-			("WASH-PLANNED", "WASH-ACTUAL"),
+			[("DYE-PLANNED", "DYE-ACTUAL")],
+			[("WASH-PLANNED", "WASH-ACTUAL")],
 		]
 		receipt = frappe._dict(
 			production_detail="IPD-1",
@@ -616,6 +667,45 @@ class TestLotFabricConversionRebuild(unittest.TestCase):
 		self.assertEqual([row["process_name"] for row in rows], ["KNITTING", "DYEING", "WASHING"])
 		self.assertEqual(project_stage.call_count, 2)
 		validate_knitting_variance.assert_called_once_with("KNIT-PLANNED", "KNIT-ACTUAL")
+
+	@patch("essdee_yrp.fabric_substitution._validate_knitting_variance")
+	@patch("essdee_yrp.fabric_substitution._project_stage_items")
+	@patch("essdee_yrp.fabric_substitution.get_supported_execution_route")
+	def test_dyeing_fan_out_carries_each_colour_through_later_steps(
+		self, supported_route, project_stage, _validate
+	):
+		supported_route.return_value = {
+			"knitting": {"process_name": "KNITTING", "position": 0},
+			"dyeing": {"process_name": "DYEING", "position": 1},
+			"washing": {"process_name": "WASHING", "position": 2},
+		}
+		dyed = [("MUSTARD-20", "MUSTARD-18"), ("NAVY-20", "NAVY-18")]
+		project_stage.side_effect = lambda _ipd, step, _route, planned, actual: (
+			dyed if step["process_name"] == "DYEING"
+			else [(f"WASHED-{planned}", f"WASHED-{actual}")]
+		)
+		receipt = frappe._dict(
+			production_detail="IPD-1",
+			is_stage_projection=True,
+			planned_item="GREIGE-20",
+			actual_item="GREIGE-18",
+			stock_qty=10,
+			source_grn="GRN-1",
+		)
+
+		rows = fabric_substitution._project_receipt_group(receipt, frappe._dict(name="IPD-1"))
+
+		self.assertEqual(
+			[(row["process_name"], row["planned_item"], row["actual_item"]) for row in rows],
+			[
+				("KNITTING", "GREIGE-20", "GREIGE-18"),
+				("DYEING", "MUSTARD-20", "MUSTARD-18"),
+				("DYEING", "NAVY-20", "NAVY-18"),
+				("WASHING", "WASHED-MUSTARD-20", "WASHED-MUSTARD-18"),
+				("WASHING", "WASHED-NAVY-20", "WASHED-NAVY-18"),
+			],
+		)
+		self.assertTrue(all(row["actual_quantity"] == 10 for row in rows))
 
 
 class TestCuttingFabricSubstitutions(unittest.TestCase):
