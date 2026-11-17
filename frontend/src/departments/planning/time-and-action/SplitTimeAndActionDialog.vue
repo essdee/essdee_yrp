@@ -4,7 +4,7 @@
 			<template v-if="created.length">
 				<Message severity="success" :closable="false">Lot T&A created. {{ timeAndAction }} continues.</Message>
 				<ul class="ta-split__list">
-					<li v-for="(name, index) in created" :key="name"><DocumentLink doctype="SD YRP Time and Action" :name="name" /> · {{ createdLots[index] }}</li>
+					<li v-for="(name, index) in created" :key="name"><b>{{ name }}</b> · {{ createdLots[index] }}</li>
 				</ul>
 			</template>
 			<template v-else>
@@ -48,7 +48,6 @@ import Skeleton from "primevue/skeleton"
 import { computed, ref } from "vue"
 
 import { getSplitLots, splitTimeAndAction } from "../../../api/timeAndAction.js"
-import DocumentLink from "../../../components/common/DocumentLink.vue"
 import MultiSelectField from "../../../components/common/MultiSelectField.vue"
 import { lotOptionLabel } from "./productionOrderTimeAndAction.js"
 import { mergeLotOptions, splitConfirmMessage } from "./splitTimeAndAction.js"

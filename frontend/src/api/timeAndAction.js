@@ -79,3 +79,11 @@ export function getSupplierChips(timeAndAction) {
 export function setPlannedSuppliers(timeAndAction, action, suppliers) {
 	return callMethod(`${SUPPLIERS}.set_planned_suppliers`, { time_and_action: timeAndAction, action, suppliers: JSON.stringify(suppliers) })
 }
+
+export function revertTimeAndAction(timeAndAction) {
+	return callMethod(`${UPDATE}.revert_time_and_action`, { time_and_action: timeAndAction })
+}
+
+export function getActionProcessQuantities(timeAndAction, action) {
+	return callMethod("essdee_yrp.time_and_action.process_quantities.get_action_process_quantities", { time_and_action: timeAndAction, action })
+}

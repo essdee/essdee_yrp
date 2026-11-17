@@ -2,7 +2,7 @@
 	<DepartmentPage title="Time and Action Update" back-to="/planning" back-label="Planning" flat full-width inline-navigation>
 		<section class="ta-update erp-workspace" aria-label="Time and Action Update">
 			<TimeAndActionQueue v-model:lot="filters.lot" v-model:item="filters.item" :rows="rows" :selected="selected" :loading="loading" :load-error="loadError" @select="select" @retry="load" />
-			<TimeAndActionEditor v-if="selected" :key="selected" :name="selected" @dirty="dirty = $event" @saved="load" @completed="completed" />
+			<TimeAndActionEditor v-if="selected" :key="selected" :name="selected" @dirty="dirty = $event" @saved="load" @completed="completed" @reverted="reverted" />
 			<div v-else-if="!loading" class="erp-empty-state ta-update__empty">
 				<div><i class="pi pi-calendar-clock" /><strong>Select a Time and Action</strong><span>Pick one from the queue to update its actual dates.</span></div>
 			</div>
@@ -18,6 +18,7 @@ import { useRoute, useRouter } from "vue-router"
 import { getOpenTimeAndActions } from "../../../api/timeAndAction.js"
 import DepartmentPage from "../../../components/DepartmentPage.vue"
 import DocumentConfirmationDialog from "../../../components/documents/DocumentConfirmationDialog.vue"
+import { removeFromQueue } from "./timeAndAction.js"
 import TimeAndActionEditor from "./TimeAndActionEditor.vue"
 import TimeAndActionQueue from "./TimeAndActionQueue.vue"
 
@@ -74,6 +75,12 @@ function select(name) {
 function confirmDiscard() {
 	discardVisible.value = false
 	open(pendingTarget.value)
+}
+
+function reverted(name) {
+	const queue = removeFromQueue(rows.value, name)
+	rows.value = queue.rows
+	open(queue.next)
 }
 
 function completed() {

@@ -32,7 +32,8 @@ def apply_goods_received_note(grn, cancelled: bool) -> None:
 	process_names = get_process_names(work_order.process_name)
 	if get_cutting_process(work_order) in process_names:
 		return
-	if is_threshold_met(get_cut_rows(work_order.lot), get_calculated_rows(work_order), percentage):
+	calculated_rows = get_calculated_rows(work_order.lot, [work_order.process_name])
+	if is_threshold_met(get_cut_rows(work_order.lot), calculated_rows, percentage):
 		if not cancelled and not grn.get("is_return"):
 			set_auto_actual_date(work_order.lot, process_names, grn.posting_date)
 	else:
@@ -70,13 +71,13 @@ def get_cut_rows(lot: str) -> list:
 	)
 
 
-def get_calculated_rows(work_order) -> list:
-	"""Calculated items of every submitted, non-rework Work Order of the same lot and process."""
+def get_calculated_rows(lot: str, process_names: list[str]) -> list:
+	"""Calculated items of every submitted, non-rework Work Order of the lot for `process_names`."""
 	work_orders = frappe.get_all(
 		WORK_ORDER,
 		filters={
-			"lot": work_order.lot,
-			"process_name": work_order.process_name,
+			"lot": lot,
+			"process_name": ["in", process_names],
 			"docstatus": 1,
 			"is_rework": 0,
 		},
@@ -96,19 +97,30 @@ def get_item_key(row) -> tuple:
 	return row.get("item_variant"), json.dumps(set_combination, sort_keys=True, separators=(",", ":"))
 
 
+def get_item_quantities(cut_rows, calculated_rows) -> dict[tuple, dict]:
+	"""Cut, delivered and received per (item_variant, set_combination), summed over the given rows."""
+	quantities = {}
+	for row in [*cut_rows, *calculated_rows]:
+		key = get_item_key(row)
+		entry = quantities.setdefault(
+			key,
+			{
+				"item_variant": key[0],
+				"set_combination": key[1],
+				"cut": 0.0,
+				"delivered": 0.0,
+				"received": 0.0,
+			},
+		)
+		entry["cut"] += flt(row.get("cut_qty"))
+		entry["delivered"] += flt(row.get("delivered_quantity"))
+		entry["received"] += flt(row.get("received_qty"))
+	return quantities
+
+
 def is_threshold_met(cut_rows, calculated_rows, percentage: float) -> bool:
 	"""Every colour/size/set part with cut qty has delivered and received ≥ `percentage` % of it."""
-	cut = {}
-	for row in cut_rows:
-		cut[get_item_key(row)] = cut.get(get_item_key(row), 0) + flt(row.get("cut_qty"))
-	totals = {}
-	for row in calculated_rows:
-		delivered, received = totals.get(get_item_key(row), (0, 0))
-		totals[get_item_key(row)] = (
-			delivered + flt(row.get("delivered_quantity")),
-			received + flt(row.get("received_qty")),
-		)
-	required = {key: qty * flt(percentage) / 100 for key, qty in cut.items() if qty > 0}
-	if not required:
+	rows = [row for row in get_item_quantities(cut_rows, calculated_rows).values() if row["cut"] > 0]
+	if not rows:
 		return False
-	return all(min(totals.get(key, (0, 0))) >= qty for key, qty in required.items())
+	return all(min(row["delivered"], row["received"]) >= row["cut"] * flt(percentage) / 100 for row in rows)

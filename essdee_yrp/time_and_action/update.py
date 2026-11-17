@@ -109,6 +109,14 @@ def serialize(doc) -> dict:
 	holidays = get_company_holidays()
 	state = ActualDateState(doc)
 	last = doc.details[-1]
+	processes = dict(
+		frappe.get_all(
+			"SD YRP Action",
+			filters={"name": ["in", [row.action for row in doc.details]]},
+			fields=["name", "process_name"],
+			as_list=True,
+		)
+	)
 	return {
 		**{field: doc.get(field) for field in ("name", "against", "against_id", "item", "master", "qty")},
 		**{field: doc.get(field) for field in ("sizes", "start_date", "status", "delay", "end_date")},
@@ -117,7 +125,10 @@ def serialize(doc) -> dict:
 		"modified": str(doc.modified),
 		"performance": get_performance(cint(doc.delay)),
 		"end_date_delay": getdate(doc.end_date) > getdate(last.date),
-		"rows": [serialize_row(row, state, holidays) for row in doc.details],
+		"rows": [
+			{**serialize_row(row, state, holidays), "process_name": processes.get(row.action)}
+			for row in doc.details
+		],
 		"revisions": get_revisions(doc),
 		**get_user_context(doc),
 	}

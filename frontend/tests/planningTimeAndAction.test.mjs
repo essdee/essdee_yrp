@@ -106,7 +106,8 @@ test("queue cards show the T&A, running delay chip, item, Lot or PO and dated pr
 	const queue = taSource("TimeAndActionQueue.vue")
 	assert.match(queue, /Open T&A Queue/)
 	assert.match(queue, /getRunningDelay\(row\.delay\)\.tone === 'late' \? 'late' : 'ok'/)
-	assert.match(queue, /\{\{ againstShortLabel\(row\.against\) \}\} \{\{ row\.against_id \}\}/)
+	assert.match(queue, /<strong class="ta-card__against">\{\{ againstShortLabel\(row\.against\) \}\} \{\{ row\.against_id \}\}<\/strong>/)
+	assert.match(queue, /<span class="ta-card__name">\{\{ row\.name \}\}<\/span>/)
 	assert.match(queue, /\{\{ row\.dated \}\} of \{\{ row\.total \}\} dated/)
 	assert.match(queue, /'is-selected': row\.name === selected/)
 })
@@ -166,6 +167,13 @@ test("Update Action dependency options: depends on anything above, must finish b
 	assert.deepEqual(getRequiredByOptions(STEP_ROWS, "PACKING"), [])
 })
 
+test("header titles the T&A by its Lot or PO id and shows the T&A id small", () => {
+	const header = taSource("TimeAndActionHeader.vue")
+	assert.match(header, /<h2><span class="ta-head__kind">\{\{ againstShortLabel\(data\.against\) \}\}<\/span> \{\{ data\.against_id \}\}<\/h2>/)
+	assert.match(header, /<span class="ta-head__name" title="T&A ID">\{\{ data\.name \}\}<\/span>/)
+	assert.doesNotMatch(header, /<h2>\{\{ data\.name \}\}/)
+})
+
 test("Update Action summary lists every add and remove", () => {
 	const adds = [{ action: "PRINTING", lead_time: 3, depends_on: ["CUTTING"], required_by: ["SEWING"] }]
 	assert.deepEqual(describeActionChanges(adds, ["YARN"]), ["Remove YARN", "Add PRINTING (3 days) after CUTTING; before SEWING"])
@@ -207,4 +215,11 @@ test("Update Action summary lists dependency edits", () => {
 	const dialog = readFileSync(new URL("../src/departments/planning/time-and-action/UpdateActionsDialog.vue", import.meta.url), "utf8")
 	assert.match(dialog, /previewUpdateActions\(props\.name, nextAdds, nextRemoves, nextEdits\)/)
 	assert.match(dialog, /updateActions\(props\.name, adds\.value, removes\.value, edits\.value\)/)
+})
+
+test("Lot T&A tab asks for an Assigned Person when that blocks creating", () => {
+	const tab = taSource("LotTimeAndActionTab.vue")
+	assert.match(tab, /v-else-if="createBlockedReason === 'no_assigned_person'"[^>]*>Please set the Assigned Person to create T&A\.<\/Message>/)
+	const page = readFileSync(new URL("../src/departments/planning/lot/LotPage.vue", import.meta.url), "utf8")
+	assert.match(page, /:create-blocked-reason="lotTimeAndAction\.create_blocked_reason \|\| ''"/)
 })

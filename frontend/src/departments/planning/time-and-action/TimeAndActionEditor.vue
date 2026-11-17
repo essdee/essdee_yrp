@@ -3,9 +3,9 @@
 		<Skeleton v-if="loading && !data" height="320px" />
 		<Message v-else-if="loadError" severity="error" :closable="false">{{ loadError }}</Message>
 		<template v-else-if="data">
-			<TimeAndActionHeader :data="data" :total="rows.length" :dated-count="datedCount" :unsaved-count="unsavedCount" :has-errors="counts.error > 0" :busy="busy" @revise="openRevise" @steps="stepsVisible = true" @split="splitVisible = true" @complete="completeVisible = true" />
-			<TimeAndActionStepper :rows="rows" />
-			<TimeAndActionTable :rows="rows" :next-index="nextIndex" :chips="chips" :can-edit-suppliers="Boolean(data.can_edit_suppliers)" @actual="setActual" @reason="setReason" @edit-suppliers="editSuppliers" />
+			<TimeAndActionHeader :data="data" :total="rows.length" :dated-count="datedCount" :unsaved-count="unsavedCount" :has-errors="counts.error > 0" :busy="busy" @revise="openRevise" @steps="stepsVisible = true" @split="splitVisible = true" @lot-detail="lotDetailVisible = true" @complete="completeVisible = true" @reverted="emit('reverted', $event)" />
+			<TimeAndActionStepper :time-and-action="name" :rows="rows" />
+			<TimeAndActionTable :time-and-action="name" :rows="rows" :next-index="nextIndex" :chips="chips" :can-edit-suppliers="Boolean(data.can_edit_suppliers)" @actual="setActual" @reason="setReason" @edit-suppliers="editSuppliers" />
 			<Message v-if="error" severity="error" :closable="true" role="alert" @close="error = ''">{{ error }}</Message>
 			<footer class="ta-editor__savebar">
 				<div class="ta-editor__status">
@@ -28,6 +28,7 @@
 		<DocumentConfirmationDialog v-model:visible="completeVisible" :title="`Complete ${name}?`" :message="completeMessage" confirm-label="Complete T&A" cancel-label="Cancel" severity="primary" icon="pi pi-check-circle" :busy="saving" @confirm="runComplete" />
 		<UpdateActionsDialog v-if="data" v-model:visible="stepsVisible" :name="name" :data="data" @saved="stepsSaved" />
 		<SplitTimeAndActionDialog v-if="data" v-model:visible="splitVisible" :time-and-action="name" />
+		<LotDetailDialog v-if="data" v-model:visible="lotDetailVisible" :against="data.against" :against-id="data.against_id" />
 		<PlannedSuppliersDialog v-model:visible="suppliersVisible" :action="suppliersAction" :initial="plannedSupplierValues(chips[suppliersAction])" :on-save="(suppliers) => editor.savePlannedSuppliers(suppliersAction, suppliers)" />
 		<Dialog v-model:visible="reviseVisible" modal :header="`Revise Dates of ${name}`" class="erp-dialog--sm">
 			<div class="ta-editor__revise">
@@ -57,6 +58,7 @@ import { computed, ref, watch } from "vue"
 import DocumentConfirmationDialog from "../../../components/documents/DocumentConfirmationDialog.vue"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import { getDelay, getImpact, getPendingSummary, getReviseMessage, getSaveMessage } from "./timeAndAction.js"
+import LotDetailDialog from "./LotDetailDialog.vue"
 import PlannedSuppliersDialog from "./PlannedSuppliersDialog.vue"
 import SplitTimeAndActionDialog from "./SplitTimeAndActionDialog.vue"
 import { plannedSupplierValues } from "./supplierChips.js"
@@ -68,7 +70,7 @@ import { useTimeAndActionEditor } from "./useTimeAndActionEditor.js"
 
 /** Cockpit of one T&A: header, stepper, action table and sticky save bar; actual dates are previewed by the server. */
 const props = defineProps({ name: { type: String, required: true } })
-const emit = defineEmits(["saved", "completed", "dirty"])
+const emit = defineEmits(["saved", "completed", "dirty", "reverted"])
 const toast = useToast()
 const editor = useTimeAndActionEditor(props.name)
 const { data, rows, nextIndex, counts, datedCount, missingReasons, unsavedCount, hasChanges, canSave, loading, busy, loadError, reset, setActual, setReason, chips } = editor
@@ -79,6 +81,7 @@ const completeVisible = ref(false)
 const reviseVisible = ref(false)
 const stepsVisible = ref(false)
 const splitVisible = ref(false)
+const lotDetailVisible = ref(false)
 const suppliersVisible = ref(false)
 const suppliersAction = ref("")
 const reviseReason = ref("")

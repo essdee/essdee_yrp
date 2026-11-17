@@ -39,11 +39,14 @@ class TestTimeAndActionWeb(TimeAndActionTestCase):
 	def test_lot_context(self):
 		context = get_lot_time_and_action(self.lot)
 		self.assertEqual((context["time_and_action"], context["can_create"]), (self.name, False))
+		self.assertIsNone(context["create_blocked_reason"])
 		lot = make_lot()
-		self.assertFalse(get_lot_time_and_action(lot)["can_create"])
+		context = get_lot_time_and_action(lot)
+		self.assertEqual((context["can_create"], context["create_blocked_reason"]), (False, "no_assigned_person"))
 		frappe.db.set_value("SD YRP Lot", lot, "assigned_person", "Administrator")
 		context = get_lot_time_and_action(lot)
 		self.assertEqual((context["time_and_action"], context["can_create"]), (None, True))
+		self.assertIsNone(context["create_blocked_reason"])
 		self.assertEqual(context["item"], frappe.db.get_value("SD YRP Lot", lot, "item"))
 
 	def test_progress_and_next_action(self):
