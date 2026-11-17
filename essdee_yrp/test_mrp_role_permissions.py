@@ -2,6 +2,7 @@ import frappe
 from frappe.permissions import rights
 from frappe.tests import IntegrationTestCase
 
+from essdee_yrp import hooks
 from essdee_yrp.mrp_role_permissions import (
 	MRP_REPORT_ROLES,
 	MRP_ROLE_GRANTS,
@@ -10,6 +11,7 @@ from essdee_yrp.mrp_role_permissions import (
 	WORKFLOW_ROLE_MAP,
 	ensure_mrp_role_permissions,
 )
+from essdee_yrp.setup import MRP_SCHEMA_ROLES
 
 
 class TestMrpRolePermissions(IntegrationTestCase):
@@ -82,3 +84,9 @@ class TestMrpRolePermissions(IntegrationTestCase):
 		before = frappe.db.count("Custom DocPerm", {"parent": "YRP Delivery Challan"})
 		ensure_mrp_role_permissions()
 		self.assertEqual(frappe.db.count("Custom DocPerm", {"parent": "YRP Delivery Challan"}), before)
+
+	def test_granted_fixture_roles_exist_before_fixtures_sync(self):
+		role_fixture = next(fixture for fixture in hooks.fixtures if fixture.get("dt") == "Role")
+		fixture_roles = set(role_fixture["filters"][0][2])
+		granted_roles = {role for grants in MRP_ROLE_GRANTS.values() for role in grants}
+		self.assertFalse((granted_roles & fixture_roles) - set(MRP_SCHEMA_ROLES))
