@@ -72,25 +72,26 @@ def create_or_get_sewing_plan(work_order) -> str:
 	return plan.name
 
 
-def _should_have_sewing_plan(work_order, *, notify=False) -> bool:
+def is_sewing_work_order(work_order) -> bool:
+	"""Return True for a non-rework Work Order whose process is, or groups, the sewing process."""
 	if work_order.get("is_rework"):
 		return False
 	sewing_process = frappe.db.get_single_value("SD YRP MRP Settings", "finishing_inward_process")
-	if not sewing_process or not work_order.process_name:
+	if not sewing_process or not work_order.get("process_name"):
 		return False
-	is_sewing = work_order.process_name == sewing_process
-	if not is_sewing and cint(frappe.db.get_value("YRP Process", work_order.process_name, "is_group")):
-		is_sewing = bool(
-			frappe.db.exists(
-				"YRP Process Details",
-				{
-					"parent": work_order.process_name,
-					"parenttype": "YRP Process",
-					"process_name": sewing_process,
-				},
-			)
+	if work_order.process_name == sewing_process:
+		return True
+	return bool(
+		cint(frappe.db.get_value("YRP Process", work_order.process_name, "is_group"))
+		and frappe.db.exists(
+			"YRP Process Details",
+			{"parent": work_order.process_name, "parenttype": "YRP Process", "process_name": sewing_process},
 		)
-	if not is_sewing:
+	)
+
+
+def _should_have_sewing_plan(work_order, *, notify=False) -> bool:
+	if not is_sewing_work_order(work_order):
 		return False
 	if not cint(work_order.get("is_internal_unit")):
 		if notify:
