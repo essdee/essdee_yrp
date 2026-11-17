@@ -3,7 +3,7 @@
 		<section class="pd-panel pd-head" aria-labelledby="pd-tracking-title">
 			<div class="pd-head__row">
 				<div class="pd-head__title">
-					<InlinePageNavigation title-target="pd-tracking-title" />
+					<InlinePageNavigation :show-back="false" />
 					<div>
 						<h1 id="pd-tracking-title">PPO Tracking</h1>
 						<p>Lot-wise progress by process. PPO sizes are boxes; production is pieces.</p>

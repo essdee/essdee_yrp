@@ -1,5 +1,5 @@
 <template>
-	<nav v-if="inline" class="inline-page-navigation" :aria-label="hasContext ? `${documentLabel} navigation` : `Back to ${backLabel}`">
+	<nav v-if="inline && showBack" class="inline-page-navigation" :aria-label="hasContext ? `${documentLabel} navigation` : `Back to ${backLabel}`">
 		<BackLink :to="resolvedBackTo" :label="backLabel" :aria-controls="titleTarget || undefined" />
 		<DocumentStepButtons
 			v-if="showDocumentNavigation && hasContext"
@@ -23,6 +23,7 @@ import { useDocumentListNavigation } from "../../composables/useDocumentListNavi
 import { usePageNavigation } from "./pageNavigationContext.js"
 
 const props = defineProps({
+	showBack: { type: Boolean, default: true },
 	showDocumentNavigation: { type: Boolean, default: false },
 	navigationDisabled: { type: Boolean, default: false },
 	titleTarget: { type: String, default: "" },

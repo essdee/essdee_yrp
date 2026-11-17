@@ -1,7 +1,7 @@
 <template>
 	<section ref="reportRoot" class="report-shell erp-card" :aria-label="title" :aria-busy="loading">
 		<header v-if="showInlineHeading" class="report-shell__heading erp-page-header">
-			<InlinePageNavigation :title-target="headingId" />
+			<InlinePageNavigation :show-back="false" />
 			<h1 :id="headingId">{{ title }}</h1>
 		</header>
 		<form class="report-shell__filters" @submit.prevent="$emit('generate')">

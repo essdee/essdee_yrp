@@ -13,7 +13,7 @@
 			<div class="list-title-block">
 				<span v-if="eyebrow" class="list-eyebrow erp-page-header__eyebrow">{{ eyebrow }}</span>
 				<div class="list-title-line">
-					<InlinePageNavigation v-if="navigationEnabled" :title-target="headingId" />
+					<InlinePageNavigation v-if="navigationEnabled" :show-back="false" />
 					<div>
 						<h1 :id="headingId">{{ title || doctype }}</h1>
 						<p v-if="subtitle" class="erp-page-header__description">{{ subtitle }}</p>
