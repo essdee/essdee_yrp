@@ -161,6 +161,8 @@ def get_boot():
 		"dev_server": bool(frappe._dev_server),
 		# Desk's logo: Website Settings / Navbar Settings app_logo, else the app_logo_url hook.
 		"app_logo": get_app_logo(),
+		# Desk's sound list (frappe hooks `sounds`): name, src, volume.
+		"sounds": frappe.get_hooks("sounds"),
 		"user": user,
 		# Per-user UI config is resolved by Essdee and injected synchronously.
 		# On failure, the SPA uses its compiled-in workspace defaults.

@@ -20,6 +20,11 @@ class TestWebBrand(TestCase):
 		with patch.object(web, "get_app_logo", return_value="/files/company-logo.png"):
 			self.assertEqual(web.get_boot()["app_logo"], "/files/company-logo.png")
 
+	def test_boot_carries_desks_sounds(self):
+		sounds = {sound["name"]: sound for sound in web.get_boot()["sounds"]}
+		self.assertEqual(sounds["submit"]["src"], "/assets/frappe/sounds/submit.mp3")
+		self.assertEqual(sounds["cancel"]["src"], "/assets/frappe/sounds/cancel.mp3")
+
 	def test_context_keeps_the_website_favicon(self):
 		context = frappe._dict(favicon="/assets/erpnext/images/erpnext-favicon.svg")
 		with patch.object(web, "get_boot", return_value={}), patch.object(frappe.sessions, "get_csrf_token", return_value="token"):
