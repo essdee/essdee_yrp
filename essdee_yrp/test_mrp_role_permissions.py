@@ -63,6 +63,17 @@ class TestMrpRolePermissions(IntegrationTestCase):
 				self.assertTrue(all(permissions[ptype] for ptype in ("read", "write", "create", "submit")))
 				self.assertFalse(permissions["cancel"] or permissions["delete"])
 
+	def test_time_and_action_admin_and_manager_run_the_action_master_lifecycle(self):
+		for role in ("T & A Admin", "T & A Manager"):
+			with self.subTest(role=role):
+				master = self.role_permissions("SD YRP Action Master", role)
+				self.assertTrue(all(master[ptype] for ptype in ("read", "create", "write", "submit", "cancel", "amend")))
+				template = self.role_permissions("SD YRP Action Master Template", role)
+				self.assertTrue(all(template[ptype] for ptype in ("read", "create", "write")))
+				action = self.role_permissions("SD YRP Action", role)
+				self.assertTrue(action["create"] and action["write"])
+		self.assertFalse(self.role_permissions("SD YRP Action Master", "T & A User")["submit"])
+
 	def test_production_planner_only_views_purchase_orders(self):
 		permissions = self.role_permissions("Purchase Order", "Production Planner")
 		self.assertTrue(permissions["read"])

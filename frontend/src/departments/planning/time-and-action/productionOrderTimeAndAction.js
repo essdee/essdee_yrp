@@ -19,3 +19,9 @@ export function toggleLot(selected, lot, eligible) {
 	else next.add(lot)
 	return eligible.map((row) => row.name).filter((name) => next.has(name))
 }
+
+/** The Production Order header's "Create T&A" action, offered only while the order can get a T&A. */
+export function createTimeAndActionActions(context, { busy, onCreate }) {
+	if (!context?.can_create) return []
+	return [{ key: "create_time_and_action", label: "Create T&A", icon: "pi pi-calendar-plus", disabled: Boolean(busy), command: onCreate }]
+}

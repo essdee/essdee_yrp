@@ -77,6 +77,8 @@ const PlanningReports = () => import("../departments/planning/PlanningReports.vu
 const PlanningDashboard = () => import("../departments/planning/dashboard/PlanningDashboard.vue")
 const PlanningBulkClose = () => import("../departments/planning/PlanningBulkClose.vue")
 const PlanningTimeAndActionUpdate = () => import("../departments/planning/time-and-action/TimeAndActionUpdate.vue")
+const PlanningActionMasters = () => import("../departments/planning/action-master/ActionMasters.vue")
+const PlanningActionMasterPage = () => import("../departments/planning/action-master/ActionMasterPage.vue")
 const ItemsList = () => import("../departments/purchase/ItemsList.vue")
 const ItemPage = () => import("../departments/purchase/ItemPage.vue")
 const ItemEditorPage = () => import("../departments/purchase/ItemEditorPage.vue")
@@ -880,6 +882,12 @@ const routes = [
 	...boxStickerPrintPages("/planning/box-sticker-prints", PLANNING_BOX_STICKER_PAGES),
 	{ path: "/planning/bulk-close", name: PLANNING_ROUTES.bulkClose, component: PlanningBulkClose },
 	{ path: "/planning/time-and-action-update", name: PLANNING_ROUTES.timeAndActionUpdate, component: PlanningTimeAndActionUpdate },
+	{ path: "/planning/action-masters", name: PLANNING_ROUTES.actionMasters, component: PlanningActionMasters, props: { kind: "master" } },
+	{ path: "/planning/action-masters/new", name: PLANNING_ROUTES.actionMasterNew, component: PlanningActionMasterPage, props: { kind: "master" } },
+	{ path: "/planning/action-masters/:documentName", name: PLANNING_ROUTES.actionMaster, component: PlanningActionMasterPage, props: (route) => ({ kind: "master", documentName: route.params.documentName }) },
+	{ path: "/planning/action-master-templates", name: PLANNING_ROUTES.actionMasterTemplates, component: PlanningActionMasters, props: { kind: "template" } },
+	{ path: "/planning/action-master-templates/new", name: PLANNING_ROUTES.actionMasterTemplateNew, component: PlanningActionMasterPage, props: { kind: "template" } },
+	{ path: "/planning/action-master-templates/:documentName", name: PLANNING_ROUTES.actionMasterTemplate, component: PlanningActionMasterPage, props: (route) => ({ kind: "template", documentName: route.params.documentName }) },
 	{ path: "/planning/reports", name: PLANNING_ROUTES.reports, component: PlanningReports },
 	{ path: "/planning/dashboard", name: PLANNING_ROUTES.dashboard, component: PlanningDashboard },
 	{ path: "/merch/item-production-details", name: MERCH_ROUTES.ipds, component: IpdList },

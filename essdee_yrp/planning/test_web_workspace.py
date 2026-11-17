@@ -140,3 +140,35 @@ class TestPlanningTimeAndActionSection(TestCase):
 			"label": "Time and Action Update", "can_read": True, "can_write": True, "can_create": False,
 		}})
 		self.assertEqual(self.sections({"write"}), {})
+
+
+class TestPlanningActionMasterSection(TestCase):
+	def sections(self, granted, doctype="SD YRP Action Master"):
+		empty = {"sections": {}}
+		with (
+			patch.object(web_workspace.sewing_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.finishing_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.sales_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.fabric_store_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.cutting_capabilities, "get_capabilities", return_value={}),
+			patch.object(web_workspace, "_reports_section", return_value={"can_read": False}),
+			patch.object(
+				web_workspace.frappe, "has_permission",
+				side_effect=lambda name, ptype, doc=None: name == doctype and ptype in granted,
+			),
+		):
+			return web_workspace.get_capabilities()["sections"]
+
+	def test_action_master_card_follows_action_master_permissions(self):
+		self.assertEqual(self.sections({"read", "write", "create", "submit", "cancel", "amend"}), {"action_masters": {
+			"label": "Action Master", "can_read": True, "can_write": True, "can_create": True,
+			"can_submit": True, "can_cancel": True, "can_amend": True,
+		}})
+		self.assertEqual(self.sections({"read"})["action_masters"]["can_submit"], False)
+		self.assertEqual(self.sections({"write"}), {})
+
+	def test_action_master_template_card_follows_template_permissions(self):
+		sections = self.sections({"read", "create"}, "SD YRP Action Master Template")
+		self.assertEqual(sections, {"action_master_templates": {
+			"label": "Action Master Template", "can_read": True, "can_write": False, "can_create": True,
+		}})

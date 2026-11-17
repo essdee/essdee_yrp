@@ -30,7 +30,7 @@
 								</div>
 							</TabPanel>
 							<TabPanel value="transfers"><ProductionOrderTransferHistory :rows="workspace.histories?.transfers || []" :view-route-name="transferViewRouteName" /></TabPanel>
-							<TabPanel v-if="showTimeAndAction && workspace.record?.name" value="time_and_action"><ProductionOrderTimeAndActionTab :production-order="workspace.record.name" /></TabPanel>
+							<TabPanel v-if="showTimeAndAction && workspace.record?.name" value="time_and_action"><ProductionOrderTimeAndActionTab :context="timeAndAction.context.value" :loading="timeAndAction.loading.value" :error="timeAndAction.error.value" @create="createTimeAndActionVisible = true" @changed="timeAndAction.load" /></TabPanel>
 						</TabPanels>
 					</Tabs>
 				</template>
@@ -47,6 +47,7 @@
 		<ProductionOrderActionDialog v-model:visible="actionVisible" :mode="actionMode" :matrix="workspace.matrix || []" :current-status="workspace.record?.status || ''" :item="workspace.record?.item || ''" :busy="Boolean(acting)" @submit="submitAction" />
 		<ProductionOrderUpdatePriceDialog v-model:visible="priceVisible" :production-order="workspace.record?.name || ''" :busy="Boolean(acting)" :error="error" @submit="submitPrice" />
 		<ProductionOrderPurchaseOrderDialog v-model:visible="purchaseOrderVisible" :production-order="workspace.record?.name || ''" :purchase-order="selectedPurchaseOrder" @changed="purchaseOrderChanged" />
+		<CreateTimeAndActionDialog v-if="showTimeAndAction && workspace.record?.name" v-model:visible="createTimeAndActionVisible" against="YRP Production Order" :against-id="workspace.record.name" :item="timeAndAction.context.value?.item || ''" :qty="timeAndAction.context.value?.qty || 0" @created="timeAndActionCreated" />
 		<ProductionOrderLotOcrDialog v-model:visible="lotOcrVisible" :production-order="workspace.record?.name || ''" :lot="selectedLot" :item="workspace.record?.item || ''" />
 		<DocumentConfirmationDialog v-model:visible="confirmVisible" :title="confirmTitle" :message="confirmMessage" :confirm-label="confirmLabel" :busy="Boolean(acting)" @confirm="confirmAction">
 			<ProductionOrderPendingRequest v-if="approvalRequest" :request="approvalRequest" />
@@ -86,7 +87,10 @@ import { productionOrderApprovalRequest } from "./productionOrderPendingRequest.
 import { productionOrderConfirmation, productionOrderSuccess } from "./productionOrderMessages.js"
 import ProductionOrderTransferHistory from "./ProductionOrderTransferHistory.vue"
 import ProductionOrderUpdatePriceDialog from "./ProductionOrderUpdatePriceDialog.vue"
+import CreateTimeAndActionDialog from "../planning/time-and-action/CreateTimeAndActionDialog.vue"
 import ProductionOrderTimeAndActionTab from "../planning/time-and-action/ProductionOrderTimeAndActionTab.vue"
+import { createTimeAndActionActions } from "../planning/time-and-action/productionOrderTimeAndAction.js"
+import { useProductionOrderTimeAndAction } from "../planning/time-and-action/useProductionOrderTimeAndAction.js"
 
 const props = defineProps({
 	backTo: { type: String, default: "/sales/production-orders" },
@@ -116,6 +120,8 @@ const selectedPurchaseOrder = ref("")
 const selectedLot = ref("")
 const confirmVisible = ref(false)
 const pendingConfirm = ref("")
+const createTimeAndActionVisible = ref(false)
+const timeAndAction = useProductionOrderTimeAndAction(() => workspace.value.record?.name, () => props.showTimeAndAction)
 let loadSequence = 0
 
 const dialogModes = new Set(["request_changes", "change_dates", "change_status", "update_quantity_ratio", "transfer_quantity", "create_lot", "link_lot"])
@@ -128,7 +134,7 @@ const duplicateAction = useDuplicateAction({
 	busy: () => Boolean(acting.value),
 	router,
 })
-const actions = computed(() => [...priority.flatMap((key) => {
+const actions = computed(() => [...createTimeAndActionActions(timeAndAction.context.value, { busy: acting.value, onCreate: () => { createTimeAndActionVisible.value = true } }), ...priority.flatMap((key) => {
 	const capability = workspace.value.capabilities?.[key]
 	if (!capability?.allowed) return []
 	return [{ key, label: capability.label, icon: iconMap[key], primary: key === priority.find((candidate) => workspace.value.capabilities?.[candidate]?.allowed), menuOnly: ["cancel", "delete", "amend", "reopen", "create_lot", "link_lot"].includes(key), shortcut: key === "cancel" ? "cancel" : undefined, command: () => beginAction(key) }]
@@ -157,6 +163,7 @@ async function load(refresh = false) {
 }
 function openPurchaseOrder(name = "") { selectedPurchaseOrder.value = name; purchaseOrderVisible.value = true }
 function purchaseOrderChanged() { load(true) }
+function timeAndActionCreated() { timeAndAction.load(); activeTab.value = "time_and_action" }
 function openLotOcr(lot) { selectedLot.value = lot; lotOcrVisible.value = true }
 function beginAction(command) {
 	if (command === "save") return router.push({ name: props.editRouteName, params: { productionOrderId: workspace.value.record.name }, state: preserveListNavigationState(workspace.value.record.name, workspace.value.record.modified) })
@@ -177,6 +184,7 @@ async function runCommand(command, payload = {}) {
 		toast.add({ severity: "success", summary: productionOrderSuccess(command, label, result), life: 3500 })
 		if (result.deleted) { await router.replace({ name: props.listRouteName }); return true }
 		workspace.value = result
+		timeAndAction.load()
 		const name = result.record?.name || source.name
 		if (name !== route.params.productionOrderId) await router.replace({ name: props.viewRouteName, params: { productionOrderId: name }, state: preserveListNavigationState(name) })
 		return true

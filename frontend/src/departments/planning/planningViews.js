@@ -47,6 +47,20 @@ export const PLANNING_WORKSPACES = [
 		to: "/planning/time-and-action-update",
 	},
 	{
+		key: "action_masters",
+		label: "Action Master",
+		description: "T&A action sequences, lead times and dependencies.",
+		icon: "pi pi-list-check",
+		to: "/planning/action-masters",
+	},
+	{
+		key: "action_master_templates",
+		label: "Action Master Template",
+		description: "Reusable action sequences to start Action Masters from.",
+		icon: "pi pi-clone",
+		to: "/planning/action-master-templates",
+	},
+	{
 		key: "production_orders",
 		label: "Production Order",
 		description: "Quantities, delivery commitments and approvals.",

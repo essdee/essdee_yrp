@@ -93,6 +93,14 @@ def get_capabilities() -> dict:
 			"Time and Action Update",
 			permission_flags("SD YRP Time and Action", ("read", "write", "create")),
 		),
+		"action_masters": _with_label(
+			"Action Master",
+			permission_flags("SD YRP Action Master", ("read", "write", "create", "submit", "cancel", "amend")),
+		),
+		"action_master_templates": _with_label(
+			"Action Master Template",
+			permission_flags("SD YRP Action Master Template", ("read", "write", "create")),
+		),
 		"production_orders": sales_sections.get("production_orders") or {},
 		"work_orders": fabric_store_sections.get("work_orders") or {},
 		"delivery_challans": fabric_store_sections.get("delivery_challans") or {},

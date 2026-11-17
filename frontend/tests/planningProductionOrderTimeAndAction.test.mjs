@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import test from "node:test"
 
 import {
-	convertConfirmMessage, isFrozen, lotOptionLabel, toggleLot,
+	convertConfirmMessage, createTimeAndActionActions, isFrozen, lotOptionLabel, toggleLot,
 } from "../src/departments/planning/time-and-action/productionOrderTimeAndAction.js"
 
 const source = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8")
@@ -47,8 +47,28 @@ test("Create T&A dialog creates against the given DocType", () => {
 	const dialog = source("departments/planning/time-and-action/CreateTimeAndActionDialog.vue")
 	assert.match(dialog, /createTimeAndAction\(props.against, props.againstId,/)
 	const tab = source("departments/planning/time-and-action/ProductionOrderTimeAndActionTab.vue")
-	assert.match(tab, /against="YRP Production Order"/)
 	assert.match(tab, /label="Convert to Lot T&A"/)
+	const page = source("departments/sales/ProductionOrder.vue")
+	assert.match(page, /<CreateTimeAndActionDialog v-if="showTimeAndAction && workspace.record\?.name"[^>]*against="YRP Production Order"/)
+})
+
+test("Create T&A is a header action only while the order can get a T&A", () => {
+	let opened = 0
+	const [action] = createTimeAndActionActions({ can_create: true }, { busy: false, onCreate: () => { opened += 1 } })
+	assert.equal(action.label, "Create T&A")
+	assert.equal(action.disabled, false)
+	action.command()
+	assert.equal(opened, 1)
+	assert.equal(createTimeAndActionActions({ can_create: true }, { busy: true, onCreate() {} })[0].disabled, true)
+	assert.deepEqual(createTimeAndActionActions({ can_create: false }, { busy: false, onCreate() {} }), [])
+	assert.deepEqual(createTimeAndActionActions(null, { busy: false, onCreate() {} }), [])
+})
+
+test("Production Order page loads the T&A context and offers Create T&A in its actions", () => {
+	const page = source("departments/sales/ProductionOrder.vue")
+	assert.match(page, /useProductionOrderTimeAndAction\(/)
+	assert.match(page, /const actions = computed\(\(\) => \[\.\.\.createTimeAndActionActions\(timeAndAction\.context\.value/, "Create T&A leads the secondary actions so it stays visible")
+	assert.match(page, /<ProductionOrderTimeAndActionTab [^>]*:context="timeAndAction\.context\.value"[^>]*@create="createTimeAndActionVisible = true"/)
 })
 
 test("Update dates is offered only for an In Progress T&A", () => {
