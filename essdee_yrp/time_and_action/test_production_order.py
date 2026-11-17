@@ -50,6 +50,13 @@ class TestProductionOrderTimeAndAction(TimeAndActionTestCase):
 		)
 		self.assertEqual([row.action for row in doc.details], [action for action, _lead in STEPS])
 
+	def test_po_create_takes_the_order_item_without_production_detail(self):
+		frappe.db.set_value(PRODUCTION_ORDER, self.order, "production_detail", None)
+		doc = frappe.get_doc(TIME_AND_ACTION, self.create_order_time_and_action())
+		item = frappe.db.get_value(PRODUCTION_ORDER, self.order, "item")
+		self.assertTrue(item)
+		self.assertEqual(doc.item, item)
+
 	def test_lot_create_blocked_while_po_has_ta(self):
 		self.create_order_time_and_action()
 		with self.assertRaisesRegex(frappe.ValidationError, "Convert to Lot T&A"):

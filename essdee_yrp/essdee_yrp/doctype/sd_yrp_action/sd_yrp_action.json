@@ -39,18 +39,21 @@
    "reqd": 1
   },
   {
+   "allow_in_quick_entry": 1,
    "default": "0",
    "fieldname": "default",
    "fieldtype": "Check",
    "label": "Default"
   },
   {
+   "allow_in_quick_entry": 1,
    "default": "0",
    "fieldname": "capacity_planning",
    "fieldtype": "Check",
    "label": "Capacity Planning"
   },
   {
+   "allow_in_quick_entry": 1,
    "fieldname": "default_order",
    "fieldtype": "Int",
    "label": "Default Order"
@@ -61,6 +64,7 @@
    "label": "Actual Suppliers"
   },
   {
+   "allow_in_quick_entry": 1,
    "description": "Work Orders of this Process for the lot show as actual suppliers on T&A rows.",
    "fieldname": "process_name",
    "fieldtype": "Link",
@@ -78,7 +82,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-16 23:00:00.000000",
+ "modified": "2026-11-17 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Action",

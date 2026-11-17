@@ -79,6 +79,15 @@ class TestPdLotwiseWorkspace(IntegrationTestCase):
 		self.assertTrue(payload["record"]["name"])
 		self.assertEqual(payload["record"]["total_qty"], 2)
 
+	def test_save_persists_comments(self):
+		values = self.values(comments="Check shrinkage")
+		if not values["lot"]:
+			self.skipTest("needs an SD YRP Lot")
+		payload = lotwise_workspace.save_lotwise_item_profit(values)
+		name = payload["record"]["name"]
+		self.assertEqual(frappe.db.get_value("SD YRP Lotwise Item Profit", name, "comments"), "Check shrinkage")
+		self.assertEqual(lotwise_workspace.get_lotwise_workspace(name)["record"]["comments"], "Check shrinkage")
+
 	def test_save_rejects_mismatched_template_type(self):
 		templates = {
 			template_type: frappe.db.get_value(TEMPLATE_DOCTYPE, {"type": template_type}, "name")

@@ -171,7 +171,7 @@ def set_against_details(doc) -> None:
 		if source.docstatus == 2:
 			frappe.throw(_("Production Order {0} is cancelled.").format(frappe.bold(source.name)))
 		ipd = source.production_detail
-		doc.item = frappe.db.get_value("YRP Item Production Detail", ipd, "item") if ipd else None
+		doc.item = source.item
 		doc.qty = get_production_order_qty(source)
 	doc.sizes = get_sizes(ipd)
 

@@ -205,12 +205,14 @@ export const LOTWISE_SECTIONS = {
 	tradeDiscounts: ["trade_discounts_template", "trade_discounts"],
 	otherCosts: ["other_costs_template", "other_costs"],
 	gst: ["gst"],
+	comments: ["comments"],
 }
 
 export const LOTWISE_TABLE_COLUMNS = {
 	qty_rate_chart: ["size", "qty", "rate", "weight", "group_index", "net_rate"],
 	cloth_value: [
 		"yarn",
+		"gsm",
 		"qty",
 		"rate",
 		"knitting_cost",
@@ -257,7 +259,7 @@ const LOTWISE_COMPUTED_COLUMNS = {
 const LOTWISE_COPY_COLUMNS = {
 	...LOTWISE_TABLE_COLUMNS,
 	qty_rate_chart: [...LOTWISE_TABLE_COLUMNS.qty_rate_chart, "ratio"],
-	cloth_value: [...LOTWISE_TABLE_COLUMNS.cloth_value, "gsm", "ratio"],
+	cloth_value: [...LOTWISE_TABLE_COLUMNS.cloth_value, "ratio"],
 }
 
 export function copiedLotwiseDraft(defaultRecord, sourceRecord) {

@@ -59,6 +59,11 @@ MRP_ROLE_GRANTS = {
 		doctype: {"Production Planner": STORE_ENTRY}
 		for doctype in ("YRP Stock Entry", "YRP Stock Reconciliation", "SD YRP Lot Transfer")
 	},
+	# Planning's Action Master section; production's custom rows never had Submit.
+	"SD YRP Action Master": {
+		role: (*ENTRY, "submit", "cancel", "amend") for role in ("System Manager", "T & A Admin", "T & A Manager")
+	},
+	"SD YRP Action Master Template": {role: ENTRY for role in ("System Manager", "T & A Admin", "T & A Manager")},
 	# Planning's read-only Purchase Order section.
 	"Purchase Order": {"Production Planner": VIEW},
 	# Attribute values back link fields on every department's forms.

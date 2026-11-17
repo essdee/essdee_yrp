@@ -75,7 +75,9 @@
   "column_break_f3qzs",
   "profit",
   "profit_percent",
-  "profit_percent_markdown"
+  "profit_percent_markdown",
+  "section_break_comments",
+  "comments"
  ],
  "fields": [
   {
@@ -471,12 +473,21 @@
    "label": "Product",
    "mandatory_depends_on": "eval:(doc.item == null || doc.item == undefined || doc.item == \"\")",
    "options": "SD YRP Product"
+  },
+  {
+   "fieldname": "section_break_comments",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Long Text",
+   "label": "Comments"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-18 12:00:00.000001",
+ "modified": "2026-11-17 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Essdee YRP",
  "name": "SD YRP Lotwise Item Profit",

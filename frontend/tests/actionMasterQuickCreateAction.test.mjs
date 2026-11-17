@@ -13,12 +13,12 @@ test("action master step picker is a plain SD YRP Action link so Frappe offers C
 	assert.match(source, /frappe\.db\.get_value\("SD YRP Action", val, \["department", "lead_time"\]\)/)
 })
 
-test("SD YRP Action quick entry asks for name, department and lead time", () => {
+test("SD YRP Action quick entry asks for name, department, lead time, process and planning flags", () => {
 	assert.equal(actionMeta.quick_entry, 1)
 	assert.equal(actionMeta.autoname, "prompt")
 	assert.equal(field("department").reqd, 1)
 	assert.equal(field("lead_time").reqd, 1)
 	const quickEntryFields = actionMeta.fields.filter((df) => df.reqd || df.allow_in_quick_entry).map((df) => df.fieldname)
-	assert.deepEqual(quickEntryFields, ["department", "lead_time"])
+	assert.deepEqual(quickEntryFields, ["department", "lead_time", "default", "capacity_planning", "default_order", "process_name"])
 	assert.ok(!actionMeta.fields.some((df) => df.fieldtype === "Table" && df.reqd))
 })

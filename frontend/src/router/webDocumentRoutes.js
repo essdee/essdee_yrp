@@ -37,6 +37,8 @@ const PLANNING_RECORD_ROUTES = {
 	"SD YRP Cutting Plan": (name) => `/web/planning/cutting-plans/${encodeURIComponent(name)}`,
 	"SD YRP Finishing Plan": (name) => `/web/planning/finishing-plans/${encodeURIComponent(name)}`,
 	"SD YRP Finishing Plan Dispatch": (name) => `/web/planning/dispatches/${encodeURIComponent(name)}`,
+	"SD YRP Action Master": (name) => `/web/planning/action-masters/${encodeURIComponent(name)}`,
+	"SD YRP Action Master Template": (name) => `/web/planning/action-master-templates/${encodeURIComponent(name)}`,
 	...documentRoutes("/planning"),
 }
 

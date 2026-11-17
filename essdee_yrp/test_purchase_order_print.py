@@ -65,6 +65,66 @@ class TestPurchaseOrderPrint(IntegrationTestCase):
 		self.assertEqual(groups[0]["items"][0]["secondary_uom"], "Kg")
 		self.assertEqual(groups[0]["additional_parameters"][0]["additional_parameter_key"], "GSM")
 
+	def test_table_totals_are_per_uom_and_discounted(self):
+		from essdee_yrp import print_helpers
+
+		group = {
+			"items": [
+				{"default_uom": "Kg", "secondary_uom": "Bags", "discount_percentage": 10, "values": {"default": {"qty": 100, "rate": 2, "secondary_qty": 4}}},
+				{"default_uom": "Kg", "values": {"S": {"qty": 1.5, "rate": 10}, "M": {"qty": 2, "rate": 10}}},
+				{"default_uom": "Nos", "values": {"default": {"qty": 5, "rate": 3}}},
+			]
+		}
+		print_helpers.set_purchase_order_print_totals(group)
+
+		self.assertEqual([row["print_amount"] for row in group["items"]], [180, 35, 15])
+		self.assertEqual(group["total_amount"], 230)
+		self.assertEqual(group["total_quantity"], "103.5 Kg, 5 Nos")
+		self.assertEqual(group["total_secondary_quantity"], "4 Bags")
+
+	def test_template_prints_row_comments_and_total_row(self):
+		html = self._template()
+
+		self.assertEqual(html.count("<th>Comments</th>"), 2)
+		self.assertNotIn("show_comments", html)
+		self.assertEqual(html.count("{{ j.comments or \"\" }}"), 2)
+		self.assertEqual(html.count("i.total_quantity"), 2)
+		self.assertEqual(html.count("fmt_money(i.total_amount"), 2)
+		self.assertEqual(html.count("fmt_money(j.print_amount"), 2)
+
+	def test_web_row_comment_saves_and_prints_with_total_row(self):
+		from essdee_yrp.fabric_store.documents.purchase_order import (
+			get_purchase_order_editor,
+			save_purchase_order_document,
+		)
+
+		name = frappe.db.get_value("Purchase Order", {"docstatus": 0, "is_yrp_managed": 1}, "name")
+		if not name:
+			self.skipTest("Needs a Draft YRP Purchase Order")
+		editor = get_purchase_order_editor(name)
+		editor["item_groups"][0]["items"][0]["comments"] = "Pack in 25 Kg bags"
+		save_purchase_order_document(
+			{**editor["values"], "item_details": editor["item_groups"]},
+			name=name,
+			expected_modified=str(editor["modified"]),
+		)
+
+		self.assertIn("Pack in 25 Kg bags", frappe.get_all("Purchase Order Item", {"parent": name}, pluck="comments"))
+		html = frappe.get_print("Purchase Order", name, "Essdee Purchase Order")
+		self.assertIn("<th>Comments</th>", html)
+		self.assertIn("Pack in 25 Kg bags", html)
+		self.assertIn("<strong>Total</strong>", html)
+
+	def _template(self):
+		path = (
+			Path(frappe.get_app_path("essdee_yrp"))
+			/ "essdee_yrp"
+			/ "print_format"
+			/ "essdee_purchase_order"
+			/ "essdee_purchase_order.json"
+		)
+		return json.loads(json.loads(path.read_text())["format_data"])[-1]["options"]
+
 	def test_template_uses_purchase_order_fields(self):
 		path = (
 			Path(frappe.get_app_path("essdee_yrp"))

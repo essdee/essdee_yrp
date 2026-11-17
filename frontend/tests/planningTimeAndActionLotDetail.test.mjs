@@ -72,7 +72,7 @@ test("Revert T&A is one shared button gated by can_revert, used by the header an
 	assert.match(taSource("TimeAndActionUpdate.vue"), /removeFromQueue\(rows\.value, name\)/)
 	const tab = taSource("LotTimeAndActionTab.vue")
 	assert.ok(tab.indexOf('<slot name="actions"') < tab.indexOf("<RevertTimeAndActionButton"))
-	assert.match(taSource("ProductionOrderTimeAndActionTab.vue"), /@reverted="load"/)
+	assert.match(taSource("ProductionOrderTimeAndActionTab.vue"), /@reverted="emit\('changed'\)"/)
 	assert.match(readFileSync(new URL("../src/departments/planning/lot/LotPage.vue", import.meta.url), "utf8"), /@reverted="loadTimeAndAction"/)
 	assert.match(readFileSync(new URL("../src/api/timeAndAction.js", import.meta.url), "utf8"), /revert_time_and_action`, \{ time_and_action: timeAndAction \}/)
 })

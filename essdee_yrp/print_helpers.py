@@ -256,7 +256,37 @@ def fetch_item_details(items, include_id=False):
 			groups.append({**details, "items": [item]})
 		else:
 			groups[index]["items"].append(item)
+	for group in groups:
+		set_purchase_order_print_totals(group)
 	return groups
+
+
+def set_purchase_order_print_totals(group):
+	"""Set each row's discounted ``print_amount`` and the table's per-UOM total row."""
+	quantities, secondary_quantities = OrderedDict(), OrderedDict()
+	group["total_amount"] = 0
+	for item in group["items"]:
+		amount = 0
+		for detail in (item.get("values") or {}).values():
+			amount += flt(detail.get("qty")) * flt(detail.get("rate"))
+			uom = item.get("default_uom") or ""
+			quantities[uom] = quantities.get(uom, 0) + flt(detail.get("qty"))
+			if flt(detail.get("secondary_qty")):
+				secondary_uom = item.get("secondary_uom") or ""
+				secondary_quantities[secondary_uom] = secondary_quantities.get(secondary_uom, 0) + flt(
+					detail.get("secondary_qty")
+				)
+		item["print_amount"] = amount * (1 - flt(item.get("discount_percentage")) / 100)
+		group["total_amount"] += item["print_amount"]
+	group["total_quantity"] = _format_quantities(quantities)
+	group["total_secondary_quantity"] = _format_quantities(secondary_quantities)
+
+
+def _format_quantities(quantities):
+	return ", ".join(
+		f"{flt(qty, 3):.3f}".rstrip("0").rstrip(".") + (f" {uom}" if uom else "")
+		for uom, qty in quantities.items()
+	)
 
 
 def get_cloth_program_print_data(lot):
