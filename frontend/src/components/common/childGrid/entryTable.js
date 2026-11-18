@@ -9,6 +9,7 @@ const CONTROL_SELECTOR = [
 	"input[role=combobox][data-pc-section=hiddeninput]:not(:disabled)",
 ].join(",")
 const state = new WeakMap()
+const keyboardFocused = new WeakSet()
 
 function rowControls(row) {
 	return [...row.querySelectorAll(CONTROL_SELECTOR)].filter((control) => control.closest("tr") === row && control.getClientRects().length)
@@ -34,6 +35,7 @@ function focusControl(table, rowIndex, colIndex) {
 	const control = rowControls(bodyRows(table)[rowIndex] || document.createElement("tr"))[colIndex]
 	control?.focus()
 	control?.select?.()
+	if (control) keyboardFocused.add(control)
 	return Boolean(control)
 }
 
@@ -126,13 +128,16 @@ export function arrowTarget(cells, position, key) {
 	return { row, col: col >= 0 ? col : Math.min(position.col, cells[row].length - 1) }
 }
 
-/** Left and right leave an input only from the caret's edge or with all its text selected, like a Desk grid cell. */
+/**
+ * Left and right leave an input only from the caret's edge or with all its text selected, like a Desk grid cell.
+ * A number input hides its caret, so it counts as at an edge only while it holds no text.
+ */
 export function isCaretAtEdge(control, key) {
 	if (isVertical(key)) return true
-	let start, end
-	try { [start, end] = [control.selectionStart, control.selectionEnd] } catch { return true }
-	if (start == null) return true
 	const length = String(control.value ?? "").length
+	let start, end
+	try { [start, end] = [control.selectionStart, control.selectionEnd] } catch { start = null }
+	if (start == null) return !("value" in control) || (!length && !control.validity?.badInput)
 	if (start === 0 && end === length) return true
 	if (start !== end) return false
 	return key === "ArrowLeft" ? start === 0 : end === length
@@ -150,7 +155,8 @@ function blockKey(event) {
 function onArrow(event) {
 	const target = event.target
 	if (isVertical(event.key) && isNumberInput(target)) blockKey(event)
-	if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || !cellControl(target) || !isCaretAtEdge(target, event.key)) return
+	const canLeave = keyboardFocused.has(target) || isCaretAtEdge(target, event.key)
+	if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || !cellControl(target) || !canLeave) return
 	const table = tableOf(event.currentTarget)
 	const { controls, row, col } = locate(table, target)
 	if (row < 0 || col < 0) return
@@ -172,10 +178,15 @@ function onTab(event) {
 }
 
 function onKeydown(event) {
+	if (!ARROW_STEPS[event.key]) keyboardFocused.delete(event.target)
 	if (event.isComposing) return
 	if (event.key === "Enter") onEnter(event)
 	else if (event.key === "Tab") onTab(event)
 	else if (ARROW_STEPS[event.key]) onArrow(event)
+}
+
+function onPointerdown(event) {
+	keyboardFocused.delete(event.target)
 }
 
 /** Document-level keydown guard: ArrowUp/ArrowDown never step a number input; v-entry-table handles its own. */
@@ -212,6 +223,7 @@ export const vEntryTable = {
 	mounted(element, binding) {
 		state.set(element, { options: binding.value || {}, signature: "" })
 		element.addEventListener("keydown", onKeydown, true)
+		element.addEventListener("pointerdown", onPointerdown, true)
 		if (binding.value?.fixed !== false) requestAnimationFrame(() => freezeWidths(element))
 	},
 	updated(element, binding) {
@@ -220,6 +232,7 @@ export const vEntryTable = {
 	},
 	beforeUnmount(element) {
 		element.removeEventListener("keydown", onKeydown, true)
+		element.removeEventListener("pointerdown", onPointerdown, true)
 		state.delete(element)
 	},
 }
