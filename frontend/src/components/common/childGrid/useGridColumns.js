@@ -5,6 +5,8 @@ import { gridViewEntries, keepIfUnchanged, resolveGridColumns } from "./childGri
 import { createGridViewStore } from "./gridViewStore.js"
 
 export const gridViewStore = createGridViewStore({ read: callRead, write: callMethod })
+// Bumped on every save so other grids on the page with the same table pick up the new layout.
+const savedRevision = ref(0)
 
 /** Visible columns for a child table, following the user's Frappe GridView settings when the table has one. */
 export function useGridColumns(columns, { parentDoctype, childDoctype } = {}) {
@@ -13,8 +15,8 @@ export function useGridColumns(columns, { parentDoctype, childDoctype } = {}) {
 	const canConfigure = computed(() => Boolean(toValue(parentDoctype) && toValue(childDoctype)))
 	const visibleColumns = computed((previous) => keepIfUnchanged(previous, resolveGridColumns(toValue(columns) || [], saved.value)))
 
-	async function load() {
-		saved.value = null
+	async function load(isNewTable) {
+		if (isNewTable) saved.value = null
 		if (!canConfigure.value) return
 		try {
 			saved.value = await gridViewStore.get(toValue(parentDoctype), toValue(childDoctype))
@@ -27,9 +29,11 @@ export function useGridColumns(columns, { parentDoctype, childDoctype } = {}) {
 		const entries = draft ? gridViewEntries(draft) : null
 		await gridViewStore.save(toValue(parentDoctype), toValue(childDoctype), entries)
 		saved.value = entries
+		savedRevision.value += 1
 	}
 
-	watch(() => [toValue(parentDoctype), toValue(childDoctype)], load, { immediate: true })
+	const tableKey = () => `${toValue(parentDoctype)}\u001f${toValue(childDoctype)}`
+	watch(() => [tableKey(), savedRevision.value], ([key], previous) => load(key !== previous?.[0]), { immediate: true })
 	return { visibleColumns, canConfigure, error, save, reset: () => save(null) }
 }
 

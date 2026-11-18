@@ -11,7 +11,7 @@
 	>
 		<section class="sewing-workspace-shell erp-workspace" :aria-label="title" :aria-busy="loading">
 			<header v-if="section || loading || failed" class="sewing-workspace-shell__header" :class="{ 'sewing-workspace-shell__header--embedded': embedded }">
-				<div v-if="!embedded" class="sewing-workspace-shell__title"><SewingBackLink :to="backTo" :label="backLabel" /><h1>{{ title }}</h1></div>
+				<div v-if="!embedded" class="sewing-workspace-shell__title"><h1>{{ title }}</h1></div>
 				<SewingUnitPicker v-if="section !== 'attendance'" />
 			</header>
 			<div v-if="loading" class="sewing-workspace-shell__loading" role="status">
@@ -41,7 +41,6 @@ import { getSewingCapabilities } from "../../api/sewing.js"
 import DepartmentPage from "../../components/DepartmentPage.vue"
 import WorkspaceLoadError from "../../components/common/WorkspaceLoadError.vue"
 import DocumentErrorDialog from "../../components/documents/DocumentErrorDialog.vue"
-import SewingBackLink from "./SewingBackLink.vue"
 import SewingUnitPicker from "./SewingUnitPicker.vue"
 import { useSewingContext } from "./useSewingContext.js"
 

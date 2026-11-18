@@ -9,7 +9,6 @@
 			:skeleton-count="4"
 			compact
 		>
-			<template #navigation><SewingBackLink to="/" label="Workspaces" /></template>
 			<template #context><SewingUnitPicker /></template>
 		</WorkspaceLauncher>
 	</SewingWorkspaceShell>
@@ -19,7 +18,6 @@
 import WorkspaceLauncher from "../../components/common/WorkspaceLauncher.vue"
 import { sewingReportTabs } from "../departmentReports.js"
 import { documentWorkspaces } from "../fabric-store/storeWorkspaces.js"
-import SewingBackLink from "./SewingBackLink.vue"
 import SewingWorkspaceShell from "./SewingWorkspaceShell.vue"
 import SewingUnitPicker from "./SewingUnitPicker.vue"
 

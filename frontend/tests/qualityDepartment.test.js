@@ -97,6 +97,28 @@ test("inspection list columns, result tones and strict permission-based primary 
 	assert.deepEqual(views.inspectionActionItems(), [])
 })
 
+test("inspection list leaves link cells to ListView click-to-filter and opens rows", async () => {
+	let listSlots = {}, listProps = {}
+	const ListView = (props, { slots }) => { listSlots = slots; listProps = props; return Vue.h("list-view", props) }
+	const opened = []
+	mountComponent(component("QualityInspections", {
+		"primevue/button": Button, "primevue/message": () => null,
+		"vue-router": { useRouter: () => ({}) },
+		"../../api/quality.js": { getQualityCapabilities: async () => ({ sections: { inspections: { can_read: 1 } } }) },
+		"../../components/DepartmentPage.vue": container,
+		"../../components/common/ListView.vue": ListView,
+		"../../components/common/WorkspaceLoadError.vue": () => null,
+		"../../components/documents/DocumentStatusBadge.vue": (props) => Vue.h("badge", props),
+		"../../router/listDocumentNavigation.js": { openListDocument: (...args) => opened.push(args) },
+		"./qualityViews.js": views,
+	}))
+	await tick(); await tick()
+	for (const field of ["against_id", "lot", "item", "supplier"]) assert.equal(listSlots[`cell-${field}`], undefined, field)
+	listProps.onRowClick({ name: "EQI-1" })
+	assert.equal(opened[0][1].name, "EQI-1")
+	assert.equal(opened[0][3].routeName, "quality-inspection")
+})
+
 test("inspection field types, options and required flags match the DocType", () => {
 	const doctype = JSON.parse(readFileSync(new URL("../../essdee_yrp/essdee_yrp/doctype/sd_yrp_essdee_quality_inspection/sd_yrp_essdee_quality_inspection.json", import.meta.url), "utf8"))
 	for (const field of Object.values(fields.INSPECTION_FIELDS)) {

@@ -3,7 +3,7 @@
 		<section class="pd-panel pd-head" aria-labelledby="pd-dashboard-title">
 			<div class="pd-head__row">
 				<div class="pd-head__title">
-					<InlinePageNavigation title-target="pd-dashboard-title" />
+					<InlinePageNavigation :show-back="false" />
 					<div>
 						<h1 id="pd-dashboard-title">Dashboard</h1>
 						<p>All {{ formatQuantity(ppoTotal) }} open PPOs and their lots. Filters narrow every section; click a figure, PPO or Lot to open it in PPO Tracking.</p>

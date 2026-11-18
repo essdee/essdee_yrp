@@ -19,6 +19,9 @@
 				title="Lot Order Details · Order"
 				row-header-label="Colour / Attributes"
 				totals="both"
+				settings-doctype="SD YRP Lot"
+				settings-child-doctype="lot_order_details_json"
+				lock-columns
 				@update:model-value="updateGroup(group, $event)"
 			/>
 		</template>

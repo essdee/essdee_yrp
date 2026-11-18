@@ -9,9 +9,6 @@
 				<Button v-if="capability.can_create" label="New" icon="pi pi-plus" @click="router.push('/quality/inspections/new')" />
 			</template>
 			<template #cell-result="{ value }"><DocumentStatusBadge v-if="value" :label="value" :tone="resultTone(value)" /></template>
-			<template v-for="(doctype, field) in linkColumns" :key="field" #[`cell-${field}`]="{ value }">
-				<DocumentLink :doctype="doctype" :name="value" current-path="/web/quality/inspections" />
-			</template>
 		</ListView>
 	</DepartmentPage>
 </template>
@@ -25,7 +22,6 @@ import { getQualityCapabilities } from "../../api/quality.js"
 import DepartmentPage from "../../components/DepartmentPage.vue"
 import ListView from "../../components/common/ListView.vue"
 import WorkspaceLoadError from "../../components/common/WorkspaceLoadError.vue"
-import DocumentLink from "../../components/common/DocumentLink.vue"
 import DocumentStatusBadge from "../../components/documents/DocumentStatusBadge.vue"
 import { openListDocument } from "../../router/listDocumentNavigation.js"
 import { INSPECTION_DOCTYPE, INSPECTION_LIST_COLUMNS, resultTone } from "./qualityViews.js"
@@ -35,7 +31,6 @@ const loading = ref(true)
 const error = ref("")
 const capability = ref({})
 const statusOptions = ["Pass", "Fail", "Hold"].map((value) => ({ label: value, value, tone: resultTone(value) }))
-const linkColumns = { against_id: "YRP Work Order", lot: "SD YRP Lot", item: "Item", supplier: "Supplier" }
 
 async function load() {
 	loading.value = true

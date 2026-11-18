@@ -37,8 +37,8 @@
 						<th v-if="isRemovable" scope="col" class="entry-grid__select" @keydown.stop><input type="checkbox" class="entry-grid__checkbox" :checked="rowSelection.isAllSelected.value" :indeterminate="rowSelection.isPartlySelected.value" :disabled="!selectableKeys.length" :aria-label="`Select all ${title || ariaLabel || 'grid'} rows`" @change="rowSelection.toggleAll($event.target.checked)"></th>
 						<th scope="col" class="entry-grid__corner" :class="{ 'entry-grid__index': isIndexHeader }" role="columnheader">{{ rowHeaderLabel }}</th>
 						<template v-for="(column, colIndex) in gridColumns" :key="column.key">
-							<th v-if="readonly || !column.fill" scope="col" role="columnheader" :class="alignClass(column)" :style="{ minWidth: `${columnMinWidth(column)}px` }">{{ column.label }}</th>
-							<th v-else scope="col" role="columnheader" class="entry-grid__fill-header" :class="alignClass(column)" :style="{ minWidth: `${headerMinWidth(column)}px` }">
+							<th v-if="readonly || !column.fill" scope="col" role="columnheader" class="entry-grid__column-header" :class="alignClass(column)" :style="{ minWidth: `${columnMinWidth(column)}px` }">{{ column.label }}<span v-if="columnResize.isResizable(colIndex)" class="report-col-resize child-grid-resize" aria-hidden="true" title="Drag to resize. Double-click to fit." @pointerdown="columnResize.start($event, colIndex)" @dblclick.prevent="columnResize.fit($event, colIndex)" /></th>
+							<th v-else scope="col" role="columnheader" class="entry-grid__column-header entry-grid__fill-header" :class="alignClass(column)" :style="{ minWidth: `${headerMinWidth(column)}px` }">
 								<span class="entry-grid__heading">{{ column.label }}</span>
 								<div class="entry-grid__fill" @keydown.stop @copy.stop @paste.stop>
 									<LinkField v-if="isChoiceColumn(column)" :ref="(element) => setFillEditor(column.key, element)" class="entry-grid__link" :model-value="fillTexts[column.key] || ''" :doctype="column.doctype || ''" :filters="column.filters || {}" :search-handler="choiceSearch(column)" :show-open-button="false" :show-validation-message="false" placeholder="Select" :aria-label="`Fill ${column.label}`" :invalid="Boolean(fillErrors[column.key])" @update:model-value="setFillText(column.key, $event)" @validation="fillErrors[column.key] = $event.message" />
@@ -46,6 +46,7 @@
 									<Button label="Fill" outlined :aria-label="`Fill ${column.label} column`" @click="applyFill(colIndex)" />
 								</div>
 								<small v-if="fillErrors[column.key]" class="entry-grid__fill-error" role="alert">{{ fillErrors[column.key] }}</small>
+								<span v-if="columnResize.isResizable(colIndex)" class="report-col-resize child-grid-resize" aria-hidden="true" title="Drag to resize. Double-click to fit." @pointerdown="columnResize.start($event, colIndex)" @dblclick.prevent="columnResize.fit($event, colIndex)" />
 							</th>
 						</template>
 						<th v-if="hasRowTotals" scope="col" class="entry-grid__number">{{ totalLabel }}</th>
@@ -108,8 +109,9 @@ import { computed, inject, nextTick, onBeforeUnmount, ref, useId, watch } from "
 
 import LinkField from "./LinkField.vue"
 import ChildGridSettings from "./childGrid/ChildGridSettings.vue"
-import { enterTarget, isRowBlank, labelWidth, layoutWidths } from "./childGrid/childGridColumns.js"
+import { enterTarget, isRowBlank, labelWidth, layoutWidths, minColumnWidth } from "./childGrid/childGridColumns.js"
 import { useRowSelection } from "./childGrid/rowSelection.js"
+import { useColumnResize } from "./childGrid/useColumnResize.js"
 import { useContainerWidth, useGridColumns } from "./childGrid/useGridColumns.js"
 import DocumentLink from "./DocumentLink.vue"
 import { linkFieldTarget } from "../../utils/linkTarget.js"
@@ -172,6 +174,8 @@ const props = defineProps({
 	addRow: { type: Function, default: null },
 	settingsDoctype: { type: String, default: "" },
 	settingsChildDoctype: { type: String, default: "" },
+	// Data matrices (sizes, colours, panels): every column stays visible; settings only reorder and resize.
+	lockColumns: { type: Boolean, default: false },
 })
 const emit = defineEmits(["update:modelValue", "change", "paste-report", "remove-row"])
 
@@ -203,7 +207,11 @@ const hasColumnTotals = computed(() => ["row", "both"].includes(props.totals))
 const totals_ = computed(() => columnTotals(props.modelValue, props.rows, gridColumns.value))
 const grandTotal = computed(() => Object.values(totals_.value).reduce((sum, value) => sum + value, 0))
 const hasAnyHeaderFill = computed(() => gridColumns.value.some(hasHeaderFill))
-const schemaColumns = computed(() => props.columns.map((column) => ({ ...column, width: column.width || Math.max(columnMinWidth(column), labelWidth(column.label)) })))
+const schemaColumns = computed(() => props.columns.map((column) => ({
+	...column,
+	width: column.width || Math.max(columnMinWidth(column), labelWidth(column.label)),
+	...(props.lockColumns ? { reqd: 1 } : {}),
+})))
 const gridSettings = useGridColumns(schemaColumns, { parentDoctype: () => props.settingsDoctype, childDoctype: () => props.settingsChildDoctype })
 const gridColumns = gridSettings.visibleColumns
 const canAddRows = computed(() => !props.readonly && typeof props.addRow === "function")
@@ -215,11 +223,19 @@ const selectableKeys = computed(() => isRemovable.value ? props.rows.filter((row
 const rowSelection = useRowSelection(selectableKeys)
 const scrollerWidth = useContainerWidth(scroller)
 const reservedWidth = computed(() => (isRemovable.value ? SELECT_WIDTH : 0) + rowHeaderWidth.value + (hasRowTotals.value ? TOTAL_WIDTH : 0) + (hasTrailingColumn.value ? TRAILING_WIDTH : 0))
-const columnWidths = computed(() => {
+const layoutColumnWidths = computed(() => {
 	if (!gridSettings.canConfigure.value) return gridColumns.value.map(headerMinWidth)
 	const widths = layoutWidths(gridColumns.value, Math.max(scrollerWidth.value - 2, 0), reservedWidth.value)
 	return widths.map((width, index) => hasHeaderFill(gridColumns.value[index]) ? Math.max(width, FILL_MIN_WIDTH) : width)
 })
+const columnResize = useColumnResize({
+	columns: gridColumns,
+	widths: layoutColumnWidths,
+	minimums: computed(() => gridColumns.value.map((column) => hasHeaderFill(column) ? FILL_MIN_WIDTH : minColumnWidth(column))),
+	save: gridSettings.save,
+	enabled: gridSettings.canConfigure,
+})
+const columnWidths = computed(() => columnResize.liveWidths.value || layoutColumnWidths.value)
 const tableStyle = computed(() => {
 	const width = reservedWidth.value + columnWidths.value.reduce((sum, columnWidth) => sum + columnWidth, 0)
 	return { width: gridSettings.canConfigure.value ? `${width}px` : `max(100%, ${width}px)`, "--entry-grid-select-width": isRemovable.value ? `${SELECT_WIDTH}px` : "0px" }
@@ -611,6 +627,7 @@ defineExpose({ focusCell })
 .entry-grid__table:focus { outline: none; }
 .entry-grid__table thead th { height: 34px; padding: 6px 10px; color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 600; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; border: 1px solid var(--erp-border); background: var(--erp-surface-muted); }
 .entry-grid__table thead th.entry-grid__number { text-align: right; }
+.entry-grid__table thead th.entry-grid__column-header { position: relative; }
 .entry-grid__corner, .entry-grid__row-header { position: sticky; left: var(--entry-grid-select-width, 0px); z-index: var(--erp-layer-content); }
 .entry-grid__table .entry-grid__select { position: sticky; left: 0; z-index: var(--erp-layer-content); padding: 0; text-align: center; border: 1px solid var(--erp-border); background: color-mix(in srgb, var(--erp-surface-soft) 72%, var(--erp-surface)); }
 .entry-grid__checkbox { width: 15px; height: 15px; margin: 0; vertical-align: middle; accent-color: var(--erp-accent); cursor: pointer; }

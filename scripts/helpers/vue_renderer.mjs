@@ -68,6 +68,9 @@ const sharedModules = {
 		useContainerWidth: () => Vue.ref(0),
 	},
 	"ChildGridSettings.vue": () => null,
+	"useColumnResize.js": {
+		useColumnResize: () => ({ liveWidths: Vue.ref(null), isResizable: () => false, start() {}, fit() {} }),
+	},
 	// Column resize and move handles need a real DOM; tables render their columns in the given order.
 	"useReportColumnLayout.js": {
 		provideReportColumnLayout: () => ({ isCustomized: Vue.computed(() => false), reset() {} }),

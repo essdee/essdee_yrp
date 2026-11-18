@@ -7,9 +7,7 @@
 		:aria-busy="loading"
 	>
 		<header class="erp-page-header workspace-launcher__header">
-			<slot name="navigation">
-				<InlinePageNavigation :title-target="headingId" />
-			</slot>
+			<InlinePageNavigation :show-back="false" />
 			<div class="workspace-launcher__title">
 				<p v-if="eyebrow" class="erp-page-header__eyebrow">{{ eyebrow }}</p>
 				<h1 :id="headingId">{{ title }}</h1>

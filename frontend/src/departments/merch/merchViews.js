@@ -3,7 +3,7 @@ import { MERCH_ROUTES } from "./merchRoutes.js"
 
 export { MERCH_ROUTES }
 
-export const MERCH_SECTION_ORDER = ["lots", "item_production_details", "production_orders", "work_orders", "delivery_challans", "goods_received_notes", "cutting_plans", "process_costs", "bill_tracking", "purchase_invoices", "reports"]
+export const MERCH_SECTION_ORDER = ["lots", "item_production_details", "production_orders", "work_orders", "delivery_challans", "goods_received_notes", "cutting_plans", "process_costs", "bill_tracking", "purchase_invoices", "suppliers", "reports"]
 
 export const IPD_LIST_PATH = "/merch/item-production-details"
 
@@ -65,6 +65,13 @@ export function merchLauncherItems() {
 			description: "Supplier bills against GRNs, with approval and ERP sync.",
 			icon: "pi pi-file",
 			to: "/merch/purchase-invoices",
+		},
+		{
+			key: "suppliers",
+			label: "Supplier",
+			description: "Supplier details, GSTIN, addresses and contacts.",
+			icon: "pi pi-building",
+			to: "/merch/suppliers",
 		},
 		{
 			key: "reports",

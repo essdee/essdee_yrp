@@ -31,4 +31,7 @@ export const MERCH_ROUTES = {
 	cuttingPlans: "merch-cutting-plans",
 	cuttingPlanNew: "merch-cutting-plan-new",
 	cuttingPlan: "merch-cutting-plan",
+	suppliers: "merch-suppliers",
+	supplierNew: "merch-supplier-new",
+	supplier: "merch-supplier",
 }

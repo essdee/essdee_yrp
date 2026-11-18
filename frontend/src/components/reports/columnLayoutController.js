@@ -275,7 +275,7 @@ function scrollNearEdge(scroller, x) {
 	else if (x > rect.right - EDGE_SCROLL_ZONE) scroller.scrollLeft += EDGE_SCROLL_STEP
 }
 
-function trackPointer(event, element, bodyClass, onMove, onEnd) {
+export function trackPointer(event, element, bodyClass, onMove, onEnd) {
 	const doc = element.ownerDocument
 	element.setPointerCapture?.(event.pointerId)
 	doc.body.classList.add(bodyClass)

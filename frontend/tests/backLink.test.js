@@ -18,7 +18,32 @@ test("every page back button uses the shared accent BackLink", () => {
 	assert.match(backLink, /width: 44px; height: 44px;/)
 	assert.match(read("components/navigation/InlinePageNavigation.vue"), /<BackLink :to="resolvedBackTo" :label="backLabel"/)
 	assert.match(read("components/DepartmentPage.vue"), /<BackLink :to="backTo" :label="backLabel" \/>/)
-	assert.match(read("departments/sewing/SewingBackLink.vue"), /<BackLink :to="to" :label="label" \/>/)
+})
+
+test("list, launcher, report and dashboard headers hide Back because the module sidebar navigates", () => {
+	const navigation = read("components/navigation/InlinePageNavigation.vue")
+	assert.match(navigation, /<nav v-if="inline && showBack"/)
+	assert.match(navigation, /showBack: \{ type: Boolean, default: true \}/)
+	assert.match(read("components/common/ListView.vue"), /<InlinePageNavigation v-if="navigationEnabled" :show-back="false" \/>/)
+	for (const path of [
+		"components/common/WorkspaceLauncher.vue",
+		"components/reports/ReportShell.vue",
+		"departments/planning/dashboard/DashboardView.vue",
+		"departments/planning/dashboard/PpoTrackingView.vue",
+	]) assert.match(read(path), /<InlinePageNavigation :show-back="false" \/>/, path)
+	assert.doesNotMatch(read("departments/sewing/SewingWorkspaceShell.vue"), /BackLink/)
+	assert.doesNotMatch(read("departments/sewing/SewingLauncher.vue"), /BackLink|#navigation/)
+	assert.equal(fs.existsSync(new URL("../src/departments/sewing/SewingBackLink.vue", import.meta.url)), false)
+})
+
+test("document view and edit headers keep Back", () => {
+	for (const path of [
+		"components/common/FormView.vue",
+		"departments/fabric-store/FabricDocumentWorkspace.vue",
+		"departments/fabric-store/PurchaseOrderEditor.vue",
+		"departments/CuttingOrder.vue",
+		"departments/purchase/ItemPage.vue",
+	]) assert.doesNotMatch(read(path), /:show-back="false"/, path)
 })
 
 test("prev/next arrows keep the neutral style so Back stands apart", () => {

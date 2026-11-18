@@ -180,7 +180,7 @@ test("the Sewing launcher keeps the selected unit on the document cards", async 
 	const shell = (props, { slots }) => Vue.h("shell", props, slots.default?.({ capabilities: { sections: READABLE }, supplier: "Unit 1" }))
 	const root = mountComponent(loadComponent(resolve("frontend/src/departments/sewing/SewingLauncher.vue"), {
 		"../../components/common/WorkspaceLauncher.vue": stub("launcher"),
-		"./SewingBackLink.vue": stub("back"), "./SewingWorkspaceShell.vue": shell, "./SewingUnitPicker.vue": stub("picker"), "../fabric-store/storeWorkspaces.js": storeWorkspaces,
+		"./SewingWorkspaceShell.vue": shell, "./SewingUnitPicker.vue": stub("picker"), "../fabric-store/storeWorkspaces.js": storeWorkspaces,
 	}), {})
 	await tick()
 	const items = nodes(root, "launcher")[0].props.items

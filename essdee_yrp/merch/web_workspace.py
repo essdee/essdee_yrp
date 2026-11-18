@@ -19,6 +19,7 @@ SECTIONS = {
 	"process_costs": ("Process Cost", "YRP Process Cost"),
 	"bill_tracking": ("Vendor Bill Tracking", "YRP Bill Tracking"),
 	"purchase_invoices": ("Purchase Invoice", "YRP Purchase Invoice"),
+	"suppliers": ("Supplier", "Supplier"),
 }
 
 REPORTS = {

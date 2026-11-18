@@ -287,12 +287,12 @@ class TestCutPanelStoreMovementWorkspace(UnitTestCase):
 		self.assertEqual(result["record"]["movement_from_cutting"], 1)
 		self.assertEqual(result["record"]["cutting_plan"], "CP-1")
 
-	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_active_root_transactions")
+	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_submitted_root_transactions")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.frappe.get_doc")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.frappe.get_list")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.frappe.has_permission")
 	def test_linked_documents_are_permission_filtered_and_keep_cancelled_history(
-		self, has_permission, get_list, get_doc, active_roots
+		self, has_permission, get_list, get_doc, submitted_roots
 	):
 		movement = frappe._dict(name="CPM-1", docstatus=1, lot="LOT-1", modified="2026-10-07")
 		movement.check_permission = MagicMock()
@@ -324,7 +324,7 @@ class TestCutPanelStoreMovementWorkspace(UnitTestCase):
 			"YRP Stock Entry": ["STE-1"],
 			"YRP Delivery Challan": ["DC-HIDDEN"],
 		}.get(doctype, [])
-		active_roots.return_value = []
+		submitted_roots.return_value = []
 
 		payload = get_movement_linked_documents("CPM-1")
 
@@ -352,16 +352,16 @@ class TestCutPanelStoreMovementWorkspace(UnitTestCase):
 
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_movement_linked_documents")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.build_stock_entry_defaults")
-	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_active_root_transactions")
+	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_submitted_root_transactions")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.frappe.new_doc")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.frappe.get_doc")
 	def test_stock_entry_creation_uses_authoritative_defaults(
-		self, get_doc, new_doc, active_roots, build_defaults, linked_documents
+		self, get_doc, new_doc, submitted_roots, build_defaults, linked_documents
 	):
 		movement = frappe._dict(name="CPM-1", docstatus=1, lot="LOT-1")
 		movement.check_permission = MagicMock()
 		get_doc.return_value = movement
-		active_roots.return_value = []
+		submitted_roots.return_value = []
 		build_defaults.return_value = {"purpose": "Material Transfer", "from_warehouse": "WH-1"}
 		doc = MagicMock()
 		doc.doctype = "YRP Stock Entry"
@@ -382,32 +382,32 @@ class TestCutPanelStoreMovementWorkspace(UnitTestCase):
 		doc.submit.assert_called_once()
 		self.assertEqual(result["record"]["name"], "STE-NEW")
 
-	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_active_root_transactions")
+	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_submitted_root_transactions")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.frappe.get_doc")
-	def test_concurrent_root_transaction_is_rejected_clearly(self, get_doc, active_roots):
+	def test_concurrent_root_transaction_is_rejected_clearly(self, get_doc, submitted_roots):
 		movement = frappe._dict(name="CPM-1", docstatus=1, lot="LOT-1")
 		movement.check_permission = MagicMock()
 		get_doc.return_value = movement
-		active_roots.return_value = [frappe._dict(doctype="YRP Delivery Challan", name="DC-1")]
+		submitted_roots.return_value = [frappe._dict(doctype="YRP Delivery Challan", name="DC-1")]
 
-		with self.assertRaisesRegex(frappe.ValidationError, "already used by active YRP Delivery Challan DC-1"):
+		with self.assertRaisesRegex(frappe.ValidationError, "already moved by submitted YRP Delivery Challan DC-1"):
 			create_movement_transaction("CPM-1", "stock_entry", {"to_warehouse": "WH-2"})
 
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_movement_linked_documents")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.build_goods_received_note_defaults")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.build_delivery_challan_defaults")
-	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_active_root_transactions")
+	@patch("essdee_yrp.cut_panel_store.movement_workspace.get_submitted_root_transactions")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.frappe.new_doc")
 	@patch("essdee_yrp.cut_panel_store.movement_workspace.frappe.get_doc")
 	def test_dc_and_grn_creation_validate_same_lot_work_order_and_use_builders(
-		self, get_doc, new_doc, active_roots, build_dc, build_grn, linked_documents
+		self, get_doc, new_doc, submitted_roots, build_dc, build_grn, linked_documents
 	):
 		movement = frappe._dict(name="CPM-1", docstatus=1, lot="LOT-1")
 		movement.check_permission = MagicMock()
 		work_order = frappe._dict(name="WO-1", docstatus=1, lot="LOT-1")
 		work_order.check_permission = MagicMock()
 		get_doc.side_effect = lambda doctype, _name: movement if doctype == "SD YRP Cut Panel Movement" else work_order
-		active_roots.return_value = []
+		submitted_roots.return_value = []
 		build_dc.return_value = {"work_order": "WO-1", "items": [{"item": "ITEM-1"}]}
 		build_grn.return_value = {"against": "YRP Work Order", "against_id": "WO-1", "items": [{"item": "ITEM-1"}]}
 		linked_documents.return_value = {"sections": {}}

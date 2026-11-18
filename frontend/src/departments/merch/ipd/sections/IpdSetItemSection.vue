@@ -13,6 +13,7 @@
 			<EntryGrid
 				v-if="grid.rows.length"
 				ref="setGrid" validation-field="set_item_detail"
+				settings-doctype="YRP Item Production Detail" settings-child-doctype="set_item_detail" lock-columns
 				title="Colour of each part"
 				meta="Rows follow the packing colours"
 				:row-header-label="draft.packing_attribute || 'Colour'"

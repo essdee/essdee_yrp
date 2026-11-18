@@ -54,6 +54,7 @@ from essdee_yrp.overrides.goods_received_note import (
 	_lock_versioned_cloth_lot,
 	get_empty_draft_rows,
 	get_work_order_defaults,
+	validate_work_order_has_passed_inspection,
 )
 from essdee_yrp.overrides.inspection_entry import (
 	get_initial_payload as get_inspection_initial_payload,
@@ -730,6 +731,8 @@ def preview_goods_received_note_source(source) -> dict:
 
 	frappe.has_permission("YRP Goods Received Note", ptype="create", throw=True)
 	values, against, against_id, delivery_challan = _resolve_source(source)
+	if against == "YRP Work Order" and not cint(values.get("is_return")):
+		validate_work_order_has_passed_inspection(against_id)
 	defaults = _source_defaults(
 		against, against_id, delivery_challan, _is_additional_grn_source(values)
 	)

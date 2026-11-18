@@ -32,6 +32,7 @@ from yrp.yrp.doctype.yrp_goods_received_note.yrp_goods_received_note import (
 
 from essdee_yrp.cloth_execution import qualifies_cloth_transaction
 from essdee_yrp.finishing.loose_piece import get_loose_piece_stock_variant
+from essdee_yrp.sewing.plan import is_sewing_work_order
 
 QTY_TOLERANCE = 0.0001
 STOCK_ROW_TABLES = ("items", "correction_items")
@@ -1287,34 +1288,16 @@ def validate_sewing_plan_quantity(grn):
 
 
 def validate_quality_inspection_passed(grn):
-	"""Require a submitted Pass inspection for every colour/size a Sewing Plan Work Order receives."""
+	"""Require a submitted Pass inspection of the GRN's own sewing Work Order for every colour/size received."""
 	if grn.get("against") != "YRP Work Order" or grn.get("is_return") or not grn.get("against_id"):
 		return
-	if not frappe.db.exists("SD YRP Sewing Plan", {"work_order": grn.against_id}):
+	work_order = _get_inspection_work_order(grn.against_id)
+	if not is_sewing_work_order(work_order):
 		return
-
-	inspected = {
-		(row.colour, row.size)
-		for row in frappe.db.sql(
-			"""
-				select colour.colour, size.size
-				from `tabSD YRP Essdee Quality Inspection Colour` colour
-				join `tabSD YRP Essdee Quality Inspection Size` size on size.parent = colour.parent
-				join `tabSD YRP Essdee Quality Inspection` inspection on inspection.name = colour.parent
-				where inspection.against = 'YRP Work Order'
-				  and inspection.against_id = %(work_order)s
-				  and inspection.docstatus = 1
-				  and inspection.result = 'Pass'
-				  and colour.selected = 1
-				  and size.selected = 1
-			""",
-			{"work_order": grn.against_id},
-			as_dict=True,
-		)
-	}
+	inspected = get_passed_inspection_combinations(grn.against_id)
 	missing = [
 		combination
-		for combination in dict.fromkeys(_received_colour_sizes(grn))
+		for combination in dict.fromkeys(_received_colour_sizes(grn, work_order.production_detail))
 		if combination not in inspected
 	]
 	if missing:
@@ -1332,9 +1315,54 @@ def validate_quality_inspection_passed(grn):
 		)
 
 
-def _received_colour_sizes(grn):
+def validate_work_order_has_passed_inspection(work_order_name):
+	"""Reject starting a receipt for a sewing Work Order that has no passed inspection of its own."""
+	if not is_sewing_work_order(_get_inspection_work_order(work_order_name)):
+		return
+	if not get_passed_inspection_combinations(work_order_name):
+		frappe.throw(
+			_(
+				"Work Order {0} has no submitted Essdee Quality Inspection with result Pass."
+				" Submit a passed inspection for this Work Order before receiving."
+			).format(work_order_name),
+			title=_("Passed Quality Inspection Missing"),
+		)
+
+
+def _get_inspection_work_order(work_order_name):
+	return frappe.db.get_value(
+		"YRP Work Order",
+		work_order_name,
+		["process_name", "is_rework", "production_detail"],
+		as_dict=True,
+	) or frappe._dict()
+
+
+def get_passed_inspection_combinations(work_order_name) -> set[tuple[str, str]]:
+	"""Return selected (colour, size) pairs of submitted Pass inspections against this Work Order only."""
+	return {
+		(row.colour, row.size)
+		for row in frappe.db.sql(
+			"""
+				select colour.colour, size.size
+				from `tabSD YRP Essdee Quality Inspection Colour` colour
+				join `tabSD YRP Essdee Quality Inspection Size` size on size.parent = colour.parent
+				join `tabSD YRP Essdee Quality Inspection` inspection on inspection.name = colour.parent
+				where inspection.against = 'YRP Work Order'
+				  and inspection.against_id = %(work_order)s
+				  and inspection.docstatus = 1
+				  and inspection.result = 'Pass'
+				  and colour.selected = 1
+				  and size.selected = 1
+			""",
+			{"work_order": work_order_name},
+			as_dict=True,
+		)
+	}
+
+
+def _received_colour_sizes(grn, ipd_name):
 	"""Yield (colour, size) per received row the way Production API pairs inspection rows."""
-	ipd_name = frappe.db.get_value("YRP Work Order", grn.against_id, "production_detail")
 	ipd = frappe.db.get_value(
 		"YRP Item Production Detail",
 		ipd_name,

@@ -137,31 +137,30 @@ function draftEntry(column, visible, percent) {
 	return { key: column.key, label: column.label || column.key, visible: visible || isLocked(column), percent, locked: isLocked(column) }
 }
 
-/** The last shown column takes 100% minus the others; an error when the others leave it less than MIN_PERCENT. */
-export function draftPercents(draft) {
-	const shown = draft.filter((column) => column.visible || column.locked)
-	const last = shown.at(-1)
-	const others = shown.slice(0, -1).reduce((sum, column) => sum + Math.max(Math.round(Number(column.percent) || 0), 0), 0)
-	const lastPercent = 100 - others
-	const error = last && lastPercent < MIN_PERCENT
-		? `Other columns use ${others}%; reduce them to leave room for ${last.label}.`
-		: ""
-	return { shown, lastKey: last?.key || "", lastPercent, others, error }
-}
-
-export function distributeEvenly(draft) {
-	const shown = draft.filter((column) => column.visible || column.locked)
-	const even = Math.floor(100 / Math.max(shown.length, 1))
-	return draft.map((column) => shown.includes(column) ? { ...column, percent: even } : column)
-}
-
-/** Frappe Desk GridView rows in display order: px `width` for Desk plus `width_percent` for /web. */
+/** Frappe Desk GridView rows in display order: px `width` for Desk plus whole `width_percent` for /web; the last shown column takes the remainder. */
 export function gridViewEntries(draft) {
-	const { shown, lastKey, lastPercent, error } = draftPercents(draft)
-	if (error) throw new Error(error)
-	return shown.map((column) => {
-		const percent = column.key === lastKey ? lastPercent : Math.max(MIN_PERCENT, Math.round(Number(column.percent) || 0))
-		return { fieldname: column.key, width: clampWidth((percent / 100) * REFERENCE_WIDTH), width_percent: percent, sticky: 0 }
+	const shown = draft.filter((column) => column.visible || column.locked)
+	const percents = percentsFromWeights(shown.map((column) => column.percent))
+	return shown.map((column, index) => ({ fieldname: column.key, width: clampWidth((percents[index] / 100) * REFERENCE_WIDTH), width_percent: percents[index], sticky: 0 }))
+}
+
+/** Settings draft for the visible columns at these px widths, so a resize saves through gridViewEntries. */
+export function widthDraft(columns, widths) {
+	return columns.flatMap((column, index) => isConfigurable(column) ? [{ key: column.key, visible: true, locked: isLocked(column), percent: widths[index] }] : [])
+}
+
+/** Index of the column that absorbs resizes: the last visible configurable one. */
+export function lastSizedIndex(columns) {
+	return columns.findLastIndex(isSized)
+}
+
+/** Widths after setting one column to `width`: the last sized column gives or takes the difference, both kept at their minimum. */
+export function resizedWidths(widths, { index, last, width, minimums }) {
+	const largest = Math.max(widths[index] + Math.max(widths[last] - minimums[last], 0), minimums[index])
+	const next = Math.max(minimums[index], Math.min(largest, Math.round(Number(width) || 0)))
+	return widths.map((current, position) => {
+		if (position === index) return next
+		return position === last ? current - (next - widths[index]) : current
 	})
 }
 

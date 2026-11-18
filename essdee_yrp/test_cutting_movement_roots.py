@@ -6,8 +6,8 @@ import frappe
 
 from essdee_yrp.cutting import web_workspace
 from essdee_yrp.cutting.movement import (
-	get_active_root_transactions,
-	get_active_root_transactions_by_movement,
+	get_submitted_root_transactions,
+	get_submitted_root_transactions_by_movement,
 )
 
 MODULE = "essdee_yrp.cutting.movement"
@@ -62,16 +62,16 @@ def fake_get_all(doctype, filters, fields):
 	return [frappe._dict({field: row[field] for field in fields}) for row in rows if _matches(row, filters)]
 
 
-class TestActiveRootTransactionsByMovement(TestCase):
+class TestSubmittedRootTransactionsByMovement(TestCase):
 	def test_batch_matches_single_movement_answers(self):
 		names = ["CPM-1", "CPM-2", "CPM-3", "CPM-EMPTY"]
 		with patch(f"{MODULE}.frappe.get_all", side_effect=fake_get_all) as get_all:
-			batched = get_active_root_transactions_by_movement(iter(names))
+			batched = get_submitted_root_transactions_by_movement(iter(names))
 			self.assertEqual(get_all.call_count, 3)
-			single = {name: get_active_root_transactions(name) for name in names}
+			single = {name: get_submitted_root_transactions(name) for name in names}
 		self.assertEqual(batched, single)
 		self.assertEqual([row.name for row in batched["CPM-1"]], ["DC-1", "STE-1"])
-		self.assertEqual([row.name for row in batched["CPM-2"]], ["STE-4", "STE-3", "DC-3"])
+		self.assertEqual([row.name for row in batched["CPM-2"]], ["STE-4", "DC-3"])
 		self.assertEqual(batched["CPM-EMPTY"], [])
 
 	def test_full_timestamp_tie_keeps_the_single_movement_read_for_that_movement(self):
@@ -82,16 +82,16 @@ class TestActiveRootTransactionsByMovement(TestCase):
 		with (
 			patch.dict(ROWS, tied),
 			patch(f"{MODULE}.frappe.get_all", side_effect=fake_get_all),
-			patch(f"{MODULE}.get_active_root_transactions", return_value=["single"]) as single,
+			patch(f"{MODULE}.get_submitted_root_transactions", return_value=["single"]) as single,
 		):
-			batched = get_active_root_transactions_by_movement(["CPM-1", "CPM-3"])
+			batched = get_submitted_root_transactions_by_movement(["CPM-1", "CPM-3"])
 		single.assert_called_once_with("CPM-3")
 		self.assertEqual(batched["CPM-3"], ["single"])
 		self.assertEqual([row.name for row in batched["CPM-1"]], ["DC-1", "STE-1"])
 
 	def test_empty_input_runs_no_query(self):
 		with patch(f"{MODULE}.frappe.get_all") as get_all:
-			self.assertEqual(get_active_root_transactions_by_movement([]), {})
+			self.assertEqual(get_submitted_root_transactions_by_movement([]), {})
 		get_all.assert_not_called()
 
 	def test_link_spelled_differently_falls_back_to_single_movement_reads(self):
@@ -102,9 +102,9 @@ class TestActiveRootTransactionsByMovement(TestCase):
 
 		with (
 			patch(f"{MODULE}.frappe.get_all", side_effect=collation_get_all),
-			patch(f"{MODULE}.get_active_root_transactions", return_value=["exact"]) as single,
+			patch(f"{MODULE}.get_submitted_root_transactions", return_value=["exact"]) as single,
 		):
-			self.assertEqual(get_active_root_transactions_by_movement(["CPM-1", "CPM-2"]), {"CPM-1": ["exact"], "CPM-2": ["exact"]})
+			self.assertEqual(get_submitted_root_transactions_by_movement(["CPM-1", "CPM-2"]), {"CPM-1": ["exact"], "CPM-2": ["exact"]})
 		self.assertEqual([call.args[0] for call in single.call_args_list], ["CPM-1", "CPM-2"])
 
 
@@ -120,8 +120,8 @@ class TestWorkspaceMovementRoots(TestCase):
 			patch.object(web_workspace.frappe, "has_permission", return_value=True),
 			patch.object(web_workspace.frappe, "get_list", return_value=list(docs)),
 			patch.object(web_workspace.frappe, "get_doc", side_effect=lambda doctype, name: docs[name]),
-			patch.object(web_workspace, "get_active_root_transactions_by_movement", return_value=roots) as batch,
-			patch.object(web_workspace, "_movement_payload", side_effect=lambda doc, active_root_rows: (doc.name, active_root_rows)),
+			patch.object(web_workspace, "get_submitted_root_transactions_by_movement", return_value=roots) as batch,
+			patch.object(web_workspace, "_movement_payload", side_effect=lambda doc, submitted_root_rows: (doc.name, submitted_root_rows)),
 		):
 			payloads = web_workspace._get_movements(frappe._dict(name="CP-1"))
 		self.assertEqual(list(batch.call_args.args[0]), ["CPM-1", "CPM-3"])
@@ -133,11 +133,11 @@ class TestWorkspaceMovementRoots(TestCase):
 		with (
 			patch.object(web_workspace.frappe, "has_permission", return_value=False),
 			patch.object(web_workspace, "get_document_print_formats", return_value=[]),
-			patch(f"{MODULE}.get_active_root_transactions", return_value=rows) as single,
+			patch(f"{MODULE}.get_submitted_root_transactions", return_value=rows) as single,
 		):
-			given = web_workspace._movement_payload(doc, active_root_rows=rows)
+			given = web_workspace._movement_payload(doc, submitted_root_rows=rows)
 			single.assert_not_called()
 			read = web_workspace._movement_payload(doc)
 		single.assert_called_once_with("CPM-1")
 		self.assertEqual(given, read)
-		self.assertEqual(given["active_root_transactions"], [{"doctype": "YRP Delivery Challan", "name": "DC-1", "docstatus": 1}])
+		self.assertEqual(given["submitted_root_transactions"], [{"doctype": "YRP Delivery Challan", "name": "DC-1", "docstatus": 1}])
