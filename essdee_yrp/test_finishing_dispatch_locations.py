@@ -109,7 +109,9 @@ def _supplier():
 			"supplier_group": group,
 		}
 	)
-	return supplier.insert(ignore_permissions=True).name
+	supplier.insert(ignore_permissions=True)
+	frappe.delete_doc("Warehouse", supplier.name, ignore_permissions=True, force=True)
+	return supplier.name
 
 
 def _warehouse(supplier):

@@ -520,6 +520,7 @@ doc_events = {
 		"validate": "essdee_yrp.item_validations.validate",
 		"on_update": "essdee_yrp.product_sales.ensure_size_variants",
 	},
+	"Supplier": {"after_insert": "essdee_yrp.api.supplier_warehouse.create_supplier_warehouse"},
 	"Warehouse": {"autoname": "essdee_yrp.overrides.warehouse.autoname"},
 	"YRP Item Production Detail": {
 		"onload": "essdee_yrp.ipd_ui.onload",

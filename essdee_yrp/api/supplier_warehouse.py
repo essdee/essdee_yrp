@@ -2,6 +2,8 @@
 # For license information, please see license.txt
 
 import frappe
+from erpnext import get_default_company
+from frappe import _
 from frappe.contacts.doctype.address.address import get_address_display
 
 ADDRESS_FIELD_MAP = {
@@ -13,6 +15,38 @@ ADDRESS_FIELD_MAP = {
 	"phone": "phone_no",
 	"email_id": "email_id",
 }
+
+
+def create_supplier_warehouse(doc, method=None):
+	"""Supplier after_insert: create the supplier's Warehouse, named after the Supplier ID.
+
+	A name already taken by another Warehouse falls back to "<Supplier ID>-Warehouse".
+	"""
+	if frappe.db.exists("Warehouse", {"supplier": doc.name}):
+		return
+	warehouse_name = doc.name
+	if frappe.db.exists("Warehouse", warehouse_name):
+		warehouse_name = f"{doc.name}-Warehouse"
+	if frappe.db.exists("Warehouse", warehouse_name):
+		frappe.throw(
+			_(
+				"Warehouses {0} and {1} already exist. Rename one to create the Warehouse of Supplier {0}."
+			).format(doc.name, warehouse_name)
+		)
+	company = get_default_company()
+	if not company:
+		frappe.throw(_("Set a default Company to create the Warehouse of Supplier {0}.").format(doc.name))
+	frappe.get_doc(
+		{
+			"doctype": "Warehouse",
+			"warehouse_name": warehouse_name,
+			"supplier": doc.name,
+			"company": company,
+			"is_group": 0,
+			"email_id": doc.email_id,
+			"mobile_no": doc.mobile_no,
+		}
+	).insert(ignore_permissions=True)
 
 
 @frappe.whitelist()
