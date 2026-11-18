@@ -891,8 +891,11 @@ def _cancel_exact_bundle_entries(doc):
 				"collapsed_bundle": 0,
 				"is_collapsed": 0,
 			},
-			fields=["name", "posting_datetime", "creation", "set_combination"],
+			fields=["name", "posting_datetime", "creation", "set_combination", "voucher_type", "voucher_no"],
 		):
+			# A same-location voucher writes its own later + row for the same bundle.
+			if (candidate.voucher_type, candidate.voucher_no) == (doc.doctype, doc.name):
+				continue
 			if (candidate.posting_datetime, candidate.creation, candidate.name) > (
 				row.posting_datetime,
 				row.creation,
