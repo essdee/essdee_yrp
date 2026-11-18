@@ -109,6 +109,8 @@ const IpdEditorPage = () => import("../departments/merch/ipd/IpdEditorPage.vue")
 const ProcessCostsList = () => import("../departments/merch/process-cost/ProcessCostsList.vue")
 const ProcessCostPage = () => import("../departments/merch/process-cost/ProcessCostPage.vue")
 const ProcessCostEditorPage = () => import("../departments/merch/process-cost/ProcessCostEditorPage.vue")
+const SuppliersList = () => import("../departments/merch/supplier/SuppliersList.vue")
+const SupplierPage = () => import("../departments/merch/supplier/SupplierPage.vue")
 
 const idProps = (param, extra) => (route) => ({ [param]: String(route.params[param] || ""), ...extra })
 
@@ -1002,6 +1004,9 @@ const routes = [
 	{ path: "/merch/process-costs/new", name: MERCH_ROUTES.processCostNew, component: ProcessCostEditorPage },
 	{ path: "/merch/process-costs/:processCostId", name: MERCH_ROUTES.processCost, component: ProcessCostPage, props: true },
 	{ path: "/merch/process-costs/:processCostId/edit", name: MERCH_ROUTES.processCostEdit, component: ProcessCostEditorPage, props: true },
+	{ path: "/merch/suppliers", name: MERCH_ROUTES.suppliers, component: SuppliersList },
+	{ path: "/merch/suppliers/new", name: MERCH_ROUTES.supplierNew, component: SupplierPage },
+	{ path: "/merch/suppliers/:supplierId", name: MERCH_ROUTES.supplier, component: SupplierPage, props: true },
 	{
 		path: "/purchase/items",
 		name: PURCHASE_ROUTES.items,

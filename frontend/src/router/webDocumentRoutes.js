@@ -51,6 +51,7 @@ const MERCH_RECORD_ROUTES = {
 	"YRP Bill Tracking": (name) => `/web/merch/bill-tracking/${encodeURIComponent(name)}`,
 	"YRP Purchase Invoice": (name) => `/web/merch/purchase-invoices/${encodeURIComponent(name)}`,
 	"YRP Item Production Detail": (name) => `/web/merch/item-production-details/${encodeURIComponent(name)}`,
+	"Supplier": (name) => `/web/merch/suppliers/${encodeURIComponent(name)}`,
 	...documentRoutes("/merch"),
 }
 

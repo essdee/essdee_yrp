@@ -30,6 +30,7 @@ const SEGMENT_DOCTYPES = {
 	"lotwise-item-profits": "SD YRP Lotwise Item Profit",
 	debits: "YRP Debit",
 	inspections: "SD YRP Essdee Quality Inspection",
+	suppliers: "Supplier",
 }
 
 const PATH_DOCTYPES = {

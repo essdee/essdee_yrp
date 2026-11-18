@@ -97,6 +97,7 @@ class TestMerchWebWorkspace(TestCase):
 			"work_orders": ("Work Order", "YRP Work Order"),
 			"bill_tracking": ("Vendor Bill Tracking", "YRP Bill Tracking"),
 			"purchase_invoices": ("Purchase Invoice", "YRP Purchase Invoice"),
+			"suppliers": ("Supplier", "Supplier"),
 		}
 		for key, (label, doctype) in sections.items():
 			for permission in ("read", "create", None):

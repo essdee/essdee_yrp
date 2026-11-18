@@ -1,5 +1,5 @@
 <template>
-	<section class="common-form-view" :class="{ 'common-form-view--compact': compact }" :aria-busy="loading">
+	<section class="common-form-view" :class="{ 'common-form-view--compact': compact, 'common-form-view--uniform': uniformGrid }" :aria-busy="loading">
 		<header class="form-toolbar">
 			<InlinePageNavigation
 				:title-target="headingId"
@@ -113,6 +113,7 @@
 								:required="isRequired(field)"
 								:invalid="Boolean(fieldErrors[field.fieldname])"
 								:error="fieldErrors[field.fieldname] || ''"
+								:class="{ 'form-field--wide': uniformGrid && isWideReadField(field) }"
 								@update:model-value="setValue(field.fieldname, $event)"
 							/>
 						</div>
@@ -129,6 +130,7 @@
 						@update:model-value="setValue(table.fieldname, $event)"
 					/>
 				</section>
+				<slot name="tab-end" :tab="tab" :doc="form" :mode="mode" />
 			</template>
 		</form>
 
@@ -211,6 +213,7 @@
 						</DataTable>
 					</section>
 				</section>
+				<slot name="tab-end" :tab="tab" :doc="form" :mode="mode" />
 					</template>
 				</div>
 			</slot>
@@ -254,6 +257,10 @@ const props = defineProps({
 	viewAsFields: { type: Boolean, default: false },
 	compact: { type: Boolean, default: false },
 	showCancel: { type: Boolean, default: false },
+	/** (tabs, meta) → tabs: regroups the Desk tabs and sections; a tab with `keep` renders even without sections. */
+	groupLayout: { type: Function, default: null },
+	/** One even field grid per section instead of the Desk column breaks. */
+	uniformGrid: { type: Boolean, default: false },
 	initialMode: {
 		type: String,
 		default: "auto",
@@ -324,7 +331,7 @@ const includedFields = computed(() => new Set(props.includeFields))
 const layoutFieldtypes = new Set(["Section Break", "Column Break", "Tab Break"])
 
 const visibleFields = computed(() =>
-	(meta.value?.fields || []).filter(
+	withoutHiddenSections(meta.value?.fields || []).filter(
 		(field) =>
 			field.fieldname &&
 			!field.hidden &&
@@ -336,7 +343,22 @@ const visibleFields = computed(() =>
 	),
 )
 
-const layout = computed(() => buildLayout(visibleFields.value))
+const layout = computed(() => {
+	const tabs = buildLayout(visibleFields.value)
+	const grouped = props.groupLayout ? props.groupLayout(tabs, meta.value).filter((tab) => tab.keep || tab.sections.length) : tabs
+	if (!props.uniformGrid) return grouped
+	return grouped.map((tab) => ({ ...tab, sections: tab.sections.map((section) => ({ ...section, columns: [section.columns.flat()] })) }))
+})
+
+/** Desk hides every field of a hidden Section or Tab Break until the next break. */
+function withoutHiddenSections(fields) {
+	let [hiddenTab, hiddenSection] = [false, false]
+	return fields.filter((field) => {
+		if (field.fieldtype === "Tab Break") [hiddenTab, hiddenSection] = [Boolean(field.hidden), false]
+		if (field.fieldtype === "Section Break") hiddenSection = Boolean(field.hidden)
+		return !hiddenTab && !hiddenSection
+	})
+}
 
 watch(
 	() => [props.doctype, props.name],
@@ -843,6 +865,21 @@ defineExpose({ save, reload: load, doc: form, mode, isDirty })
 .common-form-view--compact :deep(.p-select-label) {
 	min-height: 34px;
 	padding-block: 6px;
+}
+
+.common-form-view--uniform .form-section__columns {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.common-form-view--uniform .form-section__column,
+.common-form-view--uniform .view-field-grid {
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	align-items: start;
+	column-gap: 24px;
+}
+
+.common-form-view--uniform .form-field--wide {
+	grid-column: 1 / -1;
 }
 
 .view-field-grid {
