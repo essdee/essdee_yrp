@@ -290,6 +290,46 @@ class TestFoldingWorkOrderWebEditor(FoldingLotTestCase):
 		self.assertEqual(doc.deliverables[0].item_variant, self.sample.deliverables[0].item_variant)
 		self.assertEqual(doc.receivables[0].lot, self.lot)
 
+	def test_row_comments_persist_through_save_submit_and_print(self):
+		from essdee_yrp.fabric_store.documents.work_order import (
+			get_work_order_editor,
+			save_work_order_document,
+		)
+		from essdee_yrp.print_helpers import get_work_order_challan_items
+
+		deliverables = self.grouped("deliverables", "YRP Work Order Deliverables")
+		receivables = self.grouped("receivables", "YRP Work Order Receivables")
+		deliverables[0]["items"][0]["comments"] = "Fold in half"
+		receivables[0]["items"][0]["comments"] = ""
+		frappe.set_user(FOLDING_USER)
+		values = {**self.header(), "deliverable_details": deliverables, "receivable_details": receivables}
+		name = save_work_order_document(values)["record"]["name"]
+
+		editor = get_work_order_editor(name)
+		self.assertEqual(editor["deliverable_details"][0]["items"][0]["comments"], "Fold in half")
+		editor["receivable_details"][0]["items"][0]["comments"] = "Pack flat"
+		workspace = save_work_order_document(
+			{
+				**editor["values"],
+				"deliverable_details": editor["deliverable_details"],
+				"receivable_details": editor["receivable_details"],
+			},
+			name=name,
+			submit=True,
+			expected_modified=editor["modified"],
+		)
+
+		doc = frappe.get_doc("YRP Work Order", name)
+		self.assertEqual(doc.docstatus, 1)
+		self.assertEqual({row.comments for row in doc.deliverables}, {"Fold in half"})
+		self.assertEqual({row.comments for row in doc.receivables}, {"Pack flat"})
+		self.assertEqual(workspace["matrices"]["deliverables"][0]["items"][0]["comments"], "Fold in half")
+		printed = get_work_order_challan_items(doc, "deliverables")[0]["items"][0]
+		self.assertEqual(printed["comments"], "Fold in half")
+		html = frappe.get_print("YRP Work Order", name, "Essdee Work Order Receivables", no_letterhead=1)
+		self.assertIn("Comments", html)
+		self.assertIn("Pack flat", html)
+
 	def test_item_schema_is_open_to_work_order_users(self):
 		from essdee_yrp.fabric_store.documents.work_order import get_work_order_item_schema
 

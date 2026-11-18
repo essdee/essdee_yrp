@@ -85,8 +85,8 @@
 			</div>
 
 			<template v-if="foldingLot">
-				<section class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Inputs</span><h2>Deliverables</h2></div><small>Items sent to the supplier for this process.</small></header><StockItemComposer v-model="deliverableDetails" operation="work_order" :editor="FOLDING_ROW_EDITOR" :schema-loader="loadFoldingItemSchema" :disabled="busy" natural-table-flow @dirty="markDirty" /></section>
-				<section v-if="!noReceivables" class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Outputs</span><h2>Receivables</h2></div><small>Items expected back from the supplier.</small></header><StockItemComposer v-model="receivableDetails" operation="work_order" :editor="FOLDING_ROW_EDITOR" :schema-loader="loadFoldingItemSchema" :disabled="busy" natural-table-flow @dirty="markDirty" /></section>
+				<section class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Inputs</span><h2>Deliverables</h2></div><small>Items sent to the supplier for this process.</small></header><StockItemComposer v-model="deliverableDetails" operation="work_order" :editor="FOLDING_ROW_EDITOR" :schema-loader="loadFoldingItemSchema" :disabled="busy" row-comments natural-table-flow @dirty="markDirty" /></section>
+				<section v-if="!noReceivables" class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Outputs</span><h2>Receivables</h2></div><small>Items expected back from the supplier.</small></header><StockItemComposer v-model="receivableDetails" operation="work_order" :editor="FOLDING_ROW_EDITOR" :schema-loader="loadFoldingItemSchema" :disabled="busy" row-comments natural-table-flow @dirty="markDirty" /></section>
 			</template>
 			<template v-else-if="showMatrices">
 				<section class="work-order-editor__section work-order-editor__matrix-section"><header><div><span>Inputs</span><h2>Deliverables</h2></div><small>Calculated rows remain grouped through the Work Order controller.</small></header><WorkOrderItemMatrix :groups="deliverableDetails" /></section>

@@ -21,12 +21,14 @@
 							<th v-if="hasCost(section.group)" class="erp-number matrix-cost-heading">Unit Cost</th>
 							<th v-if="hasTotalCost(section.group)" class="erp-number matrix-cost-heading">Total Cost</th>
 							<th v-if="hasProcessCost(section.group)">Process Cost</th>
+							<th v-if="hasComments(section)">Comments</th>
 						</tr>
 						<tr v-else-if="mode === 'items'">
 							<th v-for="attribute in identityAttributes(section.group)" :key="attribute">{{ attribute }}</th>
 							<th>Details</th>
 							<th v-for="value in primaryValues(section.group)" :key="value" class="erp-number">{{ value }}</th>
 							<th class="erp-number">Total</th>
+							<th v-if="hasComments(section)">Comments</th>
 						</tr>
 						<tr v-else>
 							<th v-for="attribute in identityAttributes(section.group)" :key="attribute">{{ attribute }}</th>
@@ -45,6 +47,7 @@
 							<td v-if="hasCost(section.group)" class="erp-number matrix-cost">{{ money(item.values?.default?.cost) }}</td>
 							<td v-if="hasTotalCost(section.group)" class="erp-number matrix-cost">{{ money(item.values?.default?.total_cost) }}</td>
 							<td v-if="hasProcessCost(section.group)" class="matrix-process-cost"><DocumentLink doctype="YRP Process Cost" :name="item.process_cost" :label="item.process_cost || '—'" /></td>
+							<td v-if="hasComments(section)" class="matrix-comments">{{ item.comments || "—" }}</td>
 						</tr>
 					</tbody>
 					<tbody v-else-if="mode === 'items'">
@@ -54,6 +57,7 @@
 								<td class="matrix-stage-label"><span>{{ stage.label }}</span></td>
 								<td v-for="value in primaryValues(section.group)" :key="value" class="erp-number">{{ stageValue(stage, value) }}</td>
 								<td class="erp-number matrix-total">{{ stageTotal(stage) }}</td>
+								<td v-if="stageIndex === 0 && hasComments(section)" class="matrix-comments" :rowspan="itemStages(item, section.group).length">{{ item.comments || "—" }}</td>
 							</tr>
 						</template>
 					</tbody>
@@ -79,6 +83,7 @@
 							<td v-if="hasCost(section.group)" class="erp-number matrix-cost" />
 							<td v-if="hasTotalCost(section.group)" class="erp-number matrix-cost">{{ money(sectionTotal(section, "total_cost")?.total) }}</td>
 							<td v-if="hasProcessCost(section.group)" />
+							<td v-if="hasComments(section)" />
 						</tr>
 					</tfoot>
 					<tfoot v-else-if="section.items.length > 1" class="work-order-item-matrix__footer">
@@ -87,6 +92,7 @@
 							<td class="matrix-stage-label"><span>{{ identityAttributes(section.group).length ? stage.label : `Total ${stage.label}` }}</span></td>
 							<td v-for="value in primaryValues(section.group)" :key="value" class="erp-number">{{ stageValue(stage, value) }}</td>
 							<td class="erp-number matrix-total">{{ stageTotal(stage) }}</td>
+							<td v-if="stageIndex === 0 && hasComments(section)" :rowspan="sectionTotals.get(section.key).length" />
 						</tr>
 					</tfoot>
 				</table>
@@ -150,6 +156,7 @@ function hasValueField(group, fieldname) {
 function hasCost(group) { return hasValueField(group, "cost") }
 function hasTotalCost(group) { return hasValueField(group, "total_cost") }
 function hasProcessCost(group) { return (group.items || []).some((item) => Boolean(item.process_cost)) }
+function hasComments(section) { return props.mode === "items" && section.items.some((item) => String(item.comments || "").trim()) }
 
 function identityAttributes(group) {
 	const values = [...(group.attributes || [])]
@@ -256,6 +263,7 @@ function money(value) {
 .matrix-pending-heading, .matrix-pending { background: #fffaf0; }
 .matrix-cost-heading, .matrix-cost { background: #f4faf7; }
 .matrix-cost, .matrix-process-cost { color: var(--erp-text); font-size: var(--erp-font-size-caption); font-weight: 700; }
+.matrix-comments { min-width: 160px; max-width: 320px; color: var(--erp-text); white-space: pre-wrap; vertical-align: top; }
 .matrix-pending { min-width: 76px; color: #765b20; font-size: var(--erp-font-size-caption); font-weight: 750; }
 .matrix-stage-label span { display: inline-flex; min-width: 68px; color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 750; }
 .matrix-stage--pending td { background: #fffaf0; }
