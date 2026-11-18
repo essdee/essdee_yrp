@@ -17,7 +17,7 @@
 						<header><strong>{{ movement.name }}</strong><DocumentStatusBadge :docstatus="movement.docstatus" :label="movement.status" /></header>
 						<div class="erp-movement-time"><i class="pi pi-clock"></i><div><small>Movement date &amp; time</small><strong>{{ movementDateTime(movement) }}</strong></div></div>
 						<div class="erp-record-metrics"><span><small>Exact bundles</small><b>{{ movement.totals?.exact_bundles || 0 }}</b></span><span><small>Panels</small><b>{{ movement.totals?.selected_panels || 0 }}</b></span><span><small>Collapsed</small><b>{{ movement.totals?.collapsed_rows || 0 }}</b></span><span><small>Accessories</small><b>{{ movement.totals?.accessory_rows || 0 }}</b></span></div>
-						<div v-if="movement.against_id || movement.active_root_transactions?.length" class="erp-linked-note"><i class="pi pi-link"></i><span>{{ movement.against_id ? `${movement.against} · ${movement.against_id}` : `${movement.active_root_transactions[0].doctype} · ${movement.active_root_transactions[0].name}` }}</span></div>
+						<div v-if="movement.against_id || movement.submitted_root_transactions?.length" class="erp-linked-note"><i class="pi pi-link"></i><span>{{ movement.against_id ? `${movement.against} · ${movement.against_id}` : `${movement.submitted_root_transactions[0].doctype} · ${movement.submitted_root_transactions[0].name}` }}</span></div>
 						<footer><Button label="View" icon="pi pi-eye" severity="secondary" text size="small" @click="openMovement(movement.name)" /></footer>
 					</article>
 				</div>

@@ -131,7 +131,7 @@ class TestCutPanelMovementOwnsStockType(UnitTestCase):
 		cpm = frappe._dict(docstatus=1, against=None, against_id=None, cut_panel_movement_json=movement_json)
 		with (
 			patch(f"{MODULE}.frappe.db.get_value", return_value=cpm),
-			patch(f"{MODULE}._get_active_root_transaction", return_value=None),
+			patch(f"{MODULE}._get_submitted_root_transaction", return_value=None),
 		):
 			movement.validate_transaction_link(doc)
 		return doc

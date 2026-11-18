@@ -27,17 +27,17 @@ def _tuple_attributes(value):
 class SDYRPCutPanelMovement(Document):
 	def onload(self):
 		if not self.is_new() and self.docstatus == 1:
-			from essdee_yrp.cutting.movement import get_active_root_transactions
+			from essdee_yrp.cutting.movement import get_submitted_root_transactions
 
 			self.set_onload(
-				"active_root_transactions",
+				"submitted_root_transactions",
 				[
 					{
 						"doctype": row.doctype,
 						"name": row.name,
 						"docstatus": row.docstatus,
 					}
-					for row in get_active_root_transactions(self.name)
+					for row in get_submitted_root_transactions(self.name)
 				],
 			)
 		if self.cut_panel_movement_json:

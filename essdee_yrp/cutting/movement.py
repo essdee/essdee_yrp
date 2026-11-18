@@ -75,9 +75,10 @@ def _require_create_permission(doctype):
 	frappe.has_permission(doctype, "create", throw=True)
 
 
-def get_active_root_transactions(cpm_name, *, exclude_doctype=None, exclude_name=None):
-	"""Return non-cancelled root transactions that claim a CPM.
+def get_submitted_root_transactions(cpm_name, *, exclude_doctype=None, exclude_name=None):
+	"""Return submitted root transactions that moved a CPM.
 
+	Drafts never claim a CPM: they stay for analysis and any one of them may be submitted.
 	Completion Stock Entries are follow-up legs of a DC/GRN and intentionally
 	share its Cut Panel Movement. They do not compete for root ownership.
 	"""
@@ -85,7 +86,7 @@ def get_active_root_transactions(cpm_name, *, exclude_doctype=None, exclude_name
 	for doctype in _ROOT_TRANSACTION_DOCTYPES:
 		filters = {
 			"cut_panel_movement": cpm_name,
-			"docstatus": ["<", 2],
+			"docstatus": 1,
 		}
 		if doctype == exclude_doctype and exclude_name:
 			filters["name"] = ["!=", exclude_name]
@@ -107,8 +108,8 @@ def get_active_root_transactions(cpm_name, *, exclude_doctype=None, exclude_name
 	return sorted(owners, key=lambda row: row.creation)
 
 
-def get_active_root_transactions_by_movement(cpm_names):
-	"""`get_active_root_transactions` for many CPMs with one query per root doctype.
+def get_submitted_root_transactions_by_movement(cpm_names):
+	"""`get_submitted_root_transactions` for many CPMs with one query per root doctype.
 
 	A CPM with two same-doctype roots tied on creation and modified has no deterministic order, so it keeps the per-CPM read.
 	"""
@@ -117,7 +118,7 @@ def get_active_root_transactions_by_movement(cpm_names):
 		return owners
 	ambiguous = set()
 	for doctype in _ROOT_TRANSACTION_DOCTYPES:
-		filters = {"cut_panel_movement": ["in", list(owners)], "docstatus": ["<", 2]}
+		filters = {"cut_panel_movement": ["in", list(owners)], "docstatus": 1}
 		if doctype == "YRP Stock Entry":
 			filters["purpose"] = ["not in", tuple(_COMPLETION_PURPOSES)]
 		seen = set()
@@ -128,7 +129,7 @@ def get_active_root_transactions_by_movement(cpm_names):
 		):
 			if row.cut_panel_movement not in owners:
 				# The collation matched a differently spelled link; keep the exact per-CPM answer.
-				return {name: get_active_root_transactions(name) for name in owners}
+				return {name: get_submitted_root_transactions(name) for name in owners}
 			key = (row.cut_panel_movement, row.creation, row.modified)
 			if key in seen:
 				ambiguous.add(row.cut_panel_movement)
@@ -142,15 +143,15 @@ def get_active_root_transactions_by_movement(cpm_names):
 				)
 			)
 	return {
-		name: get_active_root_transactions(name)
+		name: get_submitted_root_transactions(name)
 		if name in ambiguous
 		else sorted(rows, key=lambda row: row.creation)
 		for name, rows in owners.items()
 	}
 
 
-def _get_active_root_transaction(cpm_name, *, exclude_doctype=None, exclude_name=None):
-	owners = get_active_root_transactions(
+def _get_submitted_root_transaction(cpm_name, *, exclude_doctype=None, exclude_name=None):
+	owners = get_submitted_root_transactions(
 		cpm_name,
 		exclude_doctype=exclude_doctype,
 		exclude_name=exclude_name,
@@ -158,18 +159,15 @@ def _get_active_root_transaction(cpm_name, *, exclude_doctype=None, exclude_name
 	return (owners[0].doctype, owners[0].name) if owners else None
 
 
-def _throw_active_root_transaction(cpm_name, owner):
-	doctype, name = owner
-	frappe.throw(
-		_(
-			"Cut Panel Movement {0} is already used by active {1} {2}. "
-			"Cancel or delete that transaction before creating another one."
-		).format(cpm_name, doctype, name)
-	)
+def get_already_moved_message(cpm_name, doctype, name):
+	return _(
+		"Cut Panel Movement {0} is already moved by submitted {1} {2}. "
+		"Cancel it before submitting or creating another transaction."
+	).format(cpm_name, doctype, name)
 
 
 def validate_transaction_link(doc, method=None):
-	"""Enforce one active root Stock Entry/DC/GRN per submitted CPM."""
+	"""Enforce one submitted root Stock Entry/DC/GRN per submitted CPM; drafts never block."""
 	del method
 	cpm_name = doc.get("cut_panel_movement")
 	if not cpm_name or (doc.doctype == "YRP Stock Entry" and doc.purpose in _COMPLETION_PURPOSES):
@@ -188,19 +186,15 @@ def validate_transaction_link(doc, method=None):
 		# The CPM owns the stock type: collapsed quantities move as Allow Non Bundle.
 		doc.allow_non_bundle = cint(_movement_uses_collapsed(_json_dict(cpm.cut_panel_movement_json)))
 	if cpm.against_id and (cpm.against != doc.doctype or cpm.against_id != doc.name):
-		frappe.throw(
-			_("Cut Panel Movement {0} is already linked to {1} {2}.").format(
-				cpm_name, cpm.against, cpm.against_id
-			)
-		)
+		frappe.throw(get_already_moved_message(cpm_name, cpm.against, cpm.against_id))
 
-	owner = _get_active_root_transaction(
+	owner = _get_submitted_root_transaction(
 		cpm_name,
 		exclude_doctype=doc.doctype,
 		exclude_name=doc.name,
 	)
 	if owner:
-		_throw_active_root_transaction(cpm_name, owner)
+		frappe.throw(get_already_moved_message(cpm_name, *owner))
 
 
 def _load_movement(doc_name, *, allow_linked=False):
@@ -209,15 +203,11 @@ def _load_movement(doc_name, *, allow_linked=False):
 	if doc.docstatus != 1:
 		frappe.throw(_("Cut Panel Movement {0} must be submitted.").format(doc.name))
 	if doc.against_id and not allow_linked:
-		frappe.throw(
-			_("Cut Panel Movement {0} is already linked to {1} {2}.").format(
-				doc.name, doc.against, doc.against_id
-			)
-		)
+		frappe.throw(get_already_moved_message(doc.name, doc.against, doc.against_id))
 	if not allow_linked:
-		owner = _get_active_root_transaction(doc.name)
+		owner = _get_submitted_root_transaction(doc.name)
 		if owner:
-			_throw_active_root_transaction(doc.name, owner)
+			frappe.throw(get_already_moved_message(doc.name, *owner))
 	if not doc.cut_panel_movement_json:
 		frappe.throw(_("Cut Panel Movement {0} has no selected bundles.").format(doc.name))
 	return doc
@@ -1011,11 +1001,7 @@ def apply_transaction(doc, *, cancelled=False):
 	is_completion = doc.doctype == "YRP Stock Entry" and doc.purpose in _COMPLETION_PURPOSES
 	if not is_completion:
 		if cpm.against_id and (cpm.against != doc.doctype or cpm.against_id != doc.name):
-			frappe.throw(
-				_("Cut Panel Movement {0} is already linked to {1} {2}.").format(
-					cpm.name, cpm.against, cpm.against_id
-				)
-			)
+			frappe.throw(get_already_moved_message(cpm.name, cpm.against, cpm.against_id))
 		cpm.db_set({"against": doc.doctype, "against_id": doc.name}, update_modified=False)
 
 	if allow_non_bundle:

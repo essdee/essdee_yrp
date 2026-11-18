@@ -192,7 +192,7 @@ class TestCutPanelTransactionRecovery(TestCase):
 					movement_workspace, "_get_submitted_movement", return_value=frappe._dict(name="CPM-1")
 				),
 				patch.object(frappe, "has_permission", return_value=True),
-				patch.object(movement_workspace, "get_active_root_transactions", return_value=[]),
+				patch.object(movement_workspace, "get_submitted_root_transactions", return_value=[]),
 				patch.object(movement_workspace, "build_stock_entry_defaults", return_value={}),
 				patch.object(movement_workspace, "new_transaction_from_defaults", return_value=doc),
 				patch.object(movement_workspace, "_transaction_record", return_value={}),

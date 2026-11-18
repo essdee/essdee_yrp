@@ -24,7 +24,8 @@ from essdee_yrp.cutting.movement import (
 	build_delivery_challan_defaults,
 	build_goods_received_note_defaults,
 	build_stock_entry_defaults,
-	get_active_root_transactions,
+	get_already_moved_message,
+	get_submitted_root_transactions,
 	new_transaction_from_defaults,
 )
 from essdee_yrp.essdee_yrp.doctype.sd_yrp_cut_panel_movement.sd_yrp_cut_panel_movement import (
@@ -329,14 +330,10 @@ def _get_submitted_movement(name: str):
 	return doc
 
 
-def _active_root_error(movement, active_roots) -> str:
-	if not active_roots:
+def get_submitted_root_error(movement, submitted_roots) -> str:
+	if not submitted_roots:
 		return ""
-	owner = active_roots[0]
-	return _(
-		"Cut Panel Movement {0} is already used by active {1} {2}. "
-		"Cancel or delete that transaction before creating another one."
-	).format(movement.name, owner.doctype, owner.name)
+	return get_already_moved_message(movement.name, submitted_roots[0].doctype, submitted_roots[0].name)
 
 
 def _linked_document_names(doctype: str, movement_name: str) -> list[str]:
@@ -358,14 +355,14 @@ def get_movement_linked_documents(name: str) -> dict:
 
 	movement = frappe.get_doc(MOVEMENT_DOCTYPE, name)
 	movement.check_permission("read")
-	active_roots = get_active_root_transactions(movement.name) if cint(movement.docstatus) == 1 else []
-	active_record = None
-	active_error = _("This movement already has an active transaction. Cancel or delete it before creating another one.") if active_roots else ""
-	if active_roots and frappe.has_permission(active_roots[0].doctype, ptype="read"):
-		active_doc = frappe.get_doc(active_roots[0].doctype, active_roots[0].name)
-		if _document_permission(active_doc, "read"):
-			active_record = _transaction_record(active_doc)
-			active_error = _active_root_error(movement, active_roots)
+	submitted_roots = get_submitted_root_transactions(movement.name) if cint(movement.docstatus) == 1 else []
+	submitted_record = None
+	submitted_error = _("This movement is already moved by a submitted transaction.") if submitted_roots else ""
+	if submitted_roots and frappe.has_permission(submitted_roots[0].doctype, ptype="read"):
+		submitted_doc = frappe.get_doc(submitted_roots[0].doctype, submitted_roots[0].name)
+		if _document_permission(submitted_doc, "read"):
+			submitted_record = _transaction_record(submitted_doc)
+			submitted_error = get_submitted_root_error(movement, submitted_roots)
 	sections = {}
 	actions = {}
 	for operation, doctype in MOVEMENT_TRANSACTION_DOCTYPES.items():
@@ -383,8 +380,8 @@ def get_movement_linked_documents(name: str) -> dict:
 			"label": _("Create {0}").format(MOVEMENT_TRANSACTION_LABELS[operation]),
 			"doctype": doctype,
 			"can_create": can_create,
-			"eligible": bool(cint(movement.docstatus) == 1 and can_create and not active_roots),
-			"reason": active_error or (
+			"eligible": bool(cint(movement.docstatus) == 1 and can_create and not submitted_roots),
+			"reason": submitted_error or (
 				_("Submit the Cut Panel Movement first.") if cint(movement.docstatus) != 1 else ""
 			),
 		}
@@ -392,7 +389,7 @@ def get_movement_linked_documents(name: str) -> dict:
 		"movement": {"name": movement.name, "docstatus": cint(movement.docstatus), "lot": movement.lot},
 		"sections": sections,
 		"actions": actions,
-		"active_root": active_record,
+		"submitted_root": submitted_record,
 	}
 
 
@@ -439,9 +436,9 @@ def create_movement_transaction(name: str, operation: str, values=None, submit=F
 	movement = _get_submitted_movement(name)
 	doctype = MOVEMENT_TRANSACTION_DOCTYPES[operation]
 	frappe.has_permission(doctype, ptype="create", throw=True)
-	active_roots = get_active_root_transactions(movement.name)
-	if active_roots:
-		frappe.throw(_active_root_error(movement, active_roots))
+	submitted_roots = get_submitted_root_transactions(movement.name)
+	if submitted_roots:
+		frappe.throw(get_submitted_root_error(movement, submitted_roots))
 	values = parse_json_object(values)
 
 	if operation == "stock_entry":

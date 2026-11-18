@@ -85,7 +85,7 @@ const tabs = [
 ]
 
 const visibleTabs = computed(() => tabs.filter((item) => workspace.permissions?.[item.value]?.can_read))
-const eligibleMovements = computed(() => (workspace.movements || []).filter((movement) => movement.docstatus === 1 && !movement.against_id && !movement.active_root_transactions?.length))
+const eligibleMovements = computed(() => (workspace.movements || []).filter((movement) => movement.docstatus === 1 && !movement.against_id && !movement.submitted_root_transactions?.length))
 const activeItem = computed(() => visibleTabs.value.find((item) => item.value === activeTab.value) || visibleTabs.value[0] || tabs[0])
 const activeTransactions = computed(() => transactions(activeItem.value.value))
 const showCreateActions = computed(() => Boolean(

@@ -1763,39 +1763,6 @@ class TestCuttingBusinessLogic(IntegrationTestCase):
 		self.assertEqual(exact.quantity_after_transaction, quantity)
 		self.assertEqual(exact.is_collapsed, 0)
 
-	def test_cut_panel_movement_allows_only_one_active_root_transaction(self):
-		movement_name = "CPM-2608-00220"
-		if not frappe.db.exists(
-			"SD YRP Cut Panel Movement",
-			{"name": movement_name, "docstatus": 1, "against_id": ["is", "not set"]},
-		):
-			self.skipTest(f"Unlinked Cut Panel Movement oracle {movement_name} is unavailable")
-
-		defaults = build_stock_entry_defaults(movement_name)
-		entry = frappe.new_doc("YRP Stock Entry")
-		entry.purpose = defaults["purpose"]
-		entry.from_warehouse = defaults["from_warehouse"]
-		entry.from_supplier = defaults["from_supplier"]
-		entry.to_warehouse = "S-0163"
-		entry.cut_panel_movement = movement_name
-		entry.item_details = json.dumps(defaults["item_details"])
-		entry.insert()
-
-		with self.assertRaisesRegex(
-			frappe.ValidationError,
-			f"already used by active YRP Stock Entry {entry.name}",
-		):
-			build_delivery_challan_defaults(movement_name, "WO-NOT-REACHED")
-
-		companion = frappe._dict(
-			doctype="YRP Stock Entry",
-			name="STE-COMPLETION-TEST",
-			purpose="DC Completion",
-			cut_panel_movement=movement_name,
-		)
-		validate_transaction_link(companion)
-		entry.delete()
-
 	def test_cut_panel_movement_dc_and_grn_round_trip_lifecycle(self):
 		movement_name = "CPM-2608-00220"
 		work_order_name = "WO-2627-00857"

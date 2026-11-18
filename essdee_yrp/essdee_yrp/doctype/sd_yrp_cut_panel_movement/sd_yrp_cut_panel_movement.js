@@ -23,12 +23,12 @@ frappe.ui.form.on("SD YRP Cut Panel Movement", {
 			}
 		}
 		if (frm.doc.docstatus === 1) {
-			const active = frm.doc.__onload?.active_root_transactions || [];
-			const unexpected = active.filter(
+			const submitted = frm.doc.__onload?.submitted_root_transactions || [];
+			const unexpected = submitted.filter(
 				(row) => row.doctype !== frm.doc.against || row.name !== frm.doc.against_id,
 			);
-			if (unexpected.length || (!frm.doc.against_id && active.length)) {
-				show_active_transaction_warning(frm, active);
+			if (unexpected.length) {
+				show_submitted_transaction_warning(frm, submitted);
 			} else if (!frm.doc.against_id) {
 				add_create_buttons(frm);
 			}
@@ -42,18 +42,16 @@ frappe.ui.form.on("SD YRP Cut Panel Movement", {
 	},
 });
 
-function show_active_transaction_warning(frm, active) {
-	const references = active
-		.map((row) => `${row.doctype} ${row.name} (${row.docstatus ? __("Submitted") : __("Draft")})`)
-		.join(", ");
+function show_submitted_transaction_warning(frm, submitted) {
+	const references = submitted.map((row) => `${row.doctype} ${row.name}`).join(", ");
 	frm.dashboard.set_headline(
-		__("This Cut Panel Movement already has active transaction(s): {0}. Resolve them before creating another transaction.", [references]),
+		__("This Cut Panel Movement is already moved by submitted transaction(s): {0}.", [references]),
 	);
-	for (const row of active) {
+	for (const row of submitted) {
 		frm.add_custom_button(
 			__("Open {0}", [row.name]),
 			() => frappe.set_route("Form", row.doctype, row.name),
-			__("Active Transactions"),
+			__("Submitted Transactions"),
 		);
 	}
 }

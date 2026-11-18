@@ -24,7 +24,7 @@ from essdee_yrp.cutting.lot_transfer_quantities import apply_quantities, get_qua
 from essdee_yrp.cutting.movement import (
 	build_delivery_challan_defaults,
 	build_stock_entry_defaults,
-	get_active_root_transactions_by_movement,
+	get_submitted_root_transactions_by_movement,
 	new_transaction_from_defaults,
 )
 from essdee_yrp.essdee_yrp.doctype.sd_yrp_cut_panel_movement.sd_yrp_cut_panel_movement import (
@@ -247,21 +247,21 @@ def _movement_totals(value):
 	}
 
 
-def _movement_payload(doc, *, include_data=False, active_root_rows=None):
-	"""`active_root_rows`: the movement's active root transactions when the caller already read them."""
-	if active_root_rows is None:
-		active_root_rows = []
+def _movement_payload(doc, *, include_data=False, submitted_root_rows=None):
+	"""`submitted_root_rows`: the movement's submitted root transactions when the caller already read them."""
+	if submitted_root_rows is None:
+		submitted_root_rows = []
 		if doc.docstatus == 1:
-			from essdee_yrp.cutting.movement import get_active_root_transactions
+			from essdee_yrp.cutting.movement import get_submitted_root_transactions
 
-			active_root_rows = get_active_root_transactions(doc.name)
-	active_roots = [
+			submitted_root_rows = get_submitted_root_transactions(doc.name)
+	submitted_roots = [
 		{
 			"doctype": row.doctype,
 			"name": row.name,
 			"docstatus": row.docstatus,
 		}
-		for row in active_root_rows
+		for row in submitted_root_rows
 	]
 	payload = {
 		"name": doc.name,
@@ -277,7 +277,7 @@ def _movement_payload(doc, *, include_data=False, active_root_rows=None):
 		"against_id": doc.against_id,
 		"modified": doc.modified,
 		"totals": _movement_totals(doc.cut_panel_movement_json),
-		"active_root_transactions": active_roots,
+		"submitted_root_transactions": submitted_roots,
 		"permissions": {
 			"can_write": bool(doc.docstatus == 0 and frappe.has_permission(doc.doctype, "write", doc=doc)),
 			"can_submit": bool(doc.docstatus == 0 and frappe.has_permission(doc.doctype, "submit", doc=doc)),
@@ -302,8 +302,8 @@ def _get_movements(plan):
 		limit_page_length=500,
 	)
 	docs = [frappe.get_doc(MOVEMENT_DOCTYPE, name) for name in names]
-	roots = get_active_root_transactions_by_movement(doc.name for doc in docs if doc.docstatus == 1)
-	return [_movement_payload(doc, active_root_rows=roots.get(doc.name, [])) for doc in docs]
+	roots = get_submitted_root_transactions_by_movement(doc.name for doc in docs if doc.docstatus == 1)
+	return [_movement_payload(doc, submitted_root_rows=roots.get(doc.name, [])) for doc in docs]
 
 
 def _transaction_permissions(doc):
