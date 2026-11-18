@@ -4,6 +4,7 @@ from frappe.utils import flt, today
 from essdee_yrp.planning.dashboard import ladder
 from essdee_yrp.planning.dashboard.lot_metrics import LotMetrics, get_sewing_processes
 from essdee_yrp.planning.dashboard.production_orders import (
+	OPEN_PPO_FILTERS,
 	PPO,
 	get_lots,
 	get_lots_with_work_orders,
@@ -14,10 +15,10 @@ ZERO_FIGURES = ("planned", "cut", "stitch", "packed", "total", "dispatch", "bala
 
 
 def get_dashboard_data():
-	"""Every submitted Open PPO and its lots with status and quantities, for the factory-wide Dashboard."""
+	"""Every submitted Open PPO and its open lots with status and quantities, for the factory-wide Dashboard."""
 	production_orders = frappe.get_list(
 		PPO,
-		filters={"docstatus": 1, "status": "Open"},
+		filters=OPEN_PPO_FILTERS,
 		fields=["name", "delivery_date"],
 		order_by="name asc",
 		limit_page_length=0,
