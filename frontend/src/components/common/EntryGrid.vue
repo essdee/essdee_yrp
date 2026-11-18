@@ -110,6 +110,7 @@ import { computed, inject, nextTick, onBeforeUnmount, ref, useId, watch } from "
 import LinkField from "./LinkField.vue"
 import ChildGridSettings from "./childGrid/ChildGridSettings.vue"
 import { enterTarget, isRowBlank, labelWidth, layoutWidths, minColumnWidth } from "./childGrid/childGridColumns.js"
+import { isCaretAtEdge } from "./childGrid/entryTable.js"
 import { useRowSelection } from "./childGrid/rowSelection.js"
 import { useColumnResize } from "./childGrid/useColumnResize.js"
 import { useContainerWidth, useGridColumns } from "./childGrid/useGridColumns.js"
@@ -464,7 +465,7 @@ function onEditorKeydown(event) {
 		select(target)
 		return
 	}
-	if (editing.value === "replace" && ARROWS[event.key] && !event.altKey) {
+	if (editing.value === "replace" && ARROWS[event.key] && !event.altKey && isCaretAtEdge(event.target, event.key)) {
 		event.preventDefault(); event.stopPropagation(); commitEdit(ARROWS[event.key])
 	}
 }

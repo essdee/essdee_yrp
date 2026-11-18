@@ -7,6 +7,7 @@ from essdee_yrp.planning.dashboard import ladder
 from essdee_yrp.planning.reports.production_quantities import child_rows
 
 PPO = "YRP Production Order"
+OPEN_PPO_FILTERS = {"docstatus": 1, "status": "Open"}
 LOT_FIELDS = [
 	"name",
 	"item",
@@ -22,12 +23,12 @@ def get_iso_date(value):
 
 
 def get_lots(production_orders):
-	"""SD YRP Lot rows of these PPOs, readable by the user."""
+	"""Open SD YRP Lot rows of these PPOs, readable by the user."""
 	if not production_orders:
 		return []
 	return frappe.get_list(
 		"SD YRP Lot",
-		filters={"production_order": ["in", list(production_orders)]},
+		filters={"production_order": ["in", list(production_orders)], "status": "Open"},
 		fields=LOT_FIELDS,
 		order_by="production_order asc, name asc",
 		limit_page_length=0,

@@ -11,7 +11,7 @@
 		:disabled="disabled || !name || (formats !== null && !formats.length)"
 		@click="openDialog"
 	/>
-	<DocumentPrintDialog v-model:visible="dialogVisible" :doctype="doctype" :name="name" />
+	<DocumentPrintDialog v-model:visible="dialogVisible" :doctype="doctype" :name="name" :default-format="defaultFormat" :default-letter-head="defaultLetterHead" />
 </template>
 
 <script setup>
@@ -28,6 +28,8 @@ const props = defineProps({
 	label: { type: String, default: "Print" },
 	disabled: { type: Boolean, default: false },
 	showTrigger: { type: Boolean, default: true },
+	defaultFormat: { type: String, default: "" },
+	defaultLetterHead: { type: String, default: "" },
 })
 
 const permissions = useDocumentPermissions(() => [props.doctype, props.name, props.docstatus], () => props.formats === null)

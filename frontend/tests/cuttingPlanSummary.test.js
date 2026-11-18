@@ -10,7 +10,7 @@ const component = loadComponent(resolve("frontend/src/departments/cutting/Cuttin
 	...Object.fromEntries(["message", "skeleton", "tab", "tablist", "tabpanel", "tabpanels", "tabs"].map(name => [`primevue/${name}`, Container])),
 	"../../components/common/DocumentLink.vue": () => null,
 	"../../components/documents/DocumentOverview.vue": () => null,
-	"./CuttingPlanCpm.vue": () => null, "./CuttingPlanStockTransfers.vue": () => null, "./shared/MaterialRequirementGroups.vue": () => null,
+	"./CuttingPlanCpm.vue": () => null, "./CuttingPlanCcr.vue": () => null, "./CuttingPlanStockTransfers.vue": () => null, "./shared/MaterialRequirementGroups.vue": () => null,
 })
 function summary(items) {
 	const root = mountComponent(component, { doc: { name: "CP-1" }, data: { completed_items: [{ attributes: ["Colour"], primary_attribute_values: ["S", "M"], items }] } })

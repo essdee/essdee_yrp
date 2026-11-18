@@ -24,6 +24,9 @@
 					<LotIdentity :name="workspace.name || lotId" :item="item" :delivery-date="deliveryDate" :status="workspace.status" :heading-id="headingId" />
 				</template>
 				<template #header-actions><DocumentActionStrip :actions="lotActions" /></template>
+				<template #print-actions="{ acting: busy }">
+					<Button v-for="(shortcut, key) in LOT_PLAN_SHORTCUTS" :key="key" :label="shortcut.label" icon="pi pi-table" severity="secondary" outlined :loading="planShortcutBusy === key" :disabled="Boolean(busy) || Boolean(planShortcutBusy)" @click="openPlanShortcut(key)" />
+				</template>
 				<template #matrix>
 					<Tabs v-model:value="activeTab" scrollable class="lot-tabs erp-tabs">
 						<TabList ref="tabList" class="lot-tablist">
@@ -82,6 +85,13 @@
 			:name="selectedDocument.name"
 			@hide="documentsRail?.restoreFocus()"
 		/>
+		<LotPlanPickerDialog
+			v-model:visible="planPicker.visible"
+			:document-label="planPicker.shortcut?.documentLabel"
+			:tab-label="planPicker.shortcut?.label"
+			:options="planPicker.options"
+			@pick="pickPlan"
+		/>
 		<CreateTimeAndActionDialog v-model:visible="timeAndAction.createVisible" v-bind="timeAndAction.dialogProps" @created="timeAndAction.created" />
 		<SplitTimeAndActionDialog v-if="timeAndAction.tabProps.timeAndAction" v-model:visible="splitTimeAndActionVisible" :time-and-action="timeAndAction.tabProps.timeAndAction" />
 	</DepartmentPage>
@@ -94,10 +104,11 @@ import TabList from "primevue/tablist"
 import TabPanel from "primevue/tabpanel"
 import TabPanels from "primevue/tabpanels"
 import Tabs from "primevue/tabs"
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue"
+import { useToast } from "primevue/usetoast"
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
 
-import { getLotDocuments, getLotWorkspace } from "../../../api/planning.js"
+import { getLotCuttingPlans, getLotDocuments, getLotFinishingPlans, getLotWorkspace } from "../../../api/planning.js"
 import DepartmentPage from "../../../components/DepartmentPage.vue"
 import DocumentActionStrip from "../../../components/documents/DocumentActionStrip.vue"
 import { preserveListNavigationState } from "../../../router/listDocumentNavigation.js"
@@ -116,6 +127,8 @@ import "./lot.css"
 import { PLANNING_ROUTES, isCurrentRecordRequest } from "../planningViews.js"
 import LotDocumentDialog from "./LotDocumentDialog.vue"
 import LotDocumentsRail from "./LotDocumentsRail.vue"
+import LotPlanPickerDialog from "./LotPlanPickerDialog.vue"
+import { LOT_PLAN_SHORTCUTS, noPlanMessage, planOptions, planRoute, resolvePlanTarget } from "./lotPlanShortcuts.js"
 import CreateTimeAndActionDialog from "../time-and-action/CreateTimeAndActionDialog.vue"
 import LotTimeAndActionTab from "../time-and-action/LotTimeAndActionTab.vue"
 import SplitTimeAndActionDialog from "../time-and-action/SplitTimeAndActionDialog.vue"
@@ -169,6 +182,34 @@ const lotActions = computed(() => [
 		command: openEditor, disabled: Boolean(acting.value),
 	}] : []),
 ])
+const toast = useToast()
+const planShortcutBusy = ref("")
+const planPicker = reactive({ visible: false, shortcut: null, options: [] })
+const planLoaders = { ccr: getLotCuttingPlans, ocr: getLotFinishingPlans }
+
+async function openPlanShortcut(key) {
+	const shortcut = LOT_PLAN_SHORTCUTS[key]
+	const lot = props.lotId
+	planShortcutBusy.value = key
+	try {
+		const plans = await planLoaders[key](lot)
+		if (lot !== props.lotId) return
+		const target = resolvePlanTarget(plans)
+		if (target.kind === "none") toast.add({ severity: "warn", summary: noPlanMessage(shortcut, lot), life: 5000 })
+		else if (target.kind === "open") router.push(planRoute(shortcut, target.name))
+		else Object.assign(planPicker, { visible: true, shortcut, options: planOptions(shortcut, plans) })
+	} catch (reason) {
+		toast.add({ severity: "error", summary: `Unable to load ${shortcut.documentLabel}s`, detail: reason?.message, life: 5000 })
+	} finally {
+		planShortcutBusy.value = ""
+	}
+}
+
+function pickPlan(name) {
+	planPicker.visible = false
+	router.push(planRoute(planPicker.shortcut, name))
+}
+
 function openEditor() {
  return router.push({ name: PLANNING_ROUTES.lotEdit, params: { lotId: props.lotId },
   query: { tab: editTabFor(activeTab.value) },

@@ -12,6 +12,71 @@ from frappe.tests import IntegrationTestCase
 from essdee_yrp.api.supplier_warehouse import get_single_location_options, get_supplier_warehouse_context
 
 
+class TestSupplierWarehouseAutoCreate(IntegrationTestCase):
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+		self.addCleanup(frappe.db.rollback)
+		self.company = _make_company("_Test SWH Company")
+		self.addCleanup(
+			frappe.defaults.set_user_default, "company", frappe.defaults.get_user_default("Company")
+		)
+		frappe.defaults.set_user_default("company", self.company)
+
+	def test_new_supplier_gets_warehouse_named_after_it(self):
+		supplier = _make_supplier(f"_Test SWA Supplier {frappe.generate_hash(length=6)}")
+
+		warehouse = frappe.get_doc("Warehouse", supplier)
+		self.assertEqual(warehouse.warehouse_name, supplier)
+		self.assertEqual(warehouse.supplier, supplier)
+		self.assertEqual(warehouse.company, self.company)
+		self.assertEqual(warehouse.is_group, 0)
+		self.assertEqual(frappe.db.count("Warehouse", {"supplier": supplier}), 1)
+
+	def test_existing_unlinked_warehouse_name_falls_back(self):
+		name = f"_Test SWA Existing {frappe.generate_hash(length=6)}"
+		_insert_supplier_named_warehouse(name, self.company, supplier=None)
+
+		_make_supplier(name)
+
+		self.assertIsNone(frappe.db.get_value("Warehouse", name, "supplier"))
+		self.assertEqual(frappe.db.get_value("Warehouse", f"{name}-Warehouse", "supplier"), name)
+		self.assertEqual(frappe.db.count("Warehouse", {"supplier": name}), 1)
+
+	def test_warehouse_of_another_supplier_name_falls_back(self):
+		name = f"_Test SWA Taken {frappe.generate_hash(length=6)}"
+		other = _make_supplier(f"_Test SWA Other {frappe.generate_hash(length=6)}")
+		_insert_supplier_named_warehouse(name, self.company, supplier=other)
+
+		_make_supplier(name)
+
+		self.assertEqual(frappe.db.get_value("Warehouse", name, "supplier"), other)
+		self.assertEqual(frappe.db.get_value("Warehouse", f"{name}-Warehouse", "supplier"), name)
+
+	def test_both_names_taken_fails_loudly(self):
+		name = f"_Test SWA Both {frappe.generate_hash(length=6)}"
+		_insert_supplier_named_warehouse(name, self.company, supplier=None)
+		_insert_supplier_named_warehouse(f"{name}-Warehouse", self.company, supplier=None)
+
+		with self.assertRaisesRegex(frappe.ValidationError, "already exist"):
+			_make_supplier(name)
+
+	def test_supplier_with_linked_warehouse_gets_no_second_one(self):
+		supplier = _make_supplier(f"_Test SWA Linked {frappe.generate_hash(length=6)}")
+		from essdee_yrp.api.supplier_warehouse import create_supplier_warehouse
+
+		create_supplier_warehouse(frappe.get_doc("Supplier", supplier))
+
+		self.assertEqual(frappe.db.count("Warehouse", {"supplier": supplier}), 1)
+
+	def test_missing_default_company_fails_loudly(self):
+		with (
+			patch("essdee_yrp.api.supplier_warehouse.get_default_company", return_value=None),
+			self.assertRaises(frappe.ValidationError),
+		):
+			_make_supplier(f"_Test SWA No Company {frappe.generate_hash(length=6)}")
+
+
 class TestSupplierWarehouseContext(IntegrationTestCase):
 	def setUp(self):
 		super().setUp()
@@ -22,7 +87,7 @@ class TestSupplierWarehouseContext(IntegrationTestCase):
 		self.addCleanup(frappe.defaults.set_user_default, "company", self.original_company, user=self.user)
 		self.company = _make_company("_Test SWH Company")
 		frappe.defaults.set_user_default("company", self.company, self.user)
-		self.supplier = _make_supplier("_Test SWH Supplier")
+		self.supplier = _make_supplier_without_warehouse("_Test SWH Supplier")
 
 	def test_defaults_follow_supplier_warehouse_convention(self):
 		context = get_supplier_warehouse_context(self.supplier)
@@ -242,7 +307,9 @@ class TestSingleLocationOptions(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		self.addCleanup(frappe.db.rollback)
 		self.company = _make_company("_Test SWH Company")
-		self.supplier = _make_supplier(f"_Test SLO Supplier {frappe.generate_hash(length=6)}")
+		self.supplier = _make_supplier_without_warehouse(
+			f"_Test SLO Supplier {frappe.generate_hash(length=6)}"
+		)
 
 	def test_returns_only_warehouse_and_address(self):
 		warehouse = _make_warehouse(self.supplier, self.company, disabled=0)
@@ -328,6 +395,14 @@ class TestSingleLocationOptions(IntegrationTestCase):
 			get_single_location_options(supplier=self.supplier)
 
 
+def _insert_supplier_named_warehouse(name, company, supplier):
+	holder = _make_supplier(f"_Test SWA Holder {frappe.generate_hash(length=6)}")
+	frappe.get_doc(
+		{"doctype": "Warehouse", "warehouse_name": name, "supplier": holder, "company": company}
+	).insert(ignore_permissions=True)
+	frappe.db.set_value("Warehouse", name, "supplier", supplier)
+
+
 def _make_company(name):
 	if frappe.db.exists("Company", name):
 		return name
@@ -345,6 +420,12 @@ def _make_company(name):
 
 def _make_supplier(name):
 	return frappe.get_doc({"doctype": "Supplier", "supplier_name": name}).insert(ignore_permissions=True).name
+
+
+def _make_supplier_without_warehouse(name):
+	supplier = _make_supplier(name)
+	frappe.delete_doc("Warehouse", supplier, ignore_permissions=True, force=True)
+	return supplier
 
 
 def _make_address(supplier):

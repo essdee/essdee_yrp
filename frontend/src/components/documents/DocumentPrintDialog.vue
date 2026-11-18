@@ -33,6 +33,8 @@ const props = defineProps({
 	visible: { type: Boolean, default: false },
 	doctype: { type: String, required: true },
 	name: { type: String, default: "" },
+	defaultFormat: { type: String, default: "" },
+	defaultLetterHead: { type: String, default: "" },
 })
 const emit = defineEmits(["update:visible"])
 const loading = ref(false)
@@ -73,8 +75,8 @@ watch(() => [props.visible, props.doctype, props.name], async ([visible, doctype
 		formats.value = options.formats
 		rawFormats.value = options.raw_formats || []
 		letterHeads.value = options.letter_heads
-		format.value = options.default_format
-		letterHead.value = options.default_letter_head || ""
+		format.value = options.formats.includes(props.defaultFormat) ? props.defaultFormat : options.default_format
+		letterHead.value = options.letter_heads.includes(props.defaultLetterHead) ? props.defaultLetterHead : options.default_letter_head || ""
 		loaded.value = true
 	} catch (reason) {
 		if (!stale) error.value = reason?.message || "Unable to load print options."

@@ -1,5 +1,5 @@
 <template>
-	<DepartmentPage title="Item Production Details" back-to="/merch" back-label="Merch" :show-title="false" flat full-width inline-navigation>
+	<DepartmentPage title="Item Production Details" :back-to="ipdRoutes.departmentPath" :back-label="ipdRoutes.department" :show-title="false" flat full-width inline-navigation>
 		<section class="merch-ipds-page erp-workspace" aria-label="Item Production Details">
 			<WorkspaceLoadError v-if="error" :message="error" :loading="loading" @retry="load" />
 			<Message v-else-if="!loading && !capability?.can_read" severity="warn" :closable="false">
@@ -10,7 +10,7 @@
 				:can-read="!loading && Boolean(capability?.can_read)"
 				doctype="YRP Item Production Detail"
 				title="Item Production Details"
-				eyebrow="Merch"
+				:eyebrow="ipdRoutes.department"
 				subtitle="Style versions with sizes, packing, stitching, cutting and BOM"
 				min-table-width="980px"
 				search-placeholder="Search IPDs…"
@@ -29,7 +29,7 @@
 				<template #toolbar-actions>
 					<template v-if="capability?.can_create">
 						<Button label="New version from…" icon="pi pi-copy" severity="secondary" outlined @click="copyVisible = true" />
-						<Button label="New IPD" icon="pi pi-plus" @click="router.push({ name: MERCH_ROUTES.ipdNew })" />
+						<Button label="New IPD" icon="pi pi-plus" @click="router.push({ name: ipdRoutes.new })" />
 					</template>
 				</template>
 				<template #cell-approval_status="{ value }">
@@ -53,9 +53,10 @@ import ListView from "../../../components/common/ListView.vue"
 import WorkspaceLoadError from "../../../components/common/WorkspaceLoadError.vue"
 import DocumentStatusBadge from "../../../components/documents/DocumentStatusBadge.vue"
 import { openListDocument } from "../../../router/listDocumentNavigation.js"
-import { IPD_LIST_COLUMNS, IPD_STATUS_OPTIONS, MERCH_ROUTES, ipdEditRoute } from "../merchViews.js"
+import { IPD_LIST_COLUMNS, IPD_STATUS_OPTIONS, MERCH_IPD_ROUTES, ipdEditRoute } from "../merchViews.js"
 import IpdCopyDialog from "./IpdCopyDialog.vue"
 
+const props = defineProps({ ipdRoutes: { type: Object, default: () => MERCH_IPD_ROUTES } })
 const router = useRouter()
 const loading = ref(true)
 const error = ref("")
@@ -76,11 +77,11 @@ async function load() {
 }
 
 function openIpd(row, snapshot) {
-	return openListDocument(router, row, snapshot, { routeName: MERCH_ROUTES.ipd, paramName: "ipdId" })
+	return openListDocument(router, row, snapshot, { routeName: props.ipdRoutes.view, paramName: "ipdId" })
 }
 
 function openCopied(name) {
-	return router.push(ipdEditRoute(name))
+	return router.push(ipdEditRoute(name, {}, props.ipdRoutes))
 }
 
 onMounted(load)

@@ -172,3 +172,27 @@ class TestPlanningActionMasterSection(TestCase):
 		self.assertEqual(sections, {"action_master_templates": {
 			"label": "Action Master Template", "can_read": True, "can_write": False, "can_create": True,
 		}})
+
+
+class TestPlanningItemProductionDetailSection(TestCase):
+	def sections(self, granted):
+		empty = {"sections": {}}
+		with (
+			patch.object(web_workspace.sewing_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.finishing_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.sales_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.fabric_store_workspace, "get_capabilities", return_value=empty),
+			patch.object(web_workspace.cutting_capabilities, "get_capabilities", return_value={}),
+			patch.object(web_workspace, "_reports_section", return_value={"can_read": False}),
+			patch.object(
+				web_workspace.frappe, "has_permission",
+				side_effect=lambda doctype, ptype, doc=None: doctype == "YRP Item Production Detail" and ptype in granted,
+			),
+		):
+			return web_workspace.get_capabilities()["sections"]
+
+	def test_ipd_card_follows_item_production_detail_permissions(self):
+		self.assertEqual(self.sections({"read", "create"}), {"item_production_details": {
+			"label": "Item Production Detail", "can_read": True, "can_create": True,
+		}})
+		self.assertEqual(self.sections({"create"}), {})

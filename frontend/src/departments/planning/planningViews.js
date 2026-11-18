@@ -61,6 +61,13 @@ export const PLANNING_WORKSPACES = [
 		to: "/planning/action-master-templates",
 	},
 	{
+		key: "item_production_details",
+		label: "Item Production Detail",
+		description: "Sizes, colours, packing, stitching, cutting and BOM for each style version.",
+		icon: "pi pi-sliders-h",
+		to: "/planning/item-production-details",
+	},
+	{
 		key: "production_orders",
 		label: "Production Order",
 		description: "Quantities, delivery commitments and approvals.",

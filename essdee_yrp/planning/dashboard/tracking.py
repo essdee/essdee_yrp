@@ -5,6 +5,7 @@ from frappe.utils import flt, today
 from essdee_yrp.planning.dashboard.lot_metrics import LotMetrics
 from essdee_yrp.planning.dashboard.processes import LotProcesses
 from essdee_yrp.planning.dashboard.production_orders import (
+	OPEN_PPO_FILTERS,
 	PPO,
 	get_iso_date,
 	get_lots,
@@ -16,10 +17,10 @@ from essdee_yrp.planning.reports.production_quantities import authorize_filter_v
 
 
 def get_tracking_options():
-	"""PPO options (with item, for search by item) and Lot options (lots with a submitted Work Order)."""
+	"""Open PPO options (with item, for search by item) and open Lot options (lots with a submitted Work Order)."""
 	production_orders = frappe.get_list(
 		PPO,
-		filters={"docstatus": 1},
+		filters=OPEN_PPO_FILTERS,
 		fields=["name", "status", "delivery_date"],
 		order_by="name asc",
 		limit_page_length=0,
@@ -47,7 +48,7 @@ def get_tracking_options():
 
 
 def get_scope_production_orders(ppos, lots):
-	"""Selected PPOs, or the PPOs of the selected lots when no PPO is selected."""
+	"""Selected open PPOs, or the open PPOs of the selected lots when no PPO is selected."""
 	if ppos:
 		names = ppos
 	else:
@@ -59,7 +60,7 @@ def get_scope_production_orders(ppos, lots):
 		)
 	return frappe.get_list(
 		PPO,
-		filters={"name": ["in", list({name for name in names if name})], "docstatus": 1},
+		filters={"name": ["in", list({name for name in names if name})], **OPEN_PPO_FILTERS},
 		fields=["name", "delivery_date"],
 		order_by="name asc",
 		limit_page_length=0,

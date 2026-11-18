@@ -92,7 +92,10 @@ export const DEPARTMENT_RECORD_ROUTES = {
 	"/sales": {
 		"SD YRP Lot": (name) => `/web/merch/lots/${encodeURIComponent(name)}`,
 	},
-	"/planning": PLANNING_RECORD_ROUTES,
+	"/planning": {
+		...PLANNING_RECORD_ROUTES,
+		"YRP Item Production Detail": (name) => `/web/planning/item-production-details/${encodeURIComponent(name)}`,
+	},
 	"/purchase": {
 		"YRP Production Order": (name) => `/web/purchase/production-orders/${encodeURIComponent(name)}`,
 		"Purchase Order": (name) => `/web/purchase/purchase-orders/${encodeURIComponent(name)}`,

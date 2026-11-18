@@ -107,7 +107,7 @@ test("Item Price editor reloads when the duplicate source changes", () => {
 
 test("Lot, Item, IPD and Process Cost pages and editors wire Duplicate", () => {
 	const source = (path) => readFileSync(resolve(`frontend/src/departments/${path}`), "utf8")
-	for (const [path, route] of [["purchase/lot/LotPage.vue", "PURCHASE_ROUTES.lotNew"], ["merch/lot/MerchLotPage.vue", "MERCH_ROUTES.lotNew"], ["purchase/ItemPage.vue", "PURCHASE_ROUTES.itemNew"], ["merch/ipd/IpdPage.vue", "MERCH_ROUTES.ipdNew"]]) {
+	for (const [path, route] of [["purchase/lot/LotPage.vue", "PURCHASE_ROUTES.lotNew"], ["merch/lot/MerchLotPage.vue", "MERCH_ROUTES.lotNew"], ["purchase/ItemPage.vue", "PURCHASE_ROUTES.itemNew"], ["merch/ipd/IpdPage.vue", "props.ipdRoutes.new"]]) {
 		assert.match(source(path), new RegExp(`useDuplicateAction\\(\\{[\\s\\S]*?newRouteName: ${route.replace(".", "\\.")}`), path)
 	}
 	for (const path of ["purchase/lot/useLotEditor.js", "merch/lot/useMerchLotEditor.js", "purchase/ItemEditorPage.vue", "purchase/ItemPriceEditor.vue", "merch/ipd/useIpdEditor.js", "merch/process-cost/ProcessCostEditor.vue"]) {
