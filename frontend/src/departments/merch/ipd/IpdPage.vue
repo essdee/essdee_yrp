@@ -1,5 +1,5 @@
 <template>
-	<DepartmentPage title="Item Production Detail" back-to="/merch/item-production-details" back-label="Item Production Details" :show-title="false" flat full-width inline-navigation>
+	<DepartmentPage title="Item Production Detail" :back-to="ipdRoutes.listPath" back-label="Item Production Details" :show-title="false" flat full-width inline-navigation>
 		<section class="merch-ipd-frame">
 			<FabricDocumentWorkspace
 				doctype="YRP Item Production Detail"
@@ -73,7 +73,7 @@ import DocumentConfirmationDialog from "../../../components/documents/DocumentCo
 import DocumentErrorDialog from "../../../components/documents/DocumentErrorDialog.vue"
 import { preserveListNavigationState } from "../../../router/listDocumentNavigation.js"
 import FabricDocumentWorkspace from "../../fabric-store/FabricDocumentWorkspace.vue"
-import { MERCH_ROUTES, ipdEditRoute } from "../merchViews.js"
+import { MERCH_IPD_ROUTES, ipdEditRoute } from "../merchViews.js"
 import IpdChecksRail from "./IpdChecksRail.vue"
 import IpdCopyDialog from "./IpdCopyDialog.vue"
 import IpdIdentity from "./IpdIdentity.vue"
@@ -89,7 +89,7 @@ import { ipdCommandSuccess } from "./ipdCommandSuccess.js"
 import { revertReasonPayload } from "./ipdRevertReason.js"
 import "./ipd.css"
 
-const props = defineProps({ ipdId: { type: String, required: true } })
+const props = defineProps({ ipdId: { type: String, required: true }, ipdRoutes: { type: Object, default: () => MERCH_IPD_ROUTES } })
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
@@ -172,7 +172,7 @@ const handlers = {
 }
 const duplicateAction = useDuplicateAction({
 	canCreate: () => workspace.value.permissions?.can_create,
-	newRouteName: MERCH_ROUTES.ipdNew,
+	newRouteName: props.ipdRoutes.new,
 	name: () => workspace.value.record?.name,
 	busy: acting,
 	router,
@@ -229,10 +229,10 @@ async function runCommand(command, payload = null) {
 	}
 }
 function openEditor() {
-	return router.push(ipdEditRoute(record.value.name, { hash: route.hash, state: preserveListNavigationState(record.value.name, record.value.modified) }))
+	return router.push(ipdEditRoute(record.value.name, { hash: route.hash, state: preserveListNavigationState(record.value.name, record.value.modified) }, props.ipdRoutes))
 }
 function openCopied(name) {
-	return router.push(ipdEditRoute(name))
+	return router.push(ipdEditRoute(name, {}, props.ipdRoutes))
 }
 async function goTo(problem) {
 	return goToProblem(problem, frame.value, focusProblem)

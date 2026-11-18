@@ -107,10 +107,13 @@ export function ipdEditPath(name) {
 	return `${ipdPath(name)}/edit`
 }
 
-export function ipdRoute(name, extra = {}) {
-	return { name: MERCH_ROUTES.ipd, params: { ipdId: String(name) }, ...extra }
+/** Route names and back links the shared IPD pages use; other departments pass their own set as the `ipdRoutes` prop. */
+export const MERCH_IPD_ROUTES = { department: "Merch", departmentPath: "/merch", listPath: IPD_LIST_PATH, list: MERCH_ROUTES.ipds, new: MERCH_ROUTES.ipdNew, view: MERCH_ROUTES.ipd, edit: MERCH_ROUTES.ipdEdit }
+
+export function ipdRoute(name, extra = {}, routes = MERCH_IPD_ROUTES) {
+	return { name: routes.view, params: { ipdId: String(name) }, ...extra }
 }
 
-export function ipdEditRoute(name, extra = {}) {
-	return { name: MERCH_ROUTES.ipdEdit, params: { ipdId: String(name) }, ...extra }
+export function ipdEditRoute(name, extra = {}, routes = MERCH_IPD_ROUTES) {
+	return { name: routes.edit, params: { ipdId: String(name) }, ...extra }
 }

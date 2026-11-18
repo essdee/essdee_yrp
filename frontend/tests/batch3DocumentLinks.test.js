@@ -106,7 +106,7 @@ for (const path of ['fabric-store/DeliveryChallanWorkspace','fabric-store/GoodsR
 test('D10 ProductionOrderOverview links typed facts only and preserves substituted labels', () => readable(() => {
  const fields = [{fieldname:'production_detail',label:'IPD',fieldtype:'Link',options:'YRP Item Production Detail',value:'IPD/1'}, {fieldname:'submitted_by',fieldtype:'Link',options:'User',link_name:'USER/1',value:'User Display'}, {fieldname:'comments',fieldtype:'Data',value:'Plain'}, {fieldname:'empty',fieldtype:'Link',options:'Item',value:''}]
  const root = loadComponent(resolve('frontend/src/departments/sales/ProductionOrderOverview.vue'), { ...modules, './productionOrderDisplay.js': productionOrderDisplay })
- check(mountComponent(root,{fields}), [['IPD/1','/web/merch/item-production-details/IPD%2F1'],pair('User Display','user','USER/1')])
+ check(mountComponent(root,{fields}), [['IPD/1','/web/planning/item-production-details/IPD%2F1'],pair('User Display','user','USER/1')])
 }))
 
 const editors = ['fabric-store/PurchaseOrderEditor','fabric-store/WorkOrderEditor','cutting/plan/CuttingPlanEditor','cutting/order/CuttingOrderEditor','sales/ProductionOrderEditor','accounts/components/PurchaseInvoiceEditorBody','hr/BillTrackingEditorPage','pd/components/ProductFieldsPanel','cutting/bulk/BulkSetupEditor']

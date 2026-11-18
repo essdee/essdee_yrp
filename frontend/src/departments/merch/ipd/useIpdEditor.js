@@ -13,7 +13,7 @@ import {
 	saveIpdBomMapping,
 } from "../../../api/merch.js"
 import { preserveListNavigationState } from "../../../router/listDocumentNavigation.js"
-import { MERCH_ROUTES, ipdEditRoute, ipdRoute } from "../merchViews.js"
+import { MERCH_IPD_ROUTES, ipdEditRoute, ipdRoute } from "../merchViews.js"
 import {
 	CHOICES,
 	GRID_FIELDS,
@@ -45,7 +45,7 @@ export const IPD_EDITOR_KEY = Symbol("ipd-editor")
 const GRID_DEBOUNCE_MS = 400
 const CHECK_IDLE_MS = 1200
 
-export function useIpdEditor(initialName) {
+export function useIpdEditor(initialName, ipdRoutes = MERCH_IPD_ROUTES) {
 	const route = useRoute()
 	const router = useRouter()
 	const toast = useToast()
@@ -299,7 +299,7 @@ export function useIpdEditor(initialName) {
 		if (!created) return
 		navigatingInternally.value = true
 		try {
-			await router.replace(ipdEditRoute(created, { hash: route.hash, state: preserveListNavigationState(created, record.value.modified) }))
+			await router.replace(ipdEditRoute(created, { hash: route.hash, state: preserveListNavigationState(created, record.value.modified) }, ipdRoutes))
 		} finally {
 			navigatingInternally.value = false
 		}
@@ -397,10 +397,10 @@ export function useIpdEditor(initialName) {
 	const invalidRegistry = { report: reportInvalidCells }
 
 	function recordLocation(recordName = name.value, modified = record.value.modified) {
-		return ipdRoute(recordName, { hash: route.hash, state: preserveListNavigationState(recordName, modified) })
+		return ipdRoute(recordName, { hash: route.hash, state: preserveListNavigationState(recordName, modified) }, ipdRoutes)
 	}
 	function cancel() {
-		return isNew.value ? router.push({ name: MERCH_ROUTES.ipds }) : router.push(recordLocation())
+		return isNew.value ? router.push({ name: ipdRoutes.list }) : router.push(recordLocation())
 	}
 	function followName(nextName) {
 		if ((nextName || "") === name.value) return

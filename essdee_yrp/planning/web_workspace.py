@@ -5,6 +5,7 @@ from essdee_yrp.cutting import reports as cutting_reports
 from essdee_yrp.cutting import web_capabilities as cutting_capabilities
 from essdee_yrp.fabric_store import web_workspace as fabric_store_workspace
 from essdee_yrp.finishing import web_workspace as finishing_workspace
+from essdee_yrp.merch.ipd.fields import DOCTYPE as IPD_DOCTYPE
 from essdee_yrp.planning.dashboard_workspace import has_dashboard_access
 from essdee_yrp.planning.reports import (
 	colour_wise_diff,
@@ -100,6 +101,9 @@ def get_capabilities() -> dict:
 		"action_master_templates": _with_label(
 			"Action Master Template",
 			permission_flags("SD YRP Action Master Template", ("read", "write", "create")),
+		),
+		"item_production_details": _with_label(
+			"Item Production Detail", permission_flags(IPD_DOCTYPE, ("read", "create"))
 		),
 		"production_orders": sales_sections.get("production_orders") or {},
 		"work_orders": fabric_store_sections.get("work_orders") or {},

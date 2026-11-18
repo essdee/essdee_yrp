@@ -67,7 +67,7 @@ import DocumentActionStrip from "../../../components/documents/DocumentActionStr
 import DocumentConfirmationDialog from "../../../components/documents/DocumentConfirmationDialog.vue"
 import DocumentErrorDialog from "../../../components/documents/DocumentErrorDialog.vue"
 import FabricDocumentWorkspace from "../../fabric-store/FabricDocumentWorkspace.vue"
-import { ipdEditRoute } from "../merchViews.js"
+import { MERCH_IPD_ROUTES, ipdEditRoute } from "../merchViews.js"
 import IpdChangesDialog from "./IpdChangesDialog.vue"
 import IpdChecksRail from "./IpdChecksRail.vue"
 import IpdCopyBanner from "./IpdCopyBanner.vue"
@@ -80,9 +80,9 @@ import { ENTRY_GRID_INVALID_KEY } from "../../../components/common/entryGrid.js"
 import { IPD_EDITOR_KEY, useIpdEditor } from "./useIpdEditor.js"
 import "./ipd.css"
 
-const props = defineProps({ ipdId: { type: String, default: "" } })
+const props = defineProps({ ipdId: { type: String, default: "" }, ipdRoutes: { type: Object, default: () => MERCH_IPD_ROUTES } })
 const router = useRouter()
-const editor = useIpdEditor(props.ipdId)
+const editor = useIpdEditor(props.ipdId, props.ipdRoutes)
 const {
 	payload, draft, record, isNew, checks, checksRunning, loading, acting, loadError, actionError, savedAt,
 	isDirty, hasStaleError, navigatingInternally, shellWorkspace, actions, load, refresh, save, createDraft, runChecks, approve, regenerate, cancel,
@@ -118,7 +118,7 @@ function openCopy(source) {
 	copyVisible.value = true
 }
 function openCopied(name) {
-	return router.push(ipdEditRoute(name))
+	return router.push(ipdEditRoute(name, {}, props.ipdRoutes))
 }
 async function loadChanges() {
 	const sequence = ++changesSequence
