@@ -62,6 +62,7 @@
 					:disabled="Boolean(acting)"
 					@click="requestRefresh"
 				/>
+				<slot name="print-actions" :workspace="workspace" :acting="acting" />
 				<CustomPrintButtons v-if="['SD YRP Lot', 'YRP Work Order'].includes(doctype)" :doctype="doctype" :record="{ ...record, has_cloth_program: workspace.has_cloth_program ?? record.has_cloth_program }" :permissions="workspace.permissions" :disabled="Boolean(acting)" />
 				<DocumentPrintButton
 					v-if="canPrint"

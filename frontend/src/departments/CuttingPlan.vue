@@ -71,6 +71,16 @@
 						:formats="workspaceData.print_formats || []"
 						:disabled="workspaceLoading"
 					/>
+					<DocumentPrintButton
+						v-if="canPrintCcr"
+						doctype="SD YRP Cutting Plan"
+						:name="doc.name"
+						:formats="workspaceData.print_formats"
+						label="Print CCR"
+						:default-format="CCR_PRINT_FORMAT"
+						:default-letter-head="CCR_LETTER_HEAD"
+						:disabled="workspaceLoading"
+					/>
 					<DocumentDeleteButton doctype="SD YRP Cutting Plan" document-label="Cutting Plan" :name="doc.name" :docstatus="doc.docstatus" :disabled="workspaceLoading" :redirect-to="backTo" />
 					<DocumentShortcuts :busy="workspaceLoading || Boolean(lifecycleBusy)" :can-cancel="currentDocument?.docstatus === 1 && Boolean(editorProbe?.permissions?.can_cancel)" cancel-confirms @cancel="requestLifecycleAction('cancel')" />
 					<Button v-if="currentDocument?.docstatus === 1 && editorProbe?.permissions?.can_cancel" label="Cancel" :title="withShortcutHint('Cancel', 'cancel')" icon="pi pi-ban" severity="danger" outlined :disabled="workspaceLoading || Boolean(lifecycleBusy)" @click="requestLifecycleAction('cancel')" />
@@ -103,6 +113,8 @@
 							:data="workspaceData"
 							:loading="workspaceLoading"
 							:error="''"
+							:tab="String(route.query.tab || '')"
+							@update:tab="showTab"
 							@refresh="refreshPage"
 						/>
 					</div>
@@ -152,6 +164,9 @@ import CuttingPlanTabs from "./cutting/CuttingPlanTabs.vue"
 import CuttingPlanEditor from "./cutting/plan/CuttingPlanEditor.vue"
 import { PLANNING_ROUTES } from "./planning/planningViews.js"
 
+const CCR_PRINT_FORMAT = "Essdee Cutting Plan CCR"
+const CCR_LETTER_HEAD = "Essdee Knitting Mills Private Limited"
+
 const props = defineProps({
 	backTo: { type: String, default: "/cutting/plans" },
 	backLabel: { type: String, default: "Cutting Plans" },
@@ -196,6 +211,10 @@ const duplicateAction = useDuplicateAction({
 	busy: () => workspaceLoading.value || Boolean(lifecycleBusy.value),
 	router,
 })
+const canPrintCcr = computed(() => Boolean(
+	workspaceData.value.permissions?.can_print
+	&& (workspaceData.value.print_formats || []).some((option) => option.format === CCR_PRINT_FORMAT),
+))
 const duplicateActions = computed(() => duplicateAction.value ? [duplicateAction.value] : [])
 const showSidebar = computed(() => Boolean(
 	workspaceLoading.value
@@ -292,6 +311,10 @@ async function confirmLifecycleAction() {
 	} finally {
 		if (request.name === cuttingPlanId.value) lifecycleBusy.value = ""
 	}
+}
+
+function showTab(tab) {
+	router.replace({ query: { ...route.query, tab }, hash: route.hash, state: preserveListNavigationState() })
 }
 
 function refreshPage() {

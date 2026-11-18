@@ -5,6 +5,7 @@
 			<Tab value="summary">Summary</Tab>
 			<Tab value="planned">Planned Detail</Tab>
 			<Tab v-if="canReadMovement" value="cpm">CPM</Tab>
+			<Tab value="ccr">CCR</Tab>
 			<Tab v-if="canReadStockTransfers" value="stock-transfers">Stock Transfers</Tab>
 		</TabList>
 
@@ -145,6 +146,10 @@
 				<CuttingPlanCpm ref="cpmTab" :cutting-plan="doc.name" @changed="tabChanged" />
 			</TabPanel>
 
+			<TabPanel value="ccr">
+				<CuttingPlanCcr v-if="activeTab === 'ccr'" ref="ccrTab" :cutting-plan="doc.name" />
+			</TabPanel>
+
 			<TabPanel v-if="canReadStockTransfers" value="stock-transfers">
 				<CuttingPlanStockTransfers ref="transfersTab" :cutting-plan="doc.name" @changed="tabChanged" />
 			</TabPanel>
@@ -164,6 +169,7 @@ import Tabs from "primevue/tabs"
 import { computed, defineComponent, h, nextTick, ref, watch } from "vue"
 
 import DocumentOverview from "../../components/documents/DocumentOverview.vue"
+import CuttingPlanCcr from "./CuttingPlanCcr.vue"
 import CuttingPlanCpm from "./CuttingPlanCpm.vue"
 import CuttingPlanStockTransfers from "./CuttingPlanStockTransfers.vue"
 import MaterialRequirementGroups from "./shared/MaterialRequirementGroups.vue"
@@ -175,11 +181,13 @@ const props = defineProps({
 	data: { type: Object, default: () => ({}) },
 	loading: { type: Boolean, default: false },
 	error: { type: String, default: "" },
+	tab: { type: String, default: "" },
 })
-const emit = defineEmits(["refresh"])
+const emit = defineEmits(["refresh", "update:tab"])
 
 const activeTab = ref("details")
 const cpmTab = ref(null)
+const ccrTab = ref(null)
 const transfersTab = ref(null)
 const tabPanels = ref(null)
 const detailFieldnames = computed(() => [
@@ -233,6 +241,7 @@ const availableTabs = computed(() => [
 	"summary",
 	"planned",
 	...(canReadMovement.value ? ["cpm"] : []),
+	"ccr",
 	...(canReadStockTransfers.value ? ["stock-transfers"] : []),
 ])
 
@@ -316,6 +325,7 @@ function weight(value) {
 function tabChanged() {
 	emit("refresh")
 	cpmTab.value?.activate()
+	ccrTab.value?.load()
 	transfersTab.value?.activate()
 }
 
@@ -334,7 +344,10 @@ watch(availableTabs, (tabs) => {
 	if (!tabs.includes(activeTab.value)) activeTab.value = tabs[0] || "details"
 })
 
-watch(activeTab, async () => {
+watch([() => props.tab, availableTabs], () => activate(props.tab), { immediate: true })
+
+watch(activeTab, async (tab) => {
+	if (tab !== (props.tab || "details")) emit("update:tab", tab)
 	await nextTick()
 	const element = tabPanels.value?.$el
 	if (element) element.scrollTop = 0
