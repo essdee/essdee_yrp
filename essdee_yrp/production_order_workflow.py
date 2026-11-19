@@ -41,7 +41,8 @@ AUDIT_COMPLETE_FINISHING_PLAN_STATUSES = {
 	"Auto Closed",
 	"OCR Completed",
 }
-PPO_APPROVER_ROLE_FIELDS = ("merch_user_role", "merchandising_manager_role")
+FG_ITEM_PPO_APPROVER_ROLE_FIELDS = ("merchandising_manager_role",)
+NON_FG_ITEM_PPO_APPROVER_ROLE_FIELDS = ("production_planner_role", "merchandising_manager_role")
 SYSTEM_GENERATED_ALTERNATIVE_PPO_FLAG = "allow_system_generated_alternative_ppo"
 
 
@@ -150,14 +151,19 @@ def before_submit(doc, method=None):
 
 def on_submit(doc, method=None):
 	doc.db_set("status", "Open", update_modified=False)
+	if doc.flags.get("ppo_submitted_directly"):
+		log_date = frappe.utils.formatdate(frappe.utils.nowdate(), "dd-mm-yyyy")
+		append_comment_log_block(doc, f"[{log_date}] PPO Submitted Directly - {frappe.session.user}")
 
 
 def onload(doc, method=None):
 	can_manage = user_can_manage_production_order()
 	doc.set_onload("can_manage_production_order", can_manage)
 	if doc.docstatus == 0:
-		doc.set_onload("can_request_ppo_approval", can_manage)
-		doc.set_onload("can_approve_ppo", user_has_any_role(get_ppo_approver_roles()))
+		can_submit_directly = user_can_submit_ppo_directly(doc.item)
+		doc.set_onload("can_submit_ppo_directly", can_submit_directly)
+		doc.set_onload("can_request_ppo_approval", can_manage and not can_submit_directly)
+		doc.set_onload("can_approve_ppo", user_has_any_role(get_ppo_approver_roles(doc.item)))
 		doc.set_onload(
 			"ppo_approval_request",
 			{
@@ -262,18 +268,15 @@ def _validate_ppo_submission(doc):
 		if doc.status != PPO_REQUEST_STATUS:
 			frappe.throw("System-generated alternative Production Order must be ready for approval")
 		return
-	approver_roles = get_ppo_approver_roles()
-	if not approver_roles:
+	if doc.status == PPO_REQUEST_STATUS:
+		require_ppo_approver(doc.item, "approve")
+		return
+	if not user_can_submit_ppo_directly(doc.item):
 		frappe.throw(
-			"Set Merch User Role and Merchandising Manager Role in MRP Settings before approving a PPO"
+			"Send the Production Order for PPO approval before submitting it. Only the Production Planner "
+			"role can submit a PPO directly, and only when its item is not in the FG Item Master"
 		)
-	if not user_has_any_role(approver_roles):
-		frappe.throw(
-			"Only users with the configured Merch User or Merchandising Manager role can approve a PPO",
-			frappe.PermissionError,
-		)
-	if doc.status != PPO_REQUEST_STATUS:
-		frappe.throw("Send the Production Order for PPO approval before submitting it")
+	doc.flags.ppo_submitted_directly = True
 
 
 def _validate_tracked_date_update(doc):
@@ -908,12 +911,50 @@ def get_quantity_approver_role():
 	).strip()
 
 
-def get_ppo_approver_roles():
+def is_fg_item(item):
+	return bool(item) and bool(
+		frappe.db.exists("SD YRP FG Item Master", item)
+		or frappe.db.exists("SD YRP FG Item Master", {"item": item})
+	)
+
+
+def get_ppo_approver_roles(item):
+	"""FG Item Master items need the Merch Manager; other items also allow the Production Planner."""
+	fieldnames = (
+		FG_ITEM_PPO_APPROVER_ROLE_FIELDS if is_fg_item(item) else NON_FG_ITEM_PPO_APPROVER_ROLE_FIELDS
+	)
 	return {
 		role.strip()
-		for fieldname in PPO_APPROVER_ROLE_FIELDS
+		for fieldname in fieldnames
 		if (role := frappe.db.get_single_value("SD YRP MRP Settings", fieldname)) and role.strip()
 	}
+
+
+def user_can_submit_ppo_directly(item):
+	"""Production Planners skip PPO approval for items outside the FG Item Master."""
+	planner_role = (frappe.db.get_single_value("SD YRP MRP Settings", "production_planner_role") or "").strip()
+	return bool(planner_role) and user_has_any_role({planner_role}) and not is_fg_item(item)
+
+
+def require_ppo_approver(item, action):
+	approver_roles = get_ppo_approver_roles(item)
+	if is_fg_item(item):
+		reason = frappe._("Item {0} is in the FG Item Master").format(item)
+	else:
+		reason = frappe._("Item {0} is not in the FG Item Master").format(item)
+	if not approver_roles:
+		frappe.throw(
+			frappe._("{0}. Configure its PPO approver role in MRP Settings before you {1} this PPO").format(
+				reason, action
+			)
+		)
+	if not user_has_any_role(approver_roles):
+		frappe.throw(
+			frappe._("{0}, so only the {1} role can {2} this PPO").format(
+				reason, " or ".join(sorted(approver_roles)), action
+			),
+			frappe.PermissionError,
+		)
 
 
 def get_ppo_action_roles():
@@ -1047,15 +1088,21 @@ def request_ppo_approval(production_order):
 
 
 @frappe.whitelist()
+def submit_ppo(production_order):
+	lock_production_orders(production_order)
+	doc = frappe.get_doc("YRP Production Order", production_order)
+	doc.check_permission("submit")
+	if doc.docstatus != 0 or (doc.status or PPO_DRAFT_STATUS) != PPO_DRAFT_STATUS:
+		frappe.throw("Only a draft Production Order can be submitted directly")
+	doc.submit()
+	return {"docstatus": doc.docstatus, "status": doc.status}
+
+
+@frappe.whitelist()
 def request_ppo_changes(production_order, reason):
-	approver_roles = get_ppo_approver_roles()
-	if not approver_roles:
-		frappe.throw("Merch User Role and Merchandising Manager Role are not configured in MRP Settings")
-	if not user_has_any_role(approver_roles):
-		frappe.throw(
-			"Only users with the configured Merch User or Merchandising Manager role can request PPO changes",
-			frappe.PermissionError,
-		)
+	require_ppo_approver(
+		frappe.db.get_value("YRP Production Order", production_order, "item"), "request changes to"
+	)
 
 	reason = (reason or "").strip()
 	if not reason:
@@ -1086,14 +1133,7 @@ def request_ppo_changes(production_order, reason):
 
 @frappe.whitelist()
 def approve_ppo(production_order):
-	approver_roles = get_ppo_approver_roles()
-	if not approver_roles:
-		frappe.throw("Merch User Role and Merchandising Manager Role are not configured in MRP Settings")
-	if not user_has_any_role(approver_roles):
-		frappe.throw(
-			"Only users with the configured Merch User or Merchandising Manager role can approve a PPO",
-			frappe.PermissionError,
-		)
+	require_ppo_approver(frappe.db.get_value("YRP Production Order", production_order, "item"), "approve")
 
 	lock_production_orders(production_order)
 	doc = frappe.get_doc("YRP Production Order", production_order)

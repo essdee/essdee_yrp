@@ -191,6 +191,7 @@ class TestSalesWebWorkspace(TestCase):
 			patch.object(frappe, "new_doc") as new_doc,
 			patch.object(frappe.db, "get_value", return_value=frappe._dict(has_variants=1, variant_of=None, disabled=0)),
 			patch.object(workspace.workflow, "get_order_editor_context", return_value={"items": {"M": {"qty": 5}}}) as matrix,
+			patch.object(workspace.workflow, "user_can_submit_ppo_directly", return_value=False),
 		):
 			payload = workspace.get_production_order_editor(duplicate_from="PPO-0007")
 

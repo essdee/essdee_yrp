@@ -50,7 +50,7 @@ test("F-A04 commands have explicit confirmation and success messages, with delet
 	const messages = {
 		delete: "Delete PPO-1? This cannot be undone.", cancel: "Cancel PPO-1? Linked documents are checked before it is cancelled.",
 		amend: "Create an amended copy of PPO-1?", reopen: "Reopen PPO-1?", approve_ppo: "Approve and submit PPO-1?",
-		request_ppo_approval: "Send PPO-1 for PPO approval?", approve_status: "Approve the requested status change for PPO-1?",
+		request_ppo_approval: "Send PPO-1 for PPO approval?", submit_ppo: "Submit PPO-1 without PPO approval?", approve_status: "Approve the requested status change for PPO-1?",
 		approve_quantity_ratio: "Approve the requested quantity and ratio changes for PPO-1?", approve_transfer: "Approve the incoming quantity transfer to PPO-1?",
 	}
 	for (const [command, message] of Object.entries(messages)) assert.equal(productionOrderConfirmation(command, "PPO-1"), message)
@@ -59,6 +59,8 @@ test("F-A04 commands have explicit confirmation and success messages, with delet
 	assert.equal(productionOrderSuccess("change_status", "Change Status", { record: { status: "Not Processed" } }), "Status updated")
 	assert.equal(productionOrderSuccess("change_dates", "Change Dates"), "Date change tracked")
 	assert.equal(productionOrderSuccess("approve_ppo", "Approve & Submit PPO"), "PPO approved and submitted")
+	assert.equal(productionOrderSuccess("submit_ppo", "Submit"), "Production Order submitted")
+	assert.match(salesSource("ProductionOrderEditor.vue"), /canSubmitDirectly \? 'Submit' : 'Request Approval'/)
 	assert.equal(productionOrderSuccess("unknown_command", "Custom"), "Custom done")
 	const view = salesSource("ProductionOrder.vue")
 	assert.match(view, /useToast/)
