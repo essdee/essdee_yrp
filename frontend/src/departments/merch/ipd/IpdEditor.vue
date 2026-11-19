@@ -47,6 +47,7 @@
 			</template>
 		</FabricDocumentWorkspace>
 		<IpdCopyDialog v-model:visible="copyVisible" :source="copySource" @copied="openCopied" />
+		<IpdApprovalDialog v-model:visible="approvalVisible" :name="record.name || ''" :busy="acting === 'approve'" @confirm="confirmApprove" />
 		<IpdChangesDialog v-model:visible="changesVisible" :source="payload?.source?.name || ''" :changes="changes || []" :loading="changesLoading" :error="changesError" />
 		<DocumentConfirmationDialog v-model:visible="reloadVisible" title="Discard unsaved changes?" message="Reloading replaces your unsaved changes with the saved IPD." confirm-label="Discard and reload" cancel-label="Keep editing" severity="warn" @confirm="confirmReload" />
 		<DocumentErrorDialog
@@ -69,6 +70,7 @@ import DocumentErrorDialog from "../../../components/documents/DocumentErrorDial
 import FabricDocumentWorkspace from "../../fabric-store/FabricDocumentWorkspace.vue"
 import { MERCH_IPD_ROUTES, ipdEditRoute } from "../merchViews.js"
 import IpdChangesDialog from "./IpdChangesDialog.vue"
+import IpdApprovalDialog from "./approval/IpdApprovalDialog.vue"
 import IpdChecksRail from "./IpdChecksRail.vue"
 import IpdCopyBanner from "./IpdCopyBanner.vue"
 import IpdCopyDialog from "./IpdCopyDialog.vue"
@@ -93,6 +95,7 @@ provide(ENTRY_GRID_INVALID_KEY, editor.invalidRegistry)
 
 const frame = ref(null)
 const copyVisible = ref(false)
+const approvalVisible = ref(false)
 const copySource = ref("")
 const changesVisible = ref(false)
 const changes = ref(null)
@@ -104,7 +107,7 @@ let saveProblem = null
 let changesSequence = 0
 
 const handlers = {
-	save: saveAndFocus, approve, cancel,
+	save: saveAndFocus, approve: () => { approvalVisible.value = true }, cancel,
 	run_checks: runChecks,
 	regenerate_process_matrix: regenerate,
 	copy_from: () => openCopy(""),
@@ -113,6 +116,10 @@ const handlers = {
 }
 const stripActions = computed(() => actions.value.map((action) => ({ ...action, command: handlers[action.key] })))
 
+async function confirmApprove() {
+	await approve()
+	approvalVisible.value = false
+}
 function openCopy(source) {
 	copySource.value = source || ""
 	copyVisible.value = true

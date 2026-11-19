@@ -39,6 +39,7 @@
 		</section>
 		<IpdChangesDialog v-model:visible="changesVisible" :source="record.copied_from || ''" :changes="changes || []" :loading="changesLoading" :error="changesError" />
 		<IpdCopyDialog v-model:visible="copyVisible" :source="record.name || ipdId" @copied="openCopied" />
+		<IpdApprovalDialog v-model:visible="approvalVisible" :name="record.name || ''" :busy="acting === 'approve'" @confirm="runCommand('approve')" />
 		<DocumentConfirmationDialog
 			v-model:visible="revertVisible"
 			title="Revert approval?"
@@ -80,6 +81,7 @@ import IpdIdentity from "./IpdIdentity.vue"
 import IpdSections from "./IpdSections.vue"
 import IpdCopyBanner from "./IpdCopyBanner.vue"
 import IpdChangesDialog from "./IpdChangesDialog.vue"
+import IpdApprovalDialog from "./approval/IpdApprovalDialog.vue"
 import { IPD_TABS } from "./ipdTabs.js"
 import { createFocusRegistry, goToProblem } from "./ipdFocus.js"
 import { gridErrors, isStaleWriteError, problemsFor, recordActions, sectionStates, sectionsFor } from "./ipdEditor.js"
@@ -102,6 +104,7 @@ const checks = ref(null)
 const checksRunning = ref(false)
 const copyVisible = ref(false)
 const revertVisible = ref(false)
+const approvalVisible = ref(false)
 const revertReason = ref("")
 const revertPayload = computed(() => revertReasonPayload(revertReason.value))
 const frame = ref(null)
@@ -164,7 +167,7 @@ provide(IPD_EDITOR_KEY, readOnlyApi)
 
 const handlers = {
 	edit: openEditor,
-	approve: () => runCommand("approve"),
+	approve: () => { approvalVisible.value = true },
 	revert_approval: () => { revertReason.value = ""; revertVisible.value = true },
 	run_checks: runChecks,
 	new_version: () => { copyVisible.value = true },
@@ -219,11 +222,13 @@ async function runCommand(command, payload = null) {
 	try {
 		workspace.value = await executeIpdCommand(record.value.name, command, { payload, expectedModified: record.value.modified })
 		revertVisible.value = false
+		approvalVisible.value = false
 		checks.value = null
 		toast.add(ipdCommandSuccess(command, record.value.name))
 	} catch (reason) {
 		actionError.value = reason?.message || "Unable to complete this action."
 		revertVisible.value = false
+		approvalVisible.value = false
 	} finally {
 		acting.value = ""
 	}

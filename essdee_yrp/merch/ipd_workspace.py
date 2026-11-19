@@ -6,6 +6,7 @@ from frappe import _
 from essdee_yrp import ipd_ui
 from essdee_yrp.ipd_approved_edits import APPROVED_EDIT_FIELDS
 from essdee_yrp.merch.ipd import client_rules
+from essdee_yrp.merch.ipd.approval.summary import get_summary as get_approval_summary
 from essdee_yrp.merch.ipd.attribute_values import get_usage, save_values
 from essdee_yrp.merch.ipd.bom_mapping import get_bom_mapping, save_bom_mapping
 from essdee_yrp.merch.ipd.capabilities import assert_allowed
@@ -201,3 +202,8 @@ def save_ipd_bom_mapping(
 		mapping_modified,
 		**bom_mapping_tables(item_attributes, bom_item_attributes),
 	)
+
+
+@frappe.whitelist()
+def get_ipd_approval_summary(name: str) -> dict:
+	return get_approval_summary(name)

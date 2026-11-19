@@ -1,0 +1,62 @@
+.ipd-approval .p-dialog-header { align-items: flex-start; gap: var(--erp-space-3); }
+.ipd-approval__title { flex: 1; min-width: 0; }
+.ipd-approval__title h2 { margin: 0; font-size: var(--erp-font-size-hero); font-weight: var(--erp-font-weight-semibold); }
+.ipd-approval__title p { margin: 4px 0 0; color: var(--erp-text-muted); font-size: var(--erp-font-size-table); }
+.ipd-approval__title strong { color: var(--erp-text); }
+.ipd-approval__status { flex: none; }
+.ipd-approval__state { display: flex; align-items: center; gap: var(--erp-space-2); padding: var(--erp-space-6); color: var(--erp-text-muted); }
+.ipd-approval__body { max-height: min(72dvh, 820px); background: var(--erp-canvas); margin: 0 calc(-1 * var(--erp-space-4)); padding: var(--erp-space-3) var(--erp-space-4); }
+.ipd-approval .p-dialog-footer { align-items: center; }
+.ipd-approval__hint { flex: 1; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
+
+.ipd-approval__stats { display: grid; grid-template-columns: 2.2fr repeat(5, 1fr); gap: 1px; background: var(--erp-border); border: 1px solid var(--erp-border); border-radius: var(--erp-radius-lg); overflow: hidden; margin-bottom: var(--erp-space-3); }
+.ipd-approval__stat { background: var(--erp-surface); padding: 9px 12px; display: flex; flex-direction: column; min-width: 0; }
+.ipd-approval__stat-label { font-size: var(--erp-font-size-min); color: var(--erp-text-muted); text-transform: uppercase; letter-spacing: .03em; font-weight: var(--erp-font-weight-semibold); }
+.ipd-approval__stat-value { font-size: var(--erp-font-size-md); font-weight: var(--erp-font-weight-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ipd-approval__stat-note { font-size: var(--erp-font-size-caption); color: var(--erp-text-subtle); }
+
+.ipd-approval__issues { background: var(--erp-surface); border: 1px solid var(--erp-border); border-left: 3px solid var(--erp-warning); border-radius: var(--erp-control-radius); padding: 10px 12px 4px; margin-bottom: var(--erp-space-3); }
+.ipd-approval__issues.is-danger { border-left-color: var(--erp-danger); }
+.ipd-approval__issues > strong { display: block; font-size: var(--erp-font-size-table); margin-bottom: 6px; }
+.ipd-approval__alerts { display: grid; gap: 6px; margin-bottom: var(--erp-space-2); }
+.ipd-approval__ack { display: inline-flex; gap: var(--erp-space-2); align-items: center; font-size: var(--erp-font-size-table); font-weight: var(--erp-font-weight-semibold); margin: 4px 0 8px; cursor: pointer; }
+
+.ipd-approval__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--erp-space-3); align-items: start; margin-top: var(--erp-space-3); }
+.ipd-approval__card { background: var(--erp-surface); border: 1px solid var(--erp-border); border-radius: var(--erp-radius-lg); padding: 12px 14px; min-width: 0; }
+.ipd-approval__card.is-wide { grid-column: 1 / -1; }
+.ipd-approval__card.is-danger { border-top: 3px solid var(--erp-danger); }
+.ipd-approval__card.is-warning { border-top: 3px solid var(--erp-warning); }
+.ipd-approval__card > header { display: flex; align-items: center; flex-wrap: wrap; gap: var(--erp-space-2); margin-bottom: var(--erp-space-2); }
+.ipd-approval__card h3 { margin: 0; font-size: var(--erp-font-size-md); font-weight: var(--erp-font-weight-semibold); }
+.ipd-approval__card > header .ipd-approval__tag:last-of-type { margin-right: auto; }
+.ipd-approval__card-body { overflow-x: auto; }
+.ipd-approval__number { width: 22px; height: 22px; border-radius: 6px; background: var(--erp-accent-soft); color: var(--erp-accent-ink); font-weight: var(--erp-font-weight-bold); font-size: var(--erp-font-size-caption); display: grid; place-items: center; }
+.ipd-approval__ok { color: var(--erp-success); }
+.ipd-approval__tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--erp-pill-radius); background: var(--erp-surface-muted); color: var(--erp-text-secondary); font-size: var(--erp-font-size-caption); white-space: nowrap; }
+.ipd-approval__tag.is-accent { background: var(--erp-accent-soft); color: var(--erp-accent-ink); border: 1px solid var(--erp-accent-border); }
+.ipd-approval__tag.is-warning { background: var(--erp-warning-soft); color: var(--erp-warning); }
+.ipd-approval__tag.is-danger { background: var(--erp-danger-soft); color: var(--erp-danger); }
+
+.ipd-approval__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ipd-approval__chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--erp-border); border-radius: var(--erp-pill-radius); background: var(--erp-surface); font-size: var(--erp-font-size-caption); }
+.ipd-approval__part + .ipd-approval__part { margin-top: 10px; }
+.ipd-approval__part-label { font-size: var(--erp-font-size-caption); font-weight: var(--erp-font-weight-semibold); color: var(--erp-text-muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 5px; }
+.ipd-approval__pair + .ipd-approval__pair::before { content: ", "; }
+
+.ipd-approval__table { width: 100%; margin-top: var(--erp-space-2); font-size: var(--erp-font-size-table); }
+.ipd-approval__table th, .ipd-approval__table td { padding: 6px 8px; vertical-align: top; }
+.ipd-approval__table .is-number { text-align: right; white-space: nowrap; }
+.ipd-approval__weight td { vertical-align: middle; }
+.ipd-approval__weight tr.is-group td { border-top: 1px solid var(--erp-border-strong); }
+.ipd-approval__weight tr.is-outlier td { background: var(--erp-warning-soft); }
+.ipd-approval__outlier { font-size: var(--erp-font-size-caption); color: var(--erp-warning); font-weight: var(--erp-font-weight-semibold); margin-top: 2px; }
+.ipd-approval__legend { margin: 8px 0 0; font-size: var(--erp-font-size-caption); color: var(--erp-text-subtle); }
+.ipd-approval__line { margin: 8px 0 0; font-size: var(--erp-font-size-table); }
+.ipd-approval__subtle { color: var(--erp-text-subtle); font-size: var(--erp-font-size-caption); margin-left: 4px; }
+.ipd-approval__muted { color: var(--erp-text-muted); }
+.ipd-approval__empty { margin: 0; color: var(--erp-text-muted); font-size: var(--erp-font-size-table); }
+
+@media (max-width: 900px) {
+	.ipd-approval__grid { grid-template-columns: 1fr; }
+	.ipd-approval__stats { grid-template-columns: 1fr 1fr; }
+}
