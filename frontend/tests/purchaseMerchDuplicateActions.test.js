@@ -7,6 +7,7 @@ import { Vue, findNodes, loadComponent, mountComponent } from "../../scripts/hel
 const duplicate = await import("../src/composables/useDuplicateAction.js")
 const purchaseViews = await import("../src/departments/purchase/purchaseViews.js")
 const merchViews = await import("../src/departments/merch/merchViews.js")
+const { MERCH_PROCESS_COST_ROUTES } = await import("../src/departments/merch/process-cost/processCostViews.js")
 const purchaseApi = await import("../src/api/purchase.js")
 const merchApi = await import("../src/api/merch.js")
 const tick = async () => { await new Promise((done) => setImmediate(done)); await Vue.nextTick() }
@@ -70,7 +71,7 @@ test("Process Cost page offers Duplicate to users who can create", async () => {
 	const view = await mountActions("merch/process-cost/ProcessCostPage", {
 		"../../../api/merch.js": { getProcessCostWorkspace: async () => ({ record: { name: "PC-1" }, permissions: { can_create: true }, actions: [] }) },
 		"../merchViews.js": merchViews,
-		"./processCostViews.js": { ...helpers, processCostActions: () => [], PROCESS_COST_TABS: [], PROCESS_COST_SECTIONS: [], PROCESS_COST_DOCUMENT_SECTIONS: [] },
+		"./processCostViews.js": { ...helpers, MERCH_PROCESS_COST_ROUTES, processCostActions: () => [], PROCESS_COST_TABS: [], PROCESS_COST_SECTIONS: [], PROCESS_COST_DOCUMENT_SECTIONS: [] },
 	}, { processCostId: "PC-1" })
 	duplicateOf(view.actions).command()
 	assert.deepEqual(view.pushes, [{ name: "merch-process-cost-new", query: { duplicate_from: "PC-1" } }])

@@ -174,8 +174,8 @@ class TestPlanningActionMasterSection(TestCase):
 		}})
 
 
-class TestPlanningItemProductionDetailSection(TestCase):
-	def sections(self, granted):
+class TestPlanningMerchCardSections(TestCase):
+	def sections(self, granted, doctype="YRP Item Production Detail"):
 		empty = {"sections": {}}
 		with (
 			patch.object(web_workspace.sewing_workspace, "get_capabilities", return_value=empty),
@@ -186,7 +186,7 @@ class TestPlanningItemProductionDetailSection(TestCase):
 			patch.object(web_workspace, "_reports_section", return_value={"can_read": False}),
 			patch.object(
 				web_workspace.frappe, "has_permission",
-				side_effect=lambda doctype, ptype, doc=None: doctype == "YRP Item Production Detail" and ptype in granted,
+				side_effect=lambda name, ptype, doc=None: name == doctype and ptype in granted,
 			),
 		):
 			return web_workspace.get_capabilities()["sections"]
@@ -196,3 +196,9 @@ class TestPlanningItemProductionDetailSection(TestCase):
 			"label": "Item Production Detail", "can_read": True, "can_create": True,
 		}})
 		self.assertEqual(self.sections({"create"}), {})
+
+	def test_process_cost_card_follows_process_cost_permissions(self):
+		self.assertEqual(self.sections({"read"}, "YRP Process Cost"), {"process_costs": {
+			"label": "Process Cost", "can_read": True, "can_create": False,
+		}})
+		self.assertEqual(self.sections({"create"}, "YRP Process Cost"), {})

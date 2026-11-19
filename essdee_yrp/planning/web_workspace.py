@@ -105,6 +105,7 @@ def get_capabilities() -> dict:
 		"item_production_details": _with_label(
 			"Item Production Detail", permission_flags(IPD_DOCTYPE, ("read", "create"))
 		),
+		"process_costs": _with_label("Process Cost", permission_flags("YRP Process Cost", ("read", "create"))),
 		"production_orders": sales_sections.get("production_orders") or {},
 		"work_orders": fabric_store_sections.get("work_orders") or {},
 		"delivery_challans": fabric_store_sections.get("delivery_challans") or {},

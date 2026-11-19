@@ -23,6 +23,7 @@ class ProcessCostStageTest(unittest.TestCase):
 			ipd_processes=[frappe._dict(process_name="Printing", in_stage="Cut", out_stage="Cut")],
 		)
 		with (
+			patch("essdee_yrp.process_cost.is_folding_lot", return_value=False),
 			patch("essdee_yrp.process_cost._check_process_cost_permissions"),
 			patch("essdee_yrp.process_cost.frappe.db", new=frappe._dict(get_value=Mock())) as db,
 			patch("essdee_yrp.process_cost.frappe.has_permission"),
@@ -59,6 +60,7 @@ class ProcessCostStageTest(unittest.TestCase):
 		from essdee_yrp.process_cost import _resolve_ipd_name
 
 		with (
+			patch("essdee_yrp.process_cost.is_folding_lot", return_value=False),
 			patch("essdee_yrp.process_cost.frappe.db.get_value", return_value=1),
 			patch(
 				"essdee_yrp.api.work_order._get_work_order_selection_context",
@@ -87,6 +89,7 @@ class ProcessCostStageTest(unittest.TestCase):
 
 		doc = frappe._dict(lot="Lot", process_name="Knitting", item="Cloth")
 		with (
+			patch("essdee_yrp.process_cost.is_folding_lot", return_value=False),
 			patch("essdee_yrp.process_cost.frappe.db.get_value", return_value=1),
 			patch("essdee_yrp.process_cost._resolve_ipd_name") as resolve,
 		):

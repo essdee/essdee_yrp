@@ -1,6 +1,8 @@
 // Essdee Process Cost values are scoped by the Lot's IPD and process.
 frappe.ui.form.on("YRP Process Cost", {
 	setup(frm) {
+		// A Folding Lot's Item is chosen freely; other Lots overwrite it with the Lot Item on save.
+		frm.set_query("item", () => ({ filters: { disabled: 0 } }));
 		frm.set_query("attribute", () => {
 			if (!frm.doc.lot) {
 				frappe.throw(__("Select Lot before Attribute."));

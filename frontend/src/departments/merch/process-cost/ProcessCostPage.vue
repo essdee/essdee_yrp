@@ -1,5 +1,5 @@
 <template>
-	<DepartmentPage title="Process Cost" :back-to="PROCESS_COST_LIST_PATH" back-label="Process Costs" :show-title="false" flat full-width inline-navigation>
+	<DepartmentPage title="Process Cost" :back-to="processCostRoutes.listPath" back-label="Process Costs" :show-title="false" flat full-width inline-navigation>
 		<section class="purchase-lot-frame merch-lot-frame process-cost-frame">
 			<FabricDocumentWorkspace doctype="YRP Process Cost" title="Process Cost" :workspace="workspace" :loading="loading" :error="error" :acting="acting ? 'action' : ''" :show-lifecycle-actions="false" :show-delete="false" @reload="load">
 				<template #header="{ record, headingId }">
@@ -59,13 +59,12 @@ import { preserveListNavigationState } from "../../../router/listDocumentNavigat
 import FabricDocumentWorkspace from "../../fabric-store/FabricDocumentWorkspace.vue"
 import LotDocumentsRail from "../../purchase/lot/LotDocumentsRail.vue"
 import { useDuplicateAction } from "../../../composables/useDuplicateAction.js"
-import { MERCH_ROUTES } from "../merchViews.js"
 import ProcessCostGrid from "./ProcessCostGrid.vue"
-import { PROCESS_COST_DOCUMENT_SECTIONS, PROCESS_COST_LIST_PATH, PROCESS_COST_SECTIONS, PROCESS_COST_TABS, processCostActions, processCostActionMessage, processCostPath } from "./processCostViews.js"
+import { MERCH_PROCESS_COST_ROUTES, PROCESS_COST_DOCUMENT_SECTIONS, PROCESS_COST_SECTIONS, PROCESS_COST_TABS, processCostActions, processCostActionMessage } from "./processCostViews.js"
 import "../../purchase/lot/lot.css"
 import "../lot/merchLot.css"
 
-const props = defineProps({ processCostId: { type: String, required: true } })
+const props = defineProps({ processCostId: { type: String, required: true }, processCostRoutes: { type: Object, default: () => MERCH_PROCESS_COST_ROUTES } })
 const route = useRoute()
 const router = useRouter()
 const workspace = ref({})
@@ -81,7 +80,7 @@ const activeTab = computed({
 })
 const duplicateAction = useDuplicateAction({
 	canCreate: () => workspace.value.permissions?.can_create,
-	newRouteName: MERCH_ROUTES.processCostNew,
+	newRouteName: props.processCostRoutes.new,
 	name: () => workspace.value.record?.name,
 	busy: acting,
 	router,
@@ -89,7 +88,7 @@ const duplicateAction = useDuplicateAction({
 const actions = computed(() => [
 	...processCostActions(workspace.value, {
 		busy: acting.value, execute: (action) => { pending.value = action },
-		edit: () => router.push(`${processCostPath(props.processCostId)}/edit`),
+		edit: () => router.push({ name: props.processCostRoutes.edit, params: { processCostId: props.processCostId } }),
 		remove: () => { pending.value = { action: "Delete", label: "Delete" } },
 	}),
 	...(duplicateAction.value ? [duplicateAction.value] : []),
@@ -105,7 +104,7 @@ async function load() {
 }
 function reload() { actionError.value = ""; load() }
 function openWorkOrder(doc) {
-	return router.push({ name: MERCH_ROUTES.workOrder, params: { workOrderId: doc.name } })
+	return router.push({ name: props.processCostRoutes.workOrder, params: { workOrderId: doc.name } })
 }
 async function confirmAction() {
 	if (acting.value || !pending.value) return
@@ -113,7 +112,7 @@ async function confirmAction() {
 	try {
 		if (pending.value.action === "Delete") {
 			await deleteProcessCost(props.processCostId, workspace.value.record.modified)
-			await router.push(PROCESS_COST_LIST_PATH)
+			await router.push(props.processCostRoutes.listPath)
 		} else workspace.value = await executeProcessCostCommand(props.processCostId, pending.value.action, workspace.value.record.modified)
 		pending.value = null
 	} catch (reason) { pending.value = null; actionError.value = reason.message }

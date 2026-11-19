@@ -113,6 +113,7 @@ const SuppliersList = () => import("../departments/merch/supplier/SuppliersList.
 const SupplierPage = () => import("../departments/merch/supplier/SupplierPage.vue")
 
 const PLANNING_IPD_ROUTES = { department: "Planning", departmentPath: "/planning", listPath: "/planning/item-production-details", list: PLANNING_ROUTES.ipds, new: PLANNING_ROUTES.ipdNew, view: PLANNING_ROUTES.ipd, edit: PLANNING_ROUTES.ipdEdit }
+const PLANNING_PROCESS_COST_ROUTES = { department: "Planning", departmentPath: "/planning", listPath: "/planning/process-costs", list: PLANNING_ROUTES.processCosts, new: PLANNING_ROUTES.processCostNew, view: PLANNING_ROUTES.processCost, edit: PLANNING_ROUTES.processCostEdit, workOrder: PLANNING_ROUTES.workOrder }
 const idProps = (param, extra) => (route) => ({ [param]: String(route.params[param] || ""), ...extra })
 
 const Debits = () => import("../departments/accounts/Debits.vue")
@@ -835,6 +836,10 @@ const routes = [
 	{ path: "/planning/item-production-details/new", name: PLANNING_ROUTES.ipdNew, component: IpdEditorPage, props: { ipdRoutes: PLANNING_IPD_ROUTES } },
 	{ path: "/planning/item-production-details/:ipdId", name: PLANNING_ROUTES.ipd, component: IpdPage, props: idProps("ipdId", { ipdRoutes: PLANNING_IPD_ROUTES }) },
 	{ path: "/planning/item-production-details/:ipdId/edit", name: PLANNING_ROUTES.ipdEdit, component: IpdEditorPage, props: idProps("ipdId", { ipdRoutes: PLANNING_IPD_ROUTES }) },
+	{ path: "/planning/process-costs", name: PLANNING_ROUTES.processCosts, component: ProcessCostsList, props: { processCostRoutes: PLANNING_PROCESS_COST_ROUTES } },
+	{ path: "/planning/process-costs/new", name: PLANNING_ROUTES.processCostNew, component: ProcessCostEditorPage, props: { processCostRoutes: PLANNING_PROCESS_COST_ROUTES } },
+	{ path: "/planning/process-costs/:processCostId", name: PLANNING_ROUTES.processCost, component: ProcessCostPage, props: idProps("processCostId", { processCostRoutes: PLANNING_PROCESS_COST_ROUTES }) },
+	{ path: "/planning/process-costs/:processCostId/edit", name: PLANNING_ROUTES.processCostEdit, component: ProcessCostEditorPage, props: idProps("processCostId", { processCostRoutes: PLANNING_PROCESS_COST_ROUTES }) },
 	{
 		path: "/planning/production-orders", name: PLANNING_ROUTES.productionOrders, component: SalesSection,
 		props: { backTo: "/planning", backLabel: "Planning", viewRouteName: PLANNING_ROUTES.productionOrder, newRouteName: PLANNING_ROUTES.productionOrderNew },
@@ -865,7 +870,7 @@ const routes = [
 	},
 	{
 		path: "/planning/work-orders/:workOrderId", name: PLANNING_ROUTES.workOrder, component: FabricWorkOrder,
-		props: { backTo: "/planning/work-orders", backLabel: "Work Orders", viewRouteName: PLANNING_ROUTES.workOrder, newRouteName: PLANNING_ROUTES.workOrderNew, editRouteName: PLANNING_ROUTES.workOrderEdit },
+		props: { backTo: "/planning/work-orders", backLabel: "Work Orders", viewRouteName: PLANNING_ROUTES.workOrder, newRouteName: PLANNING_ROUTES.workOrderNew, editRouteName: PLANNING_ROUTES.workOrderEdit, processCostViewRouteName: PLANNING_ROUTES.processCost },
 	},
 	...departmentDocumentRoutes("planning", "Planning", ["/planning/delivery-challans", "/planning/goods-received-notes"]),
 	{

@@ -1,5 +1,6 @@
 import { cellValue } from "../../../components/common/entryGrid.js"
 import { LOT_DOCUMENT_SECTIONS } from "../../purchase/lot/lotViews.js"
+import { MERCH_ROUTES } from "../merchRoutes.js"
 
 export const PROCESS_COST_LIST_PATH = "/merch/process-costs"
 export const PROCESS_COST_STATES = ["Draft", "Approval Pending", "Approved", "Rejected", "Expired"]
@@ -18,8 +19,23 @@ export const PROCESS_COST_SECTIONS = [
 export const PROCESS_COST_TABS = [{ key: "details", label: "Details" }, { key: "values", label: "Process Cost Values" }]
 export const PROCESS_COST_DOCUMENT_SECTIONS = LOT_DOCUMENT_SECTIONS.filter((section) => section.key === "work_orders")
 
-export function processCostPath(name) {
-	return `${PROCESS_COST_LIST_PATH}/${encodeURIComponent(name)}`
+/** Route names and back links the shared Process Cost pages use; other departments pass their own set as the `processCostRoutes` prop. */
+export const MERCH_PROCESS_COST_ROUTES = { department: "Merch", departmentPath: "/merch", listPath: PROCESS_COST_LIST_PATH, list: MERCH_ROUTES.processCosts, new: MERCH_ROUTES.processCostNew, view: MERCH_ROUTES.processCost, edit: MERCH_ROUTES.processCostEdit, workOrder: MERCH_ROUTES.workOrder }
+
+export function processCostPath(name, routes = MERCH_PROCESS_COST_ROUTES) {
+	return `${routes.listPath}/${encodeURIComponent(name)}`
+}
+
+/** Item comes from the Lot, except on a Folding Lot where any enabled Item may be chosen. */
+export function processCostReadOnly(fieldname, context = {}) {
+	if (fieldname === "item") return !context.is_folding_lot
+	return ["uom", "supplier_name"].includes(fieldname)
+}
+
+export function processCostLinkFilters(fieldname) {
+	if (fieldname === "tax_slab") return { enabled: 1 }
+	if (fieldname === "item") return { disabled: 0 }
+	return {}
 }
 
 export function mergeProcessCostRows(values = [], tiers = [], attribute = "") {
