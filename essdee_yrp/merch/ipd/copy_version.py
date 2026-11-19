@@ -43,6 +43,7 @@ def detach_bom_mappings(doc):
 	for row, _mapping in detached:
 		row.attribute_mapping = None
 		row.based_on_attribute_mapping = 0
+		row.flags.pending_attribute_mapping = True
 	return detached
 
 

@@ -1005,6 +1005,10 @@ def duplicate_ipd(ipd, item=None):
 		row["based_on_attribute_mapping"] = 0
 		items.append(row)
 	doc.set("item_bom", items)
+	for source_row, target_row in zip(ipd_doc.get("item_bom") or [], doc.item_bom, strict=True):
+		target_row.flags.pending_attribute_mapping = bool(
+			source_row.based_on_attribute_mapping and source_row.attribute_mapping
+		)
 	doc.save(ignore_permissions=True)
 
 	for source_row, target_row in zip_longest(ipd_doc.get("item_bom") or [], doc.get("item_bom") or []):
