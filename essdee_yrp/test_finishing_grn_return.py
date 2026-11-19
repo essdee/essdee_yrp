@@ -159,6 +159,44 @@ class TestFinishingGRNReturn(IntegrationTestCase):
 		self.assertEqual(entries[0]["received_type"], "Accepted")
 		self.assertEqual(entries[1]["received_type"], "Rejected")
 
+	def zero_source_rate_entries(self, **values):
+		grn = _doc(
+			from_warehouse="S-0171",
+			to_warehouse="S-0171",
+			items=[_row(quantity=3, stock_qty=3)],
+			**values,
+		)
+		with (
+			patch(
+				"essdee_yrp.overrides.goods_received_note.get_last_sle_rate",
+				return_value=(0, True),
+			),
+			patch(
+				"essdee_yrp.overrides.goods_received_note.get_dimension_fieldnames",
+				return_value=["lot", "received_type"],
+			),
+			patch(
+				"essdee_yrp.overrides.goods_received_note.frappe.db.get_single_value",
+				return_value="Accepted",
+			),
+			patch(
+				"essdee_yrp.overrides.goods_received_note._sle_base",
+				return_value={"item": "VAR-1", "lot": "LOT-1", "received_type": "Accepted"},
+			),
+		):
+			return _return_stock_ledger_entries(grn)
+
+	def test_pack_return_moves_zero_valued_source_at_zero_rate(self):
+		entries = self.zero_source_rate_entries(is_pack=1)
+
+		self.assertEqual([(row["qty"], row["outgoing_rate"]) for row in entries[:1]], [(-3, 0)])
+		self.assertEqual((entries[1]["qty"], entries[1]["rate"]), (3, 0))
+		self.assertEqual(entries[0]["_transfer_key"], entries[1]["_transfer_key"])
+
+	def test_loose_piece_return_still_requires_source_valuation(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "No source valuation rate"):
+			self.zero_source_rate_entries(is_pack=0)
+
 
 def _deliverable(**values):
 	row = _row(**values)
