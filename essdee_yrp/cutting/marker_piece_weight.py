@@ -54,7 +54,7 @@ class IPDCuttingWeights:
 		return flt(total, PRECISION)
 
 	def get_groups(self, panels):
-		"""Weight groups: one per panel, or one per fully selected Part / whole garment."""
+		"""Weight groups: one per panel, or one per Part / whole garment averaged over its pieces."""
 		if self.panel_attribute:
 			return [
 				{
@@ -71,33 +71,33 @@ class IPDCuttingWeights:
 				self.get_part_group(part, panels)
 				for part in dict.fromkeys(self.panel_part.get(panel) for panel in panels)
 			]
-		missing = [panel for panel in self.panel_quantity if panel not in panels]
-		if missing:
-			self.fail(
-				_("IPD {0} has one weight for the whole garment; select all panels (missing: {1}).").format(
-					self.ipd_name, ", ".join(missing)
-				)
-			)
 		return [
-			{"label": _("whole garment"), "attribute": None, "value": None, "panels": panels, "quantity": 1}
+			{
+				"label": _("whole garment"),
+				"attribute": None,
+				"value": None,
+				"panels": panels,
+				"quantity": self.get_piece_share(panels, list(self.panel_quantity)),
+			}
 		]
 
 	def get_part_group(self, part, panels):
 		part_panels = [panel for panel, panel_part in self.panel_part.items() if panel_part == part]
-		missing = [panel for panel in part_panels if panel not in panels]
-		if missing:
-			self.fail(
-				_("IPD {0} has one weight for Part {1}; select all of its panels (missing: {2}).").format(
-					self.ipd_name, part, ", ".join(missing)
-				)
-			)
+		selected = [panel for panel in panels if panel in part_panels]
 		return {
 			"label": part,
 			"attribute": self.part_attribute,
 			"value": part,
-			"panels": part_panels,
-			"quantity": 1,
+			"panels": selected,
+			"quantity": self.get_piece_share(selected, part_panels),
 		}
+
+	def get_piece_share(self, selected, all_panels):
+		"""Share of pieces selected, so one stored weight is split evenly per piece."""
+		total = sum(self.panel_quantity[panel] for panel in all_panels)
+		if not total:
+			self.fail(_("IPD {0} has no stitching panels to split the cutting weight.").format(self.ipd_name))
+		return sum(self.panel_quantity.get(panel, 1) for panel in selected) / total
 
 	def get_group_weight(self, group, ratio_rows):
 		size_ratios = get_size_ratios(ratio_rows, group["panels"])
