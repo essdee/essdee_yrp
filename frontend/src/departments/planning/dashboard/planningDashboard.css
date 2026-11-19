@@ -70,6 +70,7 @@
 .pd-status--blue { color: var(--pd-blue); background: var(--pd-blue-fill); border-color: var(--pd-blue-line); }
 .pd-status--green { color: var(--pd-green); background: var(--pd-green-fill); border-color: var(--pd-green-line); }
 .pd-status--neutral { border-style: dashed; }
+.pd-status--process { color: var(--erp-text); border-color: var(--erp-border-strong); }
 .pd-status-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 .pd-status-card { display: grid; justify-items: start; gap: 4px; padding: 12px 14px; color: var(--erp-text); text-align: left; font: inherit; border: 1px solid var(--erp-border); border-radius: var(--erp-panel-radius); background: var(--erp-surface); cursor: pointer; }
 .pd-status-card:hover { border-color: var(--erp-accent-border); box-shadow: var(--erp-shadow-xs); }

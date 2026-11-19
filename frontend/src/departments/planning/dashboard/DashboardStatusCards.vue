@@ -12,7 +12,7 @@
 				:key="card.status"
 				type="button"
 				class="pd-status-card"
-				:class="[card.isNoWorkOrder ? 'pd-status-card--muted' : `pd-status-card--${LADDER_TONE[card.status]}`, { 'is-active': active.includes(card.status) }]"
+				:class="[card.isNoWorkOrder ? 'pd-status-card--muted' : `pd-status-card--${statusTone(card.status)}`, { 'is-active': active.includes(card.status) }]"
 				:aria-pressed="active.includes(card.status)"
 				:data-status-card="card.status"
 				:title="active.includes(card.status) ? 'Remove this Status filter' : 'Filter the dashboard to this status'"
@@ -32,7 +32,7 @@ import { computed } from "vue"
 
 import LotStatusPill from "./LotStatusPill.vue"
 import { formatQuantity } from "./dashboardFormat.js"
-import { LADDER_TONE, statusCards } from "./dashboardRows.js"
+import { statusCards, statusTone } from "./dashboardRows.js"
 
 /** One card per lot status; a click sets (or clears) the Status filter. */
 const props = defineProps({

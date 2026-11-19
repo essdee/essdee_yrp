@@ -4,9 +4,9 @@
 
 <script setup>
 import { computed } from "vue"
-import { LADDER_TONE } from "./dashboardRows.js"
+import { statusTone } from "./dashboardRows.js"
 
-/** Lot ladder status pill; "No Work Order yet" is neutral. */
+/** Lot ladder status pill; "No Work Order yet" is neutral, fabric process names are grey. */
 const props = defineProps({ status: { type: String, required: true } })
-const tone = computed(() => LADDER_TONE[props.status] || "neutral")
+const tone = computed(() => statusTone(props.status))
 </script>

@@ -1,12 +1,6 @@
 import { csvText, plural } from "./dashboardFormat.js"
 
-export const LADDER = [
-	"Fabric not received", "Waiting for cutting", "In cutting", "Waiting for sewing",
-	"In sewing", "Ready for packing", "Packing in progress", "Dispatched",
-]
 export const NO_WORK_ORDER = "No Work Order yet"
-export const DASHBOARD_STATUSES = [...LADDER, NO_WORK_ORDER]
-export const BEHIND_ORDER = [NO_WORK_ORDER, ...LADDER]
 export const LADDER_TONE = {
 	"Fabric not received": "amber", "Waiting for cutting": "amber", "In cutting": "amber",
 	"Waiting for sewing": "blue", "In sewing": "blue", "Ready for packing": "blue",
@@ -18,6 +12,20 @@ export const DASHBOARD_FILTERS = ["ppo", "lot", "item", "status"]
 
 const sum = (rows, pick) => rows.reduce((total, row) => total + (Number(pick(row)) || 0), 0)
 const isOpen = (row) => row.status !== "Dispatched"
+/** Display order: ladder bottom to top by the server's `status_rank`, No Work Order yet last. */
+const displayRank = (status, rank) => (status === NO_WORK_ORDER ? Infinity : rank ?? 0)
+
+/** Pill tone; statuses outside the ladder are fabric process names. */
+export function statusTone(status) {
+	return LADDER_TONE[status] || (status === NO_WORK_ORDER ? "neutral" : "process")
+}
+
+/** Distinct statuses of `rows` in display order; a status ranks by its lowest row. */
+export function orderStatuses(rows) {
+	const ranks = new Map()
+	rows.forEach((row) => ranks.set(row.status, Math.min(ranks.get(row.status) ?? Infinity, row.status_rank ?? 0)))
+	return [...ranks.keys()].sort((a, b) => displayRank(a, ranks.get(a)) - displayRank(b, ranks.get(b)) || a.localeCompare(b))
+}
 
 export function emptyDashboardFilters() {
 	return { ppo: [], lot: [], item: [], status: [] }
@@ -39,8 +47,8 @@ export function dashboardOptions(rows, filters, kind, ppos = {}) {
 	if (kind === "lot") return matching.map((row) => ({ value: row.lot, hint: row.item || "" }))
 	const counts = new Map()
 	matching.forEach((row) => counts.set(row[kind], (counts.get(row[kind]) || 0) + 1))
-	const order = kind === "status" ? (value) => DASHBOARD_STATUSES.indexOf(value) : null
-	const entries = [...counts.entries()].sort((a, b) => (order ? order(a[0]) - order(b[0]) : String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true })))
+	const statuses = kind === "status" ? orderStatuses(matching) : null
+	const entries = [...counts.entries()].sort((a, b) => (statuses ? statuses.indexOf(a[0]) - statuses.indexOf(b[0]) : String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true })))
 	if (kind === "ppo") return entries.map(([value, count]) => ({ value, hint: `${ppos[value]?.item_name || ppos[value]?.item || ""} · ${plural(count, "lot")}` }))
 	return entries.map(([value, count]) => ({ value, hint: plural(count, "lot") }))
 }
@@ -67,13 +75,12 @@ export function dashboardTotals(data, filters) {
 	}
 }
 
-/** One card per status present: lot count and Σ total pcs (planned pcs for lots with no Work Order). */
+/** One card per status present: lot count and Σ total pcs (Lot pcs for lots with no Work Order). */
 export function statusCards(rows) {
-	return DASHBOARD_STATUSES.map((status) => {
+	return orderStatuses(rows).map((status) => {
 		const matching = rows.filter((row) => row.status === status)
-		const isNoWorkOrder = status === NO_WORK_ORDER
-		return { status, isNoWorkOrder, count: matching.length, pieces: sum(matching, (row) => (isNoWorkOrder ? row.qty : row.total)) }
-	}).filter((card) => card.count)
+		return { status, isNoWorkOrder: status === NO_WORK_ORDER, count: matching.length, pieces: sum(matching, (row) => (row.has_work_order ? row.total : row.qty)) }
+	})
 }
 
 export function ppoQuantityValue(ppo = {}) {
@@ -81,9 +88,9 @@ export function ppoQuantityValue(ppo = {}) {
 }
 
 function furthestBehind(lots) {
-	const open = lots.filter(isOpen).map((row) => row.status)
-	if (!open.length) return "Dispatched"
-	return open.sort((a, b) => BEHIND_ORDER.indexOf(a) - BEHIND_ORDER.indexOf(b))[0]
+	const open = lots.filter(isOpen)
+	if (!open.length) return lots[0]
+	return open.reduce((behind, row) => ((row.status_rank ?? 0) < (behind.status_rank ?? 0) ? row : behind))
 }
 
 /** One row per PPO from the filtered lots: quantities summed, PPO Qty once, status = furthest-behind open lot. */
@@ -94,16 +101,16 @@ export function groupDashboardRows(rows) {
 		const items = [...new Set(lots.map((row) => row.item))]
 		const mix = {}
 		lots.forEach((row) => { mix[row.status] = (mix[row.status] || 0) + 1 })
-		const status = furthestBehind(lots)
+		const { status, status_rank } = furthestBehind(lots)
 		const sums = Object.fromEntries(SUMMED_FIELDS.map((field) => [field, sum(lots, (row) => row[field])]))
 		return {
-			ppo, isGroup: true, lots, items, mix, status, ...sums,
+			ppo, isGroup: true, lots, items, mix, status, status_rank, ...sums,
 			lot: lots.map((row) => row.lot).join(", "),
 			lotCount: lots.length,
 			item: items.length === 1 ? items[0] : `${items.length} items`,
 			otherStatuses: Object.keys(mix).length - 1,
 			has_work_order: status !== NO_WORK_ORDER,
-			breakdown: BEHIND_ORDER.filter((name) => mix[name]).map((name) => `${name}: ${mix[name]}`).join("\n"),
+			breakdown: orderStatuses(lots).map((name) => `${name}: ${mix[name]}`).join("\n"),
 		}
 	})
 }
@@ -112,7 +119,7 @@ const SORT_VALUES = {
 	ppo: (row) => row.ppo,
 	lot: (row) => row.lotCount ?? row.lot,
 	item: (row) => row.item,
-	status: (row) => DASHBOARD_STATUSES.indexOf(row.status),
+	status: (row) => displayRank(row.status, row.status_rank),
 	ppoQty: (row, ppos) => ppoQuantityValue(ppos[row.ppo]),
 	qty: (row) => row.qty,
 	cut: (row) => row.cut,

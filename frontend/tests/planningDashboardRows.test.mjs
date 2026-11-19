@@ -12,6 +12,7 @@ import {
 	rowDrill,
 	sortDashboardRows,
 	statusCards,
+	statusTone,
 	tileDrill,
 } from "../src/departments/planning/dashboard/dashboardRows.js"
 
@@ -22,10 +23,10 @@ const ppos = {
 }
 const lot = (values) => ({ has_work_order: true, cut: 0, stitch: 0, packed: 0, dispatch: 0, total: 0, balance: 0, qty: 0, ...values })
 const rows = [
-	lot({ lot: "L-2", ppo: "PPO-1", item: "A", status: "In sewing", delivery: "2026-10-01", qty: 400, cut: 410, stitch: 100, total: 410, balance: 410 }),
-	lot({ lot: "L-1", ppo: "PPO-1", item: "A", status: "Dispatched", delivery: "2026-10-01", qty: 500, cut: 520, stitch: 520, packed: 500, dispatch: 500, total: 520, balance: 20 }),
-	lot({ lot: "L-10", ppo: "PPO-2", item: "B", status: "Fabric not received", delivery: "2026-12-01", qty: 300, total: 300, balance: 300 }),
-	{ lot: "L-3", ppo: "PPO-1", item: "A", status: NO_WORK_ORDER, has_work_order: false, delivery: "2026-10-01", qty: 250, cut: 0, stitch: 0, packed: 0, dispatch: 0, total: 0, balance: 0 },
+	lot({ lot: "L-2", ppo: "PPO-1", item: "A", status: "In sewing", status_rank: 500, delivery: "2026-10-01", qty: 400, cut: 410, stitch: 100, total: 410, balance: 410 }),
+	lot({ lot: "L-1", ppo: "PPO-1", item: "A", status: "Dispatched", status_rank: 800, delivery: "2026-10-01", qty: 500, cut: 520, stitch: 520, packed: 500, dispatch: 500, total: 520, balance: 20 }),
+	lot({ lot: "L-10", ppo: "PPO-2", item: "B", status: "Fabric not received", status_rank: 100, delivery: "2026-12-01", qty: 300, total: 300, balance: 300 }),
+	{ lot: "L-3", ppo: "PPO-1", item: "A", status: NO_WORK_ORDER, status_rank: 0, has_work_order: false, delivery: "2026-10-01", qty: 250, cut: 0, stitch: 0, packed: 0, dispatch: 0, total: 0, balance: 0 },
 ]
 const data = { as_of: "2026-11-06", ppos, lots: rows }
 const empty = { ppo: [], lot: [], item: [], status: [] }
@@ -62,6 +63,25 @@ test("status cards add up to the rows and use Lot pcs for lots with no Work Orde
 	assert.deepEqual(cards.map((card) => [card.status, card.count, card.pieces]), [
 		["Fabric not received", 1, 300], ["In sewing", 1, 410], ["Dispatched", 1, 520], [NO_WORK_ORDER, 1, 250],
 	])
+})
+
+test("fabric process statuses order by rank between Fabric not received and Waiting for cutting", () => {
+	const processRows = [
+		lot({ lot: "P-1", ppo: "PPO-3", item: "C", status: "Waiting for cutting", status_rank: 200, total: 50 }),
+		lot({ lot: "P-2", ppo: "PPO-3", item: "C", status: "Washing", status_rank: 103, total: 40 }),
+		lot({ lot: "P-3", ppo: "PPO-3", item: "C", status: "Knitting", status_rank: 101, total: 30 }),
+		lot({ lot: "P-4", ppo: "PPO-3", item: "C", status: "Dyeing", status_rank: 102, total: 20 }),
+		{ lot: "P-5", ppo: "PPO-3", item: "C", status: "Fabric not received", status_rank: 100, has_work_order: false, qty: 70, total: 0 },
+	]
+	assert.deepEqual(statusCards(processRows).map((card) => [card.status, card.pieces]), [
+		["Fabric not received", 70], ["Knitting", 30], ["Dyeing", 20], ["Washing", 40], ["Waiting for cutting", 50],
+	])
+	assert.deepEqual(dashboardOptions(processRows, empty, "status", ppos).map((option) => option.value), ["Fabric not received", "Knitting", "Dyeing", "Washing", "Waiting for cutting"])
+	const group = groupDashboardRows(processRows.slice(0, 4))[0]
+	assert.equal(group.status, "Knitting")
+	assert.equal(group.breakdown, "Knitting: 1\nDyeing: 1\nWashing: 1\nWaiting for cutting: 1")
+	assert.deepEqual(sortDashboardRows(processRows, { key: "status", direction: 1 }, ppos).map((row) => row.lot), ["P-5", "P-3", "P-4", "P-2", "P-1"])
+	assert.deepEqual(["Knitting", "In cutting", NO_WORK_ORDER].map(statusTone), ["process", "amber", "neutral"])
 })
 
 test("group by PPO sums lots, keeps PPO qty once and shows the furthest-behind open status", () => {
