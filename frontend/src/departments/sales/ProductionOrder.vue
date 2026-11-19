@@ -18,6 +18,7 @@
 							<Tab value="details">Details</Tab>
 							<Tab value="transfers">Quantity Transferred <span>{{ workspace.histories?.transfers?.length || 0 }}</span></Tab>
 							<Tab v-if="showTimeAndAction && workspace.record?.name && timeAndAction.context.value?.can_read" value="time_and_action">Time and Action</Tab>
+							<Tab v-for="lot in linkedLots" :key="lot" :value="lotTabKey(lot)">{{ lot }}</Tab>
 						</TabList>
 						<TabPanels>
 							<TabPanel value="details">
@@ -31,6 +32,7 @@
 							</TabPanel>
 							<TabPanel value="transfers"><ProductionOrderTransferHistory :rows="workspace.histories?.transfers || []" :view-route-name="transferViewRouteName" /></TabPanel>
 							<TabPanel v-if="showTimeAndAction && workspace.record?.name && timeAndAction.context.value?.can_read" value="time_and_action"><ProductionOrderTimeAndActionTab :update-route-name="timeAndActionUpdateRouteName" :context="timeAndAction.context.value" :loading="timeAndAction.loading.value" :error="timeAndAction.error.value" @create="createTimeAndActionVisible = true" @changed="timeAndAction.load" /></TabPanel>
+							<TabPanel v-for="lot in linkedLots" :key="lot" :value="lotTabKey(lot)"><ProductionOrderLotTab v-if="openedLotTabs.has(lot)" :lot="lot" /></TabPanel>
 						</TabPanels>
 					</Tabs>
 				</template>
@@ -79,6 +81,8 @@ import { useDuplicateAction } from "../../composables/useDuplicateAction.js"
 import FabricDocumentWorkspace from "../fabric-store/FabricDocumentWorkspace.vue"
 import ProductionOrderActionDialog from "./ProductionOrderActionDialog.vue"
 import ProductionOrderLotOcrDialog from "./ProductionOrderLotOcrDialog.vue"
+import ProductionOrderLotTab from "./ProductionOrderLotTab.vue"
+import { lotFromTabKey, lotTabKey } from "./productionOrderLotTabs.js"
 import ProductionOrderMatrix from "./ProductionOrderMatrix.vue"
 import ProductionOrderOverview from "./ProductionOrderOverview.vue"
 import ProductionOrderPendingRequest from "./ProductionOrderPendingRequest.vue"
@@ -122,6 +126,8 @@ const selectedLot = ref("")
 const confirmVisible = ref(false)
 const pendingConfirm = ref("")
 const createTimeAndActionVisible = ref(false)
+const openedLotTabs = ref(new Set())
+const linkedLots = computed(() => workspace.value.linked_lots || [])
 const timeAndAction = useProductionOrderTimeAndAction(() => workspace.value.record?.name, () => props.showTimeAndAction)
 let loadSequence = 0
 
@@ -193,7 +199,12 @@ async function runCommand(command, payload = {}) {
 	finally { acting.value = "" }
 }
 function formatNumber(value) { return Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 3 }) }
-watch(() => route.params.productionOrderId, () => { priceVisible.value = false; lotOcrVisible.value = false; purchaseOrderVisible.value = false; selectedLot.value = ""; load(false) }, { immediate: true })
+watch(activeTab, (tab) => {
+	const lot = lotFromTabKey(tab)
+	if (lot && !openedLotTabs.value.has(lot)) openedLotTabs.value = new Set([...openedLotTabs.value, lot])
+})
+watch(linkedLots, (lots) => { if (lotFromTabKey(activeTab.value) && !lots.includes(lotFromTabKey(activeTab.value))) activeTab.value = "details" })
+watch(() => route.params.productionOrderId, () => { priceVisible.value = false; lotOcrVisible.value = false; purchaseOrderVisible.value = false; selectedLot.value = ""; openedLotTabs.value = new Set(); load(false) }, { immediate: true })
 </script>
 
 <style scoped>

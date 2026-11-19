@@ -1,6 +1,8 @@
 import frappe
 from frappe import _
+from yrp.attribute_read_context import attribute_read_scope
 
+from essdee_yrp.fabric_program import fetch_fabric_program_details
 from essdee_yrp.merch import lot_process_flow
 from essdee_yrp.merch import lot_workspace as merch_lot_workspace
 from essdee_yrp.merch.lot_process_data import LotFlowData
@@ -61,6 +63,21 @@ def get_lot_finishing_plans(lot: str):
 @frappe.whitelist()
 def get_lot_process_flow(lot: str):
 	return lot_process_flow.get_process_flow(lot)
+
+
+@frappe.whitelist()
+def get_lot_flow_context(lot: str) -> dict:
+	"""Status, item and cloth programs shown beside a Lot process flow, without the full workspace."""
+	doc = frappe.get_doc("SD YRP Lot", lot)
+	doc.check_permission("read")
+	with attribute_read_scope():
+		programs = fetch_fabric_program_details(doc) if doc.get("lot_fabric_details") else []
+	return {
+		"name": doc.name,
+		"status": doc.status or "Open",
+		"item": doc.item,
+		"fabrics": [{"cloth_item": row["cloth_item"], "program": row.get("program") or []} for row in programs],
+	}
 
 
 @frappe.whitelist()
