@@ -1469,7 +1469,8 @@ def _return_stock_ledger_entries(grn, *, cancel=False):
 				warehouse=grn.from_warehouse,
 				**dimensions,
 			)
-			if flt(rate) <= 0:
+			# Pack return moves zero-valued Loose Piece stock at zero, as Ironing Excess does.
+			if flt(rate) <= 0 and not cint(grn.get("is_pack")):
 				frappe.throw(
 					_("No source valuation rate is available for {0} in {1}.").format(
 						outgoing["item"], grn.from_warehouse
