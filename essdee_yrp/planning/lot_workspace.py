@@ -7,6 +7,30 @@ from essdee_yrp.merch.lot_process_data import LotFlowData
 from essdee_yrp.purchase import lot_documents, lot_editor
 from essdee_yrp.purchase import lot_workspace as purchase_lot_workspace
 
+PLAN_DOCTYPES = {"ccr": "SD YRP Cutting Plan", "ocr": "SD YRP Finishing Plan"}
+PLAN_FIELDS = {
+	"ccr": ["name", "cp_status", "docstatus", "cutting_start_date", "creation"],
+	"ocr": ["name", "fp_status", "finishing_start_date", "creation"],
+}
+
+
+def get_plan_access() -> dict[str, bool]:
+	"""CCR / OCR shortcut visibility: read access on the Cutting / Finishing Plan doctype."""
+	return {key: bool(frappe.has_permission(doctype, "read")) for key, doctype in PLAN_DOCTYPES.items()}
+
+
+def get_lot_plans(lot: str, key: str) -> list[dict]:
+	"""Non-cancelled Cutting or Finishing Plans of a lot, newest first."""
+	doctype = PLAN_DOCTYPES[key]
+	frappe.has_permission(doctype, "read", throw=True)
+	return frappe.get_list(
+		doctype,
+		fields=PLAN_FIELDS[key],
+		filters=[["lot", "=", lot], ["docstatus", "!=", 2]],
+		order_by="creation desc",
+		limit_page_length=100,
+	)
+
 
 def _require_existing(name):
 	if not (name or "").strip():
@@ -20,7 +44,18 @@ def get_lot_workspace(name: str):
 		**purchase_lot_workspace.get_lot_workspace(name),
 		"header": merch_lot_workspace.get_record_facts(flow.doc, purchase_lot_workspace.HEADER_FIELDS),
 		"order_pieces": flow.order_pieces(),
+		"plan_access": get_plan_access(),
 	}
+
+
+@frappe.whitelist()
+def get_lot_cutting_plans(lot: str):
+	return get_lot_plans(lot, "ccr")
+
+
+@frappe.whitelist()
+def get_lot_finishing_plans(lot: str):
+	return get_lot_plans(lot, "ocr")
 
 
 @frappe.whitelist()

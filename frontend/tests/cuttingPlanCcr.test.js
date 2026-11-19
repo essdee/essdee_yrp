@@ -119,13 +119,11 @@ test("Lot plan shortcuts open one plan, ask for several and report none", () => 
 
 test("only the Planning Lot view offers CCR and OCR beside Print", () => {
 	const page = read("departments/planning/lot/LotPage.vue")
-	assert.match(page, /<template #print-actions="\{ acting: busy \}">\s*<Button v-for="\(shortcut, key\) in LOT_PLAN_SHORTCUTS"/)
-	assert.match(page, /const planLoaders = \{ ccr: getLotCuttingPlans, ocr: getLotFinishingPlans \}/)
+	assert.match(page, /<template #print-actions="\{ acting: busy \}">\s*<LotPlanShortcutButtons /)
+	assert.match(read("departments/planning/lot/LotPlanShortcutButtons.vue"), /const planLoaders = \{ ccr: getLotCuttingPlans, ocr: getLotFinishingPlans \}/)
 	assert.match(read("departments/fabric-store/FabricDocumentWorkspace.vue"), /<slot name="print-actions"[^>]*\/>\s*<CustomPrintButtons/)
 	for (const path of ["merch/lot/MerchLotPage.vue", "purchase/lot/LotPage.vue", "merch-purchase/lot/MerchLotPage.vue"]) {
-		assert.doesNotMatch(read(`departments/${path}`), /LOT_PLAN_SHORTCUTS|print-actions/, path)
+		assert.doesNotMatch(read(`departments/${path}`), /LOT_PLAN_SHORTCUTS|LotPlanShortcutButtons|print-actions/, path)
 	}
-	const api = read("api/planning.js")
-	assert.match(api, /filters: \[\["lot", "=", lot\], \["docstatus", "!=", 2\]\]/)
 	assert.match(read("departments/finishing/FinishingPlanTabs.vue"), /\{ value: "ocr", label: "OCR", source: "ocr" \}/)
 })

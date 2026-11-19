@@ -44,3 +44,8 @@ export function planOptions(shortcut, plans = []) {
 export function noPlanMessage(shortcut, lot) {
 	return `No ${shortcut.documentLabel} found for Lot ${lot}.`
 }
+
+/** Shortcuts the server allows: `access` is `plan_access` ({ ccr, ocr }) from the lot or tracking payload. */
+export function visiblePlanShortcuts(access = {}) {
+	return Object.entries(LOT_PLAN_SHORTCUTS).filter(([key]) => access[key]).map(([key, shortcut]) => ({ key, ...shortcut }))
+}
