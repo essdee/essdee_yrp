@@ -17,24 +17,15 @@
 <script setup>
 import WorkspaceLauncher from "../../components/common/WorkspaceLauncher.vue"
 import { sewingReportTabs } from "../departmentReports.js"
-import { documentWorkspaces } from "../fabric-store/storeWorkspaces.js"
 import SewingWorkspaceShell from "./SewingWorkspaceShell.vue"
 import SewingUnitPicker from "./SewingUnitPicker.vue"
+import { SEWING_WORKSPACES } from "../launcherCards.js"
 
-const definitions = [
-	{ key: "plans", label: "Sewing Plan", description: "Review plans and production for a Sewing Unit.", icon: "pi pi-sitemap", path: "/sewing/plans" },
-	{ key: "finishing_plans", label: "Finishing Plan", description: "Inward, packing, dispatch, OCR and audit for each lot.", icon: "pi pi-box", path: "/sewing/finishing-plans" },
-	{ key: "work_orders", label: "Work Orders", description: "Review production requirements, deliveries and receipts.", icon: "pi pi-briefcase", path: "/sewing/work-orders" },
-	...documentWorkspaces("/sewing").map(({ to, ...item }) => ({ ...item, path: to })),
-	{ key: "stock_transfers", label: "Stock Transfers", description: "Stock Update, Stock Reconciliation, Stock Entry and Lot Transfer.", icon: "pi pi-arrow-right-arrow-left", path: "/sewing/stock-transfers" },
-	{ key: "reports", label: "Reports", description: "Review production reports for a Sewing Unit.", icon: "pi pi-chart-bar", path: "/sewing/reports" },
-	{ key: "attendance", label: "Attendance Report", description: "Review worker strength across all Sewing Units.", icon: "pi pi-users", path: "/sewing/attendance" },
-]
 
 function workspaces(capabilities, supplier) {
-	return definitions.filter((item) => capabilities.sections?.[item.key]?.can_read).map((item) => ({
+	return SEWING_WORKSPACES.filter((item) => capabilities.sections?.[item.key]?.can_read).map((item) => ({
 		...item,
-		to: { path: item.path, query: supplier ? { supplier } : {} },
+		to: { path: item.to, query: supplier ? { supplier } : {} },
 	}))
 }
 </script>

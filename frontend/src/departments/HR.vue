@@ -21,28 +21,13 @@ import DepartmentPage from "../components/DepartmentPage.vue"
 import WorkspaceLauncher from "../components/common/WorkspaceLauncher.vue"
 import WorkspaceLoadError from "../components/common/WorkspaceLoadError.vue"
 import { hrReportTabs } from "./departmentReports.js"
+import { HR_WORKSPACES } from "./launcherCards.js"
 
 const loading = ref(true)
 const loadError = ref("")
 const sections = ref({})
 const reports = ref([])
-const workspaces = [
-	{
-		key: "bill_tracking",
-		label: "Bill Tracking",
-		description: "Track vendor bills from receipt to invoice.",
-		icon: "pi pi-inbox",
-		to: "/hr/bill-tracking",
-	},
-	{
-		key: "reports",
-		label: "Reports",
-		description: "Attendance strength.",
-		icon: "pi pi-chart-bar",
-		to: "/hr/reports",
-	},
-]
-const visibleWorkspaces = computed(() => workspaces.filter((workspace) => sections.value[workspace.key]?.can_read))
+const visibleWorkspaces = computed(() => HR_WORKSPACES.filter((workspace) => sections.value[workspace.key]?.can_read))
 
 async function load() {
 	loading.value = true

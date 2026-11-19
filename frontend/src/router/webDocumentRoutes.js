@@ -95,6 +95,7 @@ export const DEPARTMENT_RECORD_ROUTES = {
 	"/planning": {
 		...PLANNING_RECORD_ROUTES,
 		"YRP Item Production Detail": (name) => `/web/planning/item-production-details/${encodeURIComponent(name)}`,
+		"YRP Process Cost": (name) => `/web/planning/process-costs/${encodeURIComponent(name)}`,
 	},
 	"/purchase": {
 		"YRP Production Order": (name) => `/web/purchase/production-orders/${encodeURIComponent(name)}`,

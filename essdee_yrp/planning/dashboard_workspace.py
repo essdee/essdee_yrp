@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 
 from essdee_yrp.planning.dashboard import dashboard, process_detail, tracking
+from essdee_yrp.planning.lot_workspace import get_plan_access
 from essdee_yrp.planning.reports.production_quantities import can_read
 
 DASHBOARD_DOCTYPES = ("SD YRP Lot", "YRP Production Order", "YRP Work Order", "SD YRP Finishing Plan")
@@ -31,7 +32,7 @@ def get_tracking_options() -> dict:
 @frappe.whitelist()
 def get_tracking(ppos=None, lots=None) -> dict:
 	require_dashboard_access()
-	return tracking.get_tracking_data(ppos, lots)
+	return {**tracking.get_tracking_data(ppos, lots), "plan_access": get_plan_access()}
 
 
 @frappe.whitelist()

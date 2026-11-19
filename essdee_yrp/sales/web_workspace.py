@@ -71,6 +71,7 @@ ACTION_LABELS = {
 	"amend": _("Amend"),
 	"print": _("Print"),
 	"request_ppo_approval": _("Request PPO Approval"),
+	"submit_ppo": _("Submit"),
 	"approve_ppo": _("Approve & Submit PPO"),
 	"request_changes": _("Request Changes"),
 	"update_price": _("Update Price"),
@@ -114,6 +115,7 @@ EDITOR_FIELD_SCHEMA = {
 }
 WORKFLOW_COMMANDS = {
 	"request_ppo_approval": ("request_ppo_approval", ()),
+	"submit_ppo": ("submit_ppo", ()),
 	"approve_ppo": ("approve_ppo", ()),
 	"request_changes": ("request_ppo_changes", ("reason",)),
 	"update_quantity_ratio": (
@@ -298,6 +300,14 @@ def _production_order_actions(doc, permissions: dict, onload: Mapping) -> dict:
 	actions["request_ppo_approval"] = _action(
 		docstatus == 0 and status == "Draft" and manage and bool(onload.get("can_request_ppo_approval")),
 		ACTION_LABELS["request_ppo_approval"],
+		denied,
+	)
+	actions["submit_ppo"] = _action(
+		docstatus == 0
+		and status == "Draft"
+		and permissions["can_submit"]
+		and bool(onload.get("can_submit_ppo_directly")),
+		ACTION_LABELS["submit_ppo"],
 		denied,
 	)
 	can_approve_ppo = docstatus == 0 and status == "PPO Request" and bool(onload.get("can_approve_ppo"))
@@ -559,6 +569,7 @@ def get_production_order_editor(name: str | None = None, source=None, duplicate_
 		"fields": [_editor_field(doc, fieldname) for fieldname in EDITOR_FIELDS],
 		"matrix": matrix,
 		"modified": doc.get("modified") if name else None,
+		"can_submit_directly": workflow.user_can_submit_ppo_directly(item) if item else False,
 	}
 
 
@@ -599,7 +610,9 @@ def save_production_order(values, name: str | None = None, submit: bool = False,
 		doc.save()
 	else:
 		doc.insert()
-	if submit:
+	if submit and workflow.user_can_submit_ppo_directly(doc.get("item")):
+		workflow.submit_ppo(production_order=doc.name)
+	elif submit:
 		workflow.request_ppo_approval(production_order=doc.name)
 	return get_production_order_workspace(doc.name)
 

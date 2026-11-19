@@ -735,9 +735,10 @@ def on_trash(doc, method=None):
 
 
 def validate_duplicate_bom_items(doc):
+	"""Reject repeated unmapped BOM items; mapped rows, including copies awaiting their mapping, may repeat."""
 	items = []
 	for row in doc.get("item_bom") or []:
-		if not row.based_on_attribute_mapping:
+		if not row.based_on_attribute_mapping and not row.flags.pending_attribute_mapping:
 			if row.item in items:
 				frappe.throw(f"Duplicate Item in BOM {row.item} in Row {row.idx}")
 			items.append(row.item)

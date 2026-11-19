@@ -111,7 +111,7 @@ class LotMetrics:
 		rows = (
 			frappe.db.sql(
 				"""select lot, cp_status from `tabSD YRP Cutting Plan`
-			where docstatus=1 and lot in %(names)s""",
+			where docstatus=1 and ifnull(cp_status, '')<>'Cancelled' and lot in %(names)s""",
 				{"names": tuple(self.names)},
 			)
 			if self.names
@@ -133,75 +133,39 @@ class LotMetrics:
 		)
 
 	@cached_property
-	def cloth_received(self):
-		"""{lot: Kg received} on cloth Work Orders (item differs from the lot item)."""
-		cloth = [
-			order["name"]
-			for order in self.orders
-			if not cint(order["is_rework"]) and order["item"] != self.lots[order["lot"]]["item"]
-		]
-		by_order = sum_by(
-			"""select parent, sum(qty - ifnull(pending_quantity, 0)) from `tabYRP Work Order Receivables`
-			where parent in %(names)s group by parent""",
-			cloth,
+	def cutting_delivered(self):
+		"""Cutting Work Orders with a submitted Delivery Challan."""
+		names = [order["name"] for order in self.orders if order["process_name"] == ladder.CUTTING_PROCESS]
+		if not names:
+			return set()
+		return set(
+			frappe.db.sql(
+				"""select distinct work_order from `tabYRP Delivery Challan`
+			where docstatus=1 and work_order in %(names)s""",
+				{"names": tuple(names)},
+				pluck=True,
+			)
 		)
-		result = defaultdict(float)
-		for order in self.orders:
-			result[order["lot"]] += by_order.get(order["name"], 0)
-		return result
 
 	@cached_property
-	def fabric_items(self):
-		"""{lot: fabric item set} = cloth program items ∪ the IPD cloth details."""
-		result = defaultdict(set)
-		for lot, cloth in (
-			frappe.db.sql(
-				"""select parent, cloth_item from `tabSD YRP Lot Fabric Detail`
-			where parenttype='SD YRP Lot' and parent in %(names)s""",
-				{"names": tuple(self.names)},
-			)
-			if self.names
-			else []
-		):
-			result[lot].add(cloth)
-		ipds = {row.get("production_detail") for row in self.lots.values()} - {None, ""}
-		ipd_cloth = defaultdict(set)
-		for ipd, cloth in (
-			frappe.db.sql(
-				"""select parent, cloth from `tabSD YRP Item Production Detail Cloth Detail`
-			where parent in %(names)s""",
-				{"names": tuple(ipds)},
-			)
-			if ipds
-			else []
-		):
-			ipd_cloth[ipd].add(cloth)
-		for lot, row in self.lots.items():
-			result[lot] |= ipd_cloth.get(row.get("production_detail"), set())
-			result[lot].discard(None)
-		return result
-
-	@cached_property
-	def purchased_fabric(self):
-		"""{lot: quantity} on submitted, non-return purchase GRNs of the lot's fabric items."""
+	def fabric_steps(self):
+		"""{lot: {fabric process: step}} from the IPD Fabric Processes of the lot's cloth IPDs."""
 		rows = (
 			frappe.db.sql(
-				"""select gi.lot, coalesce(i.variant_of, i.name), sum(gi.quantity)
-			from `tabYRP Goods Received Note` g
-			join `tabYRP Goods Received Note Item` gi on gi.parent=g.name
-			join tabItem i on i.name=gi.item_variant
-			where g.against='Purchase Order' and g.docstatus=1 and g.is_return=0 and gi.lot in %(names)s
-			group by gi.lot, coalesce(i.variant_of, i.name)""",
+				"""select distinct fd.parent, fp.parent, fp.sequence, fp.idx, fp.fabric_process
+			from `tabSD YRP Lot Fabric Detail` fd
+			join `tabSD YRP IPD Fabric Process` fp on fp.parent=fd.production_detail
+			where fd.parenttype='SD YRP Lot' and fd.parent in %(names)s
+			order by fp.parent, fp.sequence, fp.idx""",
 				{"names": tuple(self.names)},
 			)
 			if self.names
 			else []
 		)
-		result = defaultdict(float)
-		for lot, fabric, quantity in rows:
-			if fabric in self.fabric_items[lot]:
-				result[lot] += flt(quantity)
-		return result
+		routes = defaultdict(lambda: defaultdict(list))
+		for lot, ipd, _sequence, _idx, process in rows:
+			routes[lot][ipd].append(process)
+		return {lot: ladder.get_fabric_steps(by_ipd.values()) for lot, by_ipd in routes.items()}
 
 	@cached_property
 	def finishing_plans(self):
@@ -268,6 +232,8 @@ class LotMetrics:
 		orders = self.get_production_orders(lot)
 		sewing = [order for order in orders if order["process_name"] in self.sewing]
 		packing = [order for order in self.orders_by_lot[lot] if cint(order["includes_packing"])]
+		cutting = [order["name"] for order in orders if order["process_name"] == ladder.CUTTING_PROCESS]
+		fabric_process, fabric_step = ladder.get_fabric_process(orders, self.fabric_steps.get(lot, {}))
 		return {
 			"planned": planned,
 			"cut": cut,
@@ -277,8 +243,12 @@ class LotMetrics:
 			"sewing_received": sum(self.get_order_total(order, "received") for order in sewing),
 			"cutting_status": self.cutting_statuses.get(lot, ""),
 			"lay_sheets": self.lay_sheets.get(lot, 0),
-			"cloth_received": self.cloth_received.get(lot, 0.0),
-			"purchased_fabric": self.purchased_fabric.get(lot, 0.0),
+			"has_work_order": bool(self.orders_by_lot[lot]),
+			"has_cutting_plan": lot in self.cutting_statuses,
+			"has_cutting_work_order": bool(cutting),
+			"is_cutting_delivered": any(name in self.cutting_delivered for name in cutting),
+			"fabric_process": fabric_process,
+			"fabric_step": fabric_step,
 		}
 
 	def get_summary(self, lot):
@@ -287,8 +257,10 @@ class LotMetrics:
 		orders = self.get_production_orders(lot)
 		received = {order["name"]: self.get_order_total(order, "received") for order in orders}
 		total = ladder.get_basis(facts["planned"], facts["cut"])
+		status = ladder.get_lot_status(facts)
 		return {
-			"status": ladder.get_lot_status(facts),
+			"status": status,
+			"status_rank": ladder.get_status_rank(status, facts["fabric_step"]),
 			"planned": facts["planned"],
 			"order_cut": facts["cut"],
 			**ladder.get_lot_quantities(orders, received, self.sewing),

@@ -14,7 +14,7 @@
 					<h2>Details</h2>
 					<div class="process-cost-editor__fields">
 						<template v-for="field in detailFields" :key="field.fieldname">
-							<div v-if="field.fieldname === 'item' && context.is_cloth_process" class="process-cost-editor__field">
+							<div v-if="field.fieldname === 'item' && context.is_cloth_process && !context.is_folding_lot" class="process-cost-editor__field">
 								<label for="process-cost-cloth-item">Item <span class="erp-required-mark">*</span></label>
 								<Select input-id="process-cost-cloth-item" :model-value="form.item" :options="context.item_options || []" option-label="item" option-value="item" :invalid="Boolean(errors.item)" :disabled="saving || contextLoading" fluid @update:model-value="change('item', $event)" />
 								<small v-if="errors.item || lookupErrors.item" class="process-cost-editor__error" role="alert">{{ errors.item || lookupErrors.item }}</small>
@@ -55,10 +55,10 @@ import DocumentConfirmationDialog from "../../../components/documents/DocumentCo
 import DocumentErrorDialog from "../../../components/documents/DocumentErrorDialog.vue"
 import InlinePageNavigation from "../../../components/navigation/InlinePageNavigation.vue"
 import ProcessCostGrid from "./ProcessCostGrid.vue"
-import { PROCESS_COST_DETAILS, PROCESS_COST_LIST_PATH, mergeProcessCostRows, processCostFieldError, processCostPath, validateProcessCostRows } from "./processCostViews.js"
+import { MERCH_PROCESS_COST_ROUTES, PROCESS_COST_DETAILS, mergeProcessCostRows, processCostFieldError, processCostLinkFilters, processCostPath, processCostReadOnly, validateProcessCostRows } from "./processCostViews.js"
 import { takeNewDocumentDefaults, withNewDocumentDefaults } from "../../../utils/newDocumentDefaults.js"
 
-const props = defineProps({ processCostId: { type: String, default: "" } })
+const props = defineProps({ processCostId: { type: String, default: "" }, processCostRoutes: { type: Object, default: () => MERCH_PROCESS_COST_ROUTES } })
 const route = useRoute()
 const router = useRouter()
 const editor = ref({})
@@ -83,12 +83,12 @@ const invalidGrids = reactive({})
 const hasInvalidCells = computed(() => Object.values(invalidGrids).some(Boolean))
 provide(ENTRY_GRID_INVALID_KEY, { report: (id, count) => { invalidGrids[id] = count } })
 const requiredFields = new Set(["lot", "process_name", "item", "uom", "supplier", "from_date", "tax_slab"])
-const backTo = computed(() => props.processCostId ? processCostPath(props.processCostId) : PROCESS_COST_LIST_PATH)
+const backTo = computed(() => props.processCostId ? processCostPath(props.processCostId, props.processCostRoutes) : props.processCostRoutes.listPath)
 const dirty = computed(() => !loading.value && JSON.stringify(form) !== cleanSignature.value)
 const detailFields = computed(() => PROCESS_COST_DETAILS.map((key) => {
 	const field = editor.value.fields?.find((field) => field.fieldname === key)
-	return { ...field, read_only: ["item", "uom", "supplier_name"].includes(key) ? 1 : 0,
-		link_filters: key === "tax_slab" ? { enabled: 1 } : {},
+	return { ...field, read_only: processCostReadOnly(key, context.value) ? 1 : 0,
+		link_filters: processCostLinkFilters(key),
 		description: key === "attribute" && (!form.lot || !form.process_name) ? "Select Lot and Process first" : "",
 	}
 }))
@@ -219,7 +219,7 @@ async function save() {
 	try {
 		const result = await saveProcessCost(form, props.processCostId || null, editor.value.modified)
 		allowNavigation = true
-		await router.push(processCostPath(result.record.name))
+		await router.push(processCostPath(result.record.name, props.processCostRoutes))
 	} catch (reason) { showSaveError(reason) }
 	finally { saving.value = false }
 }

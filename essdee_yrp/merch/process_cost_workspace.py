@@ -176,10 +176,22 @@ def _selection(lot, process_name=None, item=None):
 	is_cloth = bool(process_name and frappe.db.get_value("YRP Process", process_name, "is_cloth_process"))
 	if process_name:
 		frappe.has_permission("YRP Process", ptype="read", doc=process_name, throw=True)
+	if lot_doc.get("is_folding_lot"):
+		return _folding_selection(item, is_cloth)
 	if is_cloth:
 		return _cloth_selection(lot_doc, process_name, item)
 	item = lot_doc.item
 	return {"item": item, "uom": _item_uom(item), "item_options": options, "is_cloth_process": False}
+
+
+def _folding_selection(item, is_cloth):
+	"""A Folding Lot's Process Cost may use any enabled Item, template or variant."""
+	selection = {"item": item, "uom": _item_uom(item), "item_options": [],
+		"is_cloth_process": is_cloth, "is_folding_lot": True}
+	if item and frappe.db.get_value("Item", item, "disabled") != 0:
+		return {**selection, "item": None, "uom": None,
+			"field_errors": {"item": _("Select an enabled Item.")}}
+	return selection
 
 
 def _lookup_permission_error(fieldname, sources):
@@ -333,7 +345,8 @@ def _apply_values(doc, values):
 	context = get_process_cost_grid(doc.lot, doc.process_name, doc.item, doc.attribute)
 	for fieldname, message in context.get("field_errors", {}).items():
 		_field_error(fieldname, message)
-	if context["is_cloth_process"] and doc.item not in {row["item"] for row in context["item_options"]}:
+	is_lot_cloth = context["is_cloth_process"] and not context.get("is_folding_lot")
+	if is_lot_cloth and doc.item not in {row["item"] for row in context["item_options"]}:
 		_field_error("item", _("Select a cloth Item configured for this Lot and Process."))
 	doc.item, doc.uom = context["item"], context["uom"]
 	_require_fields(doc)

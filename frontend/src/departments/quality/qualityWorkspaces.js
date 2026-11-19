@@ -9,7 +9,8 @@ export const QUALITY_COMBINED_KEYS = departments.find((department) => department
 
 /** Quality's own cards, then the Planning, Merch, PD and Accounts cards it opens, then Reports. */
 export function qualityLauncherItems() {
-	const borrowed = [...PLANNING_WORKSPACES, ...merchLauncherItems(), ...pdLauncherItems(), ...ACCOUNTS_WORKSPACES]
+	// Quality keeps opening Process Cost in Merch.
+	const borrowed = [...PLANNING_WORKSPACES.filter((item) => item.key !== "process_costs"), ...merchLauncherItems(), ...pdLauncherItems(), ...ACCOUNTS_WORKSPACES]
 	return [
 		{ key: "inspections", label: "Essdee Quality Inspection", icon: "pi pi-verified", to: "/quality/inspections", description: "Inspect delivered colours and sizes." },
 		{ key: "work_orders", label: "Work Orders", icon: "pi pi-briefcase", to: "/quality/work-orders", description: "Work Orders for quality checks." },

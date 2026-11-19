@@ -1,6 +1,6 @@
 <template>
 	<section class="ppo-editor erp-card erp-editor-shell" aria-label="Production Order editor">
-		<header class="erp-editor-header ppo-editor__header"><div class="ppo-editor__leading"><InlinePageNavigation title-target="ppo-editor-title" /><div class="ppo-editor__identity"><span>{{ name || "New document" }}</span><h1 id="ppo-editor-title" class="erp-doc-title">{{ name ? "Edit Production Order" : "New Production Order" }}</h1></div></div><div class="erp-editor-actions"><Button label="Cancel" icon="pi pi-times" severity="secondary" text :disabled="busy" @click="emit('cancel')" /><DocumentSaveButton :saved="Boolean(record.name || name)" :dirty="dirty" :docstatus="Number(record.docstatus || 0)" :document-label="`Production Order ${record.name || name}`.trim()" :loading="Boolean(saving)" :disabled="busy || !canSave" show-submit submit-label="Request Approval" @save="save(false)" @submit="save(true)" /></div></header>
+		<header class="erp-editor-header ppo-editor__header"><div class="ppo-editor__leading"><InlinePageNavigation title-target="ppo-editor-title" /><div class="ppo-editor__identity"><span>{{ name || "New document" }}</span><h1 id="ppo-editor-title" class="erp-doc-title">{{ name ? "Edit Production Order" : "New Production Order" }}</h1></div></div><div class="erp-editor-actions"><Button label="Cancel" icon="pi pi-times" severity="secondary" text :disabled="busy" @click="emit('cancel')" /><DocumentSaveButton :saved="Boolean(record.name || name)" :dirty="dirty" :docstatus="Number(record.docstatus || 0)" :document-label="`Production Order ${record.name || name}`.trim()" :loading="Boolean(saving)" :disabled="busy || !canSave" show-submit :submit-label="canSubmitDirectly ? 'Submit' : 'Request Approval'" @save="save(false)" @submit="save(true)" /></div></header>
 		<p v-if="!loading && !loadFailed && saveBlockers.length" class="ppo-editor__notice" role="status">To save or request approval, add: {{ saveBlockers.join('; ') }}.</p>
 		<DocumentErrorDialog :message="loadFailed ? '' : error" title="Production Order could not be saved" @dismiss="error = ''" />
 		<div v-if="loading" class="ppo-editor__loading"><Skeleton height="180px" /><Skeleton height="300px" /></div>
@@ -61,6 +61,7 @@ const error = ref("")
 const loaded = ref(false)
 const modified = ref("")
 const record = ref({})
+const canSubmitDirectly = ref(false)
 const cleanSignature = ref("")
 const signature = computed(() => JSON.stringify({ form, matrix: matrix.value }))
 const dirty = computed(() => !loading.value && signature.value !== cleanSignature.value)
@@ -75,6 +76,7 @@ function number(value) { const parsed = Number(value); return Number.isFinite(pa
 function selectOptions(fieldname) { return String(schemas.value.find((field) => field.fieldname === fieldname)?.options || "").split("\n").filter(Boolean) }
 function apply(payload) {
 	record.value = payload?.record || {}
+	canSubmitDirectly.value = Boolean(payload?.can_submit_directly)
 	for (const field of payload?.fields || []) if (field.fieldname in form) form[field.fieldname] = field.fieldtype === "Check" ? Boolean(Number(field.value)) : field.fieldtype === "Float" ? (field.value == null ? null : number(field.value)) : field.value ?? ""
 	schemas.value = payload?.fields || []
 	matrix.value = JSON.parse(JSON.stringify(payload?.matrix || {}))

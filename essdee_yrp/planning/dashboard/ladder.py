@@ -14,6 +14,7 @@ LADDER = [
 	"Dispatched",
 ]
 NO_WORK_ORDER = "No Work Order yet"
+STATUS_ORDER = [NO_WORK_ORDER, *LADDER]
 CUTTING_PROCESS = "Cutting"
 CUT_STATUSES = ("Completed", "Cut Panel Dispatch Pending")
 CUTTING_PLAN_RANK = {
@@ -43,7 +44,9 @@ def get_best_cutting_status(statuses):
 
 
 def get_lot_status(facts):
-	"""First matching rung of the v4 ladder, top (Dispatched) to bottom (Fabric not received)."""
+	"""First matching rung, top (Dispatched) to bottom (Fabric not received); a fabric process name sits below Waiting for cutting."""
+	if not facts["has_work_order"] and not facts["has_cutting_plan"]:
+		return NO_WORK_ORDER
 	basis = get_basis(facts["planned"], facts["cut"])
 	dispatch = flt(facts["dispatch"])
 	if basis and dispatch / basis > DISPATCHED_SHARE:
@@ -56,11 +59,36 @@ def get_lot_status(facts):
 		return "In sewing"
 	if facts["cutting_status"] in CUT_STATUSES:
 		return "Waiting for sewing"
-	if cint(facts["lay_sheets"]):
+	if cint(facts["lay_sheets"]) or facts["is_cutting_delivered"]:
 		return "In cutting"
-	if flt(facts["cloth_received"]) > 0 or flt(facts["purchased_fabric"]) > 0:
+	if facts["has_cutting_plan"] and facts["has_cutting_work_order"]:
 		return "Waiting for cutting"
-	return "Fabric not received"
+	return facts["fabric_process"] or "Fabric not received"
+
+
+def get_status_rank(status, fabric_step):
+	"""Ladder position ×100, No Work Order yet lowest; a fabric process sits between Fabric not received and Waiting for cutting."""
+	if status in STATUS_ORDER:
+		return STATUS_ORDER.index(status) * 100
+	return STATUS_ORDER.index("Fabric not received") * 100 + 1 + fabric_step
+
+
+def get_fabric_steps(routes):
+	"""{fabric process: furthest step} over the lot's cloth routes; each route is a process list in sequence order."""
+	steps = {}
+	for route in routes:
+		for step, process in enumerate(route):
+			steps[process] = max(step, steps.get(process, step))
+	return steps
+
+
+def get_fabric_process(orders, steps):
+	"""(process, step) of the furthest fabric route process with a Work Order; ("", 0) when none."""
+	reached = {order["process_name"] for order in orders} & set(steps)
+	if not reached:
+		return "", 0
+	process = max(reached, key=lambda name: (steps[name], name))
+	return process, steps[process]
 
 
 def get_sewing_processes(setting, details, used_processes):

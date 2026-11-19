@@ -120,7 +120,7 @@ test("the Purchase layout lists the GRN card and opens its list", () => {
 
 test("the Planning launcher shows the Finishing Plan Dispatch card, gated on its read permission", () => {
 	const card = (sections) => visiblePlanningWorkspaces(sections).filter((item) => item.key === "dispatches")
-	const finishing = source("../src/departments/Finishing.vue").match(/\{ key: "dispatches"[^}]*\}/)[0]
+	const finishing = source("../src/departments/launcherCards.js").match(/\{ key: "dispatches"[^}]*\}/)[0]
 	const [planning] = card({ dispatches: { can_read: true } })
 	for (const field of ["label", "description", "icon"]) assert.ok(finishing.includes(`${field}: "${planning[field]}"`), field)
 	assert.equal(planning.to, "/planning/dispatches")

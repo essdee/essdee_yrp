@@ -16,7 +16,7 @@
 		</header>
 		<div class="pd-table-wrap">
 			<table class="pd-table pd-lots-table">
-				<colgroup><col style="width:2.4%"><col style="width:11%"><col style="width:13.6%"><col style="width:14.5%"><col style="width:7.3%"><col style="width:7.3%"><col style="width:7.3%"><col style="width:8%"><col style="width:7.6%"><col style="width:21%"></colgroup>
+				<colgroup><col style="width:2.4%"><col style="width:15%"><col style="width:13.6%"><col style="width:13%"><col style="width:7.3%"><col style="width:7.3%"><col style="width:7.3%"><col style="width:8%"><col style="width:7.6%"><col style="width:18.5%"></colgroup>
 				<thead>
 					<tr class="pd-head-group">
 						<th rowspan="2" aria-label="Expand" />
@@ -39,7 +39,7 @@
 						<TrackingPpoRow :ppo="ppo" :info="ppos[ppo] || {}" :rows="rows" :open="!collapsed.has(ppo)" :show-dispatched="showDispatched" @toggle="toggle(collapsed, ppo)" @show-dispatched="emit('update:showDispatched', true)" />
 						<template v-if="!collapsed.has(ppo)">
 							<template v-for="row in rows" :key="row.lot">
-								<TrackingLotRow :row="row" :ppo-items="ppoItems(ppo)" :as-of="asOf" :open="expanded.has(row.lot)" @toggle="toggle(expanded, row.lot)" />
+								<TrackingLotRow :row="row" :ppo-items="ppoItems(ppo)" :as-of="asOf" :plan-access="planAccess" :open="expanded.has(row.lot)" @toggle="toggle(expanded, row.lot)" />
 								<tr v-if="expanded.has(row.lot)" class="pd-drill-row"><td colspan="10" class="pd-drill-cell"><TrackingLotDetail :row="row" :reports="reports" /></td></tr>
 							</template>
 						</template>
@@ -72,6 +72,7 @@ const props = defineProps({
 	asOf: { type: String, default: "" },
 	showDispatched: Boolean,
 	reports: { type: Array, default: () => [] },
+	planAccess: { type: Object, default: () => ({}) },
 })
 const emit = defineEmits(["update:showDispatched"])
 const toast = useToast()

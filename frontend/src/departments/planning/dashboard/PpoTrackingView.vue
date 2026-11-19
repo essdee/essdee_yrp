@@ -38,6 +38,7 @@
 				:as-of="data.as_of"
 				:show-dispatched="showDispatched"
 				:reports="reports"
+				:plan-access="data.plan_access"
 				@update:show-dispatched="emit('update', { filters, showDispatched: $event })"
 			/>
 		</template>

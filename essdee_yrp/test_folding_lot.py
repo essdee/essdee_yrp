@@ -405,3 +405,92 @@ class TestFoldingProcessCost(TestFoldingWorkOrder):
 		before_validate(doc)
 		self.assertEqual(doc.item, self.sample.item)
 		self.assertEqual(doc.uom, frappe.db.get_value("Item", self.sample.item, "stock_uom"))
+
+	def template_item(self):
+		"""An enabled template Item whose attributes carry a value mapping."""
+		rows = frappe.get_all(
+			"Item Variant Attribute",
+			filters={"parenttype": "Item", "mapping": ["is", "set"]},
+			fields=["parent", "attribute"],
+			limit=200,
+		)
+		for row in rows:
+			if frappe.db.get_value("Item", row.parent, ["has_variants", "disabled"]) == (1, 0):
+				return row.parent, row.attribute
+		self.skipTest("No enabled template Item with a mapped attribute")
+
+	def test_folding_lot_accepts_any_enabled_template_item(self):
+		from essdee_yrp.process_cost import before_validate
+
+		template, _attribute = self.template_item()
+		doc = frappe._dict(lot=self.lot, process_name=self.sample.process_name, item=template, uom=None)
+		before_validate(doc)
+		self.assertEqual(doc.item, template)
+		self.assertEqual(doc.uom, frappe.db.get_value("Item", template, "stock_uom"))
+
+	def test_folding_lot_rejects_a_disabled_item(self):
+		from essdee_yrp.process_cost import before_validate
+
+		template, _attribute = self.template_item()
+		frappe.db.set_value("Item", template, "disabled", 1)
+		doc = frappe._dict(lot=self.lot, process_name=self.sample.process_name, item=template, uom=None)
+		with self.assertRaisesRegex(frappe.ValidationError, "enabled Item"):
+			before_validate(doc)
+
+	def test_regular_lot_still_forces_the_lot_item(self):
+		from essdee_yrp.process_cost import before_validate
+
+		template, _attribute = self.template_item()
+		lot = frappe.db.get_value(
+			"SD YRP Lot", {"is_folding_lot": 0, "item": ["not in", ["", template]]}, ["name", "item"]
+		)
+		process = frappe.db.get_value("YRP Process", {"is_cloth_process": 0}, "name")
+		doc = frappe._dict(lot=lot[0], process_name=process, item=template, uom=None)
+		before_validate(doc)
+		self.assertEqual(doc.item, lot[1])
+
+	def test_template_item_attributes_and_values_come_from_the_item(self):
+		from essdee_yrp.process_cost import get_item_attributes, get_pc_attribute_values
+
+		template, attribute = self.template_item()
+		filters = {"item": template, "lot": self.lot, "process": self.sample.process_name}
+		attributes = [row[0] for row in get_item_attributes("Item Attribute", "", "name", 0, 20, filters)]
+		self.assertIn(attribute, attributes)
+		values = get_pc_attribute_values(template, attribute, self.lot, self.sample.process_name)
+		self.assertTrue(values)
+		self.assertTrue(all(row["attribute_value"] for row in values))
+
+	def test_web_editor_lets_a_folding_lot_choose_a_template_item(self):
+		from essdee_yrp.merch.process_cost_workspace import get_process_cost_grid, save_process_cost
+
+		template, attribute = self.template_item()
+		grid = get_process_cost_grid(self.lot, self.sample.process_name, template, attribute)
+		self.assertTrue(grid["is_folding_lot"])
+		self.assertEqual(grid["item"], template)
+		self.assertTrue(grid["attribute_values"])
+		tax_slab = frappe.db.get_value("YRP Tax Slab", {"enabled": 1}, "name")
+		values = {
+			"lot": self.lot,
+			"process_name": self.sample.process_name,
+			"item": template,
+			"supplier": self.sample.supplier,
+			"from_date": frappe.utils.add_days(frappe.utils.nowdate(), 3650),
+			"tax_slab": tax_slab,
+			"attribute": attribute,
+			"process_cost_values": [
+				{"attribute_value": row["name"], "min_order_qty": 0, "price": 5}
+				for row in grid["attribute_values"]
+			],
+		}
+		record = save_process_cost(values)["record"]
+		self.assertEqual(record["item"], template)
+		self.assertEqual(record["uom"], frappe.db.get_value("Item", template, "stock_uom"))
+
+	def test_web_editor_rejects_a_disabled_item_for_a_folding_lot(self):
+		from essdee_yrp.merch.process_cost_workspace import get_process_cost_grid
+
+		template, _attribute = self.template_item()
+		frappe.db.set_value("Item", template, "disabled", 1)
+		grid = get_process_cost_grid(self.lot, self.sample.process_name, template)
+		self.assertIsNone(grid["item"])
+		self.assertIn("item", grid["field_errors"])

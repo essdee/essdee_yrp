@@ -13,8 +13,12 @@ def facts(**values):
 		"sewing_received": 0,
 		"cutting_status": "",
 		"lay_sheets": 0,
-		"cloth_received": 0,
-		"purchased_fabric": 0,
+		"has_work_order": True,
+		"has_cutting_plan": False,
+		"has_cutting_work_order": False,
+		"is_cutting_delivered": False,
+		"fabric_process": "",
+		"fabric_step": 0,
 		**values,
 	}
 
@@ -51,17 +55,65 @@ class TestLotStatusLadder(TestCase):
 	def test_in_cutting_with_lay_sheets(self):
 		self.assertEqual(self.status(cutting_status="Cutting In Progress", lay_sheets=2), "In cutting")
 
-	def test_waiting_for_cutting_when_cloth_received(self):
-		self.assertEqual(self.status(cloth_received=12.5), "Waiting for cutting")
+	def test_in_cutting_when_cutting_work_order_has_a_delivery_challan(self):
+		self.assertEqual(self.status(has_cutting_work_order=True, is_cutting_delivered=True), "In cutting")
 
-	def test_purchased_fabric_counts_as_received(self):
-		self.assertEqual(self.status(purchased_fabric=40), "Waiting for cutting")
+	def test_waiting_for_cutting_needs_cutting_plan_and_cutting_work_order(self):
+		self.assertEqual(
+			self.status(has_cutting_plan=True, has_cutting_work_order=True, fabric_process="Dyeing"),
+			"Waiting for cutting",
+		)
+
+	def test_cutting_work_order_without_cutting_plan_is_not_waiting_for_cutting(self):
+		self.assertEqual(self.status(has_cutting_work_order=True), "Fabric not received")
+
+	def test_fabric_process_when_cutting_work_order_missing(self):
+		self.assertEqual(self.status(has_cutting_plan=True, fabric_process="Knitting"), "Knitting")
+
+	def test_fabric_not_received_with_cutting_plan_and_no_cutting_work_order(self):
+		self.assertEqual(self.status(has_cutting_plan=True, cutting_status="Planned"), "Fabric not received")
+
+	def test_cutting_plan_without_work_order_is_fabric_not_received(self):
+		self.assertEqual(self.status(has_work_order=False, has_cutting_plan=True), "Fabric not received")
+
+	def test_no_work_order_yet_without_work_order_or_cutting_plan(self):
+		self.assertEqual(self.status(has_work_order=False), ladder.NO_WORK_ORDER)
 
 	def test_fabric_not_received_otherwise(self):
-		self.assertEqual(self.status(cutting_status="Planned"), "Fabric not received")
+		self.assertEqual(self.status(), "Fabric not received")
 
 	def test_zero_basis_never_dispatched(self):
 		self.assertEqual(self.status(planned=0, dispatch=5), "Packing in progress")
+
+
+class TestFabricProcess(TestCase):
+	def test_steps_take_the_furthest_position_over_cloth_routes(self):
+		routes = [["Knitting", "Dyeing", "Washing"], ["Knitting", "Bleaching"]]
+		self.assertEqual(
+			ladder.get_fabric_steps(routes), {"Knitting": 0, "Dyeing": 1, "Washing": 2, "Bleaching": 1}
+		)
+
+	def test_furthest_route_process_with_a_work_order(self):
+		steps = {"Knitting": 0, "Dyeing": 1, "Washing": 2}
+		orders = [{"process_name": name} for name in ("Washing", "Knitting", "Cutting", "Dyeing")]
+		self.assertEqual(ladder.get_fabric_process(orders, steps), ("Washing", 2))
+
+	def test_processes_outside_the_route_are_ignored(self):
+		orders = [{"process_name": "Printing"}, {"process_name": "Cutting"}]
+		self.assertEqual(ladder.get_fabric_process(orders, {"Knitting": 0}), ("", 0))
+
+	def test_rank_places_fabric_processes_between_fabric_not_received_and_waiting_for_cutting(self):
+		rank = ladder.get_status_rank
+		ranks = [
+			rank(ladder.NO_WORK_ORDER, 0),
+			rank("Fabric not received", 0),
+			rank("Knitting", 0),
+			rank("Dyeing", 1),
+			rank("Waiting for cutting", 0),
+			rank("Dispatched", 0),
+		]
+		self.assertEqual(ranks, sorted(ranks))
+		self.assertEqual(len(set(ranks)), len(ranks))
 
 
 class TestCuttingStatus(TestCase):

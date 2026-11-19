@@ -20,35 +20,13 @@ import { getSalesCapabilities } from "../../api/sales.js"
 import WorkspaceLauncher from "../../components/common/WorkspaceLauncher.vue"
 import WorkspaceLoadError from "../../components/common/WorkspaceLoadError.vue"
 import { salesReportTabs } from "../departmentReports.js"
+import { SALES_WORKSPACES } from "../launcherCards.js"
 
 const loading = ref(true)
 const error = ref("")
 const capabilities = ref({ sections: {} })
-const items = [
-	{
-		key: "production_orders",
-		label: "Production Orders",
-		description: "Plan quantities, prices, delivery dates and approvals in one compact workflow.",
-		icon: "pi pi-file-edit",
-		to: "/sales/production-orders",
-	},
-	{
-		key: "item_prices",
-		label: "Sales Item Price",
-		description: "Update MRP, Distributor and Retail rates per piece for each Item size.",
-		icon: "pi pi-tag",
-		to: "/sales/item-prices",
-	},
-	{
-		key: "reports",
-		label: "Reports",
-		description: "Review Production Orders by delivery period, status, category and size.",
-		icon: "pi pi-chart-bar",
-		to: "/sales/reports",
-	},
-]
 
-const visibleItems = computed(() => items.filter((item) => capabilities.value.sections?.[item.key]?.can_read))
+const visibleItems = computed(() => SALES_WORKSPACES.filter((item) => capabilities.value.sections?.[item.key]?.can_read))
 
 async function load() {
 	loading.value = true

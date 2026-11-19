@@ -70,6 +70,7 @@ class TestSalesProductionOrderCommands(TestCase):
 		with (
 			patch.object(frappe, "get_doc", return_value=doc),
 			patch.object(web_workspace.workflow, "get_order_editor_context", return_value=context),
+			patch.object(web_workspace.workflow, "user_can_submit_ppo_directly", return_value=False),
 			patch.object(frappe.db, "get_value", return_value=frappe._dict(has_variants=1, variant_of=None, disabled=0)),
 		):
 			payload = web_workspace.get_production_order_editor(doc.name)
@@ -140,23 +141,32 @@ class TestSalesProductionOrderCommands(TestCase):
 						web_workspace.save_production_order({"item": "Premium Polo", "item_details": matrix}, name=doc.name)
 				self.assertEqual(doc.saved, 0)
 
-	def test_submit_option_sends_saved_draft_to_existing_approval_workflow(self):
-		doc = FakeEditableProductionOrder()
+	def test_submit_option_requests_approval_or_submits_directly(self):
 		values = {"item": "Premium Polo", "item_details": [{"item": "Premium Polo", "entries": [{"qty": 10}]}]}
-		calls = []
-		with (
-			patch.object(frappe, "get_doc", return_value=doc),
-			patch.object(web_workspace.workflow, "request_ppo_approval", side_effect=lambda production_order: calls.append(production_order)),
-			patch.object(frappe.db, "get_value", return_value=frappe._dict(has_variants=1, variant_of=None, disabled=0)),
-			patch.object(web_workspace, "get_production_order_workspace", return_value={"record": {"name": doc.name}}),
-		):
-			web_workspace.save_production_order(values, name=doc.name, submit=True)
-		self.assertEqual(calls, [doc.name])
-		self.assertEqual(doc.saved, 1)
+		for can_submit_directly, expected in ((False, "request_ppo_approval"), (True, "submit_ppo")):
+			with self.subTest(can_submit_directly=can_submit_directly):
+				doc = FakeEditableProductionOrder()
+				calls = []
+
+				def record(function_name, calls=calls):
+					return lambda production_order: calls.append((function_name, production_order))
+
+				with (
+					patch.object(frappe, "get_doc", return_value=doc),
+					patch.object(web_workspace.workflow, "user_can_submit_ppo_directly", return_value=can_submit_directly),
+					patch.object(web_workspace.workflow, "request_ppo_approval", side_effect=record("request_ppo_approval")),
+					patch.object(web_workspace.workflow, "submit_ppo", side_effect=record("submit_ppo")),
+					patch.object(frappe.db, "get_value", return_value=frappe._dict(has_variants=1, variant_of=None, disabled=0)),
+					patch.object(web_workspace, "get_production_order_workspace", return_value={"record": {"name": doc.name}}),
+				):
+					web_workspace.save_production_order(values, name=doc.name, submit=True)
+				self.assertEqual(calls, [(expected, doc.name)])
+				self.assertEqual(doc.saved, 1)
 
 	def test_workflow_command_registry_delegates_exact_payloads(self):
 		cases = {
 			"request_ppo_approval": ("request_ppo_approval", {}, {"production_order": "PPO-0001"}),
+			"submit_ppo": ("submit_ppo", {}, {"production_order": "PPO-0001"}),
 			"approve_ppo": ("approve_ppo", {}, {"production_order": "PPO-0001"}),
 			"request_changes": ("request_ppo_changes", {"reason": "Correct dates"}, {"production_order": "PPO-0001", "reason": "Correct dates"}),
 			"update_quantity_ratio": (

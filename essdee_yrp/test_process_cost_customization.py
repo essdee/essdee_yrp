@@ -47,6 +47,7 @@ class TestProcessCostCustomization(FrappeTestCase):
 			),
 			patch.object(frappe, "get_cached_doc", return_value=ipd),
 			patch("essdee_yrp.process_cost.get_mapping_document", return_value=mapping),
+			patch("essdee_yrp.process_cost.is_folding_lot", return_value=False),
 		):
 			values = get_pc_attribute_values(lot="_Test Lot", attribute="Colour", process_name="Printing")
 

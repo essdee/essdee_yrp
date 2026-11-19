@@ -1,3 +1,4 @@
+export const FABRIC_STORE_WORKSPACE_KEYS = ["work_orders", "delivery_challans", "goods_received_notes", "purchase_orders", "stock_transfers", "item_conversions", "reports"]
 export const ACCESSORY_STORE_WORKSPACE_KEYS = ["work_orders", "delivery_challans", "goods_received_notes", "purchase_orders", "stock_transfers", "item_conversions", "excel_stickers", "reports"]
 
 /** Delivery Challan and GRN launcher cards for a department with Work Orders under `basePath`. */
@@ -28,4 +29,26 @@ export function storeWorkspaces(basePath, reportKeys = ["stock_balance"]) {
 			to: `${basePath}/reports`,
 		},
 	]
+}
+
+/** Sticker sections a store department takes from the Cut Panel Store capabilities. */
+export const CUT_PANEL_STICKER_KEYS = ["box_stickers", "excel_stickers"]
+
+/** One store department's sections: Fabric Store, then `extraSections`, then the Cut Panel sticker sections it lists. */
+export function storeSections(workspaceKeys, fabricSections = {}, cutPanelSections = {}, extraSections = {}) {
+	const sections = { ...fabricSections, ...extraSections }
+	for (const key of CUT_PANEL_STICKER_KEYS) {
+		if (workspaceKeys.includes(key) && cutPanelSections[key]) sections[key] = cutPanelSections[key]
+	}
+	return sections
+}
+
+/** Store launcher cards shown for `sections`; Reports needs one readable report of `reportKeys`. */
+export function visibleStoreWorkspaces(sections, { basePath, workspaceKeys, reportKeys = ["stock_balance"], extraWorkspaces = [] }) {
+	const keys = new Set([...extraWorkspaces.map((workspace) => workspace.key), ...workspaceKeys])
+	return [...extraWorkspaces, ...storeWorkspaces(basePath, reportKeys)].filter((workspace) => (
+		keys.has(workspace.key)
+			&& sections[workspace.key]
+			&& (workspace.key !== "reports" || reportKeys.some((key) => sections.reports?.reports?.[key]?.can_read))
+	))
 }

@@ -68,6 +68,13 @@ export const PLANNING_WORKSPACES = [
 		to: "/planning/item-production-details",
 	},
 	{
+		key: "process_costs",
+		label: "Process Cost",
+		description: "Supplier process rates by item and attribute, with approval.",
+		icon: "pi pi-calculator",
+		to: "/planning/process-costs",
+	},
+	{
 		key: "production_orders",
 		label: "Production Order",
 		description: "Quantities, delivery commitments and approvals.",

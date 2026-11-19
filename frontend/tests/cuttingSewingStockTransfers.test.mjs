@@ -18,8 +18,8 @@ import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNA
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const CASES = [
-	{ department: "cutting", key: "stock-transfers", path: "/cutting/stock-transfers", storeName: "Cutting", launcher: "../src/departments/Cutting.vue", layout: "Cutting", backend: "../../essdee_yrp/cutting/web_capabilities.py" },
-	{ department: "sewing", key: "stock_transfers", path: "/sewing/stock-transfers", storeName: "Sewing", launcher: "../src/departments/sewing/SewingLauncher.vue", layout: "Sewing", backend: "../../essdee_yrp/sewing/web_workspace.py" },
+	{ department: "cutting", key: "stock-transfers", path: "/cutting/stock-transfers", storeName: "Cutting", launcher: "../src/departments/launcherCards.js", layout: "Cutting", backend: "../../essdee_yrp/cutting/web_capabilities.py" },
+	{ department: "sewing", key: "stock_transfers", path: "/sewing/stock-transfers", storeName: "Sewing", launcher: "../src/departments/launcherCards.js", layout: "Sewing", backend: "../../essdee_yrp/sewing/web_workspace.py" },
 ]
 
 function loadRouter() {

@@ -1,4 +1,4 @@
-import { callMethod, callRead, getList } from "./frappe.js"
+import { callMethod, callRead } from "./frappe.js"
 
 const LOT_METHOD = "essdee_yrp.planning.lot_workspace"
 const DASHBOARD_METHOD = "essdee_yrp.planning.dashboard_workspace"
@@ -95,19 +95,9 @@ export function getPpoProcessDetail(lot, process) {
 }
 
 export function getLotCuttingPlans(lot) {
-	return getList("SD YRP Cutting Plan", {
-		fields: ["name", "cp_status", "docstatus", "cutting_start_date", "creation"],
-		filters: [["lot", "=", lot], ["docstatus", "!=", 2]],
-		orderBy: "creation desc",
-		pageLength: 100,
-	})
+	return callRead(`${LOT_METHOD}.get_lot_cutting_plans`, { lot })
 }
 
 export function getLotFinishingPlans(lot) {
-	return getList("SD YRP Finishing Plan", {
-		fields: ["name", "fp_status", "finishing_start_date", "creation"],
-		filters: [["lot", "=", lot]],
-		orderBy: "creation desc",
-		pageLength: 100,
-	})
+	return callRead(`${LOT_METHOD}.get_lot_finishing_plans`, { lot })
 }

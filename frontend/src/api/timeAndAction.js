@@ -66,8 +66,8 @@ export function getSplitLots(timeAndAction, txt) {
 	return callMethod(`${SPLIT}.get_split_lots`, { time_and_action: timeAndAction, txt: txt || null })
 }
 
-export function splitTimeAndAction(timeAndAction, lots) {
-	return callMethod(`${SPLIT}.split_time_and_action`, { time_and_action: timeAndAction, lots: JSON.stringify(lots) })
+export function splitTimeAndAction(timeAndAction, lots, skippedActions = []) {
+	return callMethod(`${SPLIT}.split_time_and_action`, { time_and_action: timeAndAction, lots: JSON.stringify(lots), skipped_actions: JSON.stringify(skippedActions) })
 }
 
 const SUPPLIERS = "essdee_yrp.time_and_action.suppliers"
