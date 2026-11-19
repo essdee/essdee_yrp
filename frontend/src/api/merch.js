@@ -99,6 +99,10 @@ export function getIpdChanges(name) {
 	return callMethod(`${IPD_METHOD}.get_ipd_changes`, { name })
 }
 
+export function getIpdApprovalSummary(name) {
+	return callRead(`${IPD_METHOD}.get_ipd_approval_summary`, { name })
+}
+
 export function getAttributeValueUsage(name, attribute, values, draft = null) {
 	return callMethod(`${IPD_METHOD}.get_attribute_value_usage`, { name, attribute, values, draft })
 }
