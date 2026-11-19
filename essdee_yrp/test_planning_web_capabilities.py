@@ -1,5 +1,5 @@
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import frappe
 
@@ -182,6 +182,32 @@ class TestPlanningLotWrappers(TestCase):
 			})
 			source.assert_called_once_with("LOT-1")
 			flow.assert_called_once_with("LOT-1")
+
+	def test_lot_flow_context_returns_status_item_and_cloth_programs(self):
+		doc = MagicMock(status="", item="POLO")
+		doc.name = "LOT-1"
+		doc.get.return_value = [{"cloth_item": "JERSEY"}]
+		program = [{"colour": "Red", "weight": 12}]
+		with (
+			patch.object(lot_workspace.frappe, "get_doc", return_value=doc),
+			patch.object(lot_workspace, "fetch_fabric_program_details", return_value=[{"cloth_item": "JERSEY", "program": program, "steps": []}]) as fetch,
+		):
+			self.assertEqual(lot_workspace.get_lot_flow_context("LOT-1"), {
+				"name": "LOT-1", "status": "Open", "item": "POLO", "fabrics": [{"cloth_item": "JERSEY", "program": program}],
+			})
+		doc.check_permission.assert_called_once_with("read")
+		fetch.assert_called_once_with(doc)
+
+	def test_lot_flow_context_requires_lot_read(self):
+		doc = MagicMock()
+		doc.check_permission.side_effect = frappe.PermissionError
+		with (
+			patch.object(lot_workspace.frappe, "get_doc", return_value=doc),
+			patch.object(lot_workspace, "fetch_fabric_program_details") as fetch,
+		):
+			with self.assertRaises(frappe.PermissionError):
+				lot_workspace.get_lot_flow_context("LOT-1")
+		fetch.assert_not_called()
 
 	def test_process_flow_wrappers_delegate_to_shared_endpoints(self):
 		cases = (

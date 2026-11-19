@@ -38,7 +38,7 @@ function loadRouter() {
 
 test("Merch and Merch & Purchase show one Supplier card before Reports, gated on Supplier read", () => {
 	const keys = merchLauncherItems().map((item) => item.key)
-	assert.deepEqual(keys.slice(-2), ["suppliers", "reports"])
+	assert.deepEqual(keys.slice(-3), ["suppliers", "laysheet_grammage_approvals", "reports"])
 	const card = merchLauncherItems().find((item) => item.key === "suppliers")
 	assert.deepEqual([card.label, card.to], ["Supplier", "/merch/suppliers"])
 	assert.deepEqual(merchPurchaseLauncherItems().filter((item) => item.key === "suppliers").map((item) => item.to), ["/merch/suppliers"])

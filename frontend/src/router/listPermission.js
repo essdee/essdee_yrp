@@ -31,6 +31,7 @@ const SEGMENT_DOCTYPES = {
 	debits: "YRP Debit",
 	inspections: "SD YRP Essdee Quality Inspection",
 	suppliers: "Supplier",
+	"laysheet-grammage-approvals": "SD YRP Cutting LaySheet",
 }
 
 const PATH_DOCTYPES = {

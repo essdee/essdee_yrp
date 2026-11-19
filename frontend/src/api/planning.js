@@ -36,6 +36,10 @@ export function getLotWorkspace(name) {
 	return callMethod(`${LOT_METHOD}.get_lot_workspace`, { name })
 }
 
+export function getLotFlowContext(lot) {
+	return callRead(`${LOT_METHOD}.get_lot_flow_context`, { lot })
+}
+
 export function getLotProcessFlow(lot) {
 	return callRead(`${LOT_METHOD}.get_lot_process_flow`, { lot })
 }

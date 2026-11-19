@@ -20,6 +20,7 @@ SECTIONS = {
 	"bill_tracking": ("Vendor Bill Tracking", "YRP Bill Tracking"),
 	"purchase_invoices": ("Purchase Invoice", "YRP Purchase Invoice"),
 	"suppliers": ("Supplier", "Supplier"),
+	"laysheet_grammage_approvals": ("LaySheet Grammage Approval", "SD YRP Cutting LaySheet"),
 }
 
 REPORTS = {

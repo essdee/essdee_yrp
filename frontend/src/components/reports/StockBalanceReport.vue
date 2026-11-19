@@ -267,10 +267,14 @@ useReportQueryPrefill(linkedLot, ["lot"], () => { if (dimensionsLoaded.value) ap
 
 .stock-table td span:not(.multiline-cell) {
 	display: block;
-	max-width: 300px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+/* A resized column sets its own width, so the default text cap only applies before any resize. */
+.stock-table:not(.is-column-sized) td span:not(.multiline-cell) {
+	max-width: 300px;
 }
 
 .stock-in {

@@ -115,6 +115,6 @@ onMounted(loadLayout)
 </script>
 
 <style scoped>
-.cut-bundle-balance__table-wrap{max-width:100%;overflow:auto}.cut-bundle-balance__table{min-width:1120px}.cut-bundle-balance__table td{max-width:220px}.cut-bundle-balance__table td span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cut-bundle-balance__table td strong{color:var(--erp-accent-hover);font-variant-numeric:tabular-nums}
+.cut-bundle-balance__table-wrap{max-width:100%;overflow:auto}.cut-bundle-balance__table{min-width:1120px}.cut-bundle-balance__table:not(.is-column-sized) td{max-width:220px}.cut-bundle-balance__table td span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cut-bundle-balance__table td strong{color:var(--erp-accent-hover);font-variant-numeric:tabular-nums}
 .cut-bundle-balance__table .cut-bundle-balance__more td{max-width:none}.cut-bundle-balance__table .cut-bundle-balance__more span{display:inline;overflow:visible}.cut-bundle-balance__more-inner{position:sticky;left:0;display:inline-flex;align-items:center;gap:var(--erp-space-3);color:var(--erp-text-muted);font-size:var(--erp-font-size-caption)}
 </style>

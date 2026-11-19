@@ -154,7 +154,8 @@ test("Report cells keep document IDs, numbers and dates on one line and let pros
 test("Desk report text cells wrap within a max width and filter inputs do not widen columns", async () => {
 	const { readFileSync } = await import("node:fs")
 	const desk = readFileSync(resolve("frontend/src/components/reports/DeskBackedReport.vue"), "utf8")
-	assert.match(desk, /\.desk-report-table td\.report-cell--text \{ max-width: 18rem; white-space: pre-line; \}/)
+	assert.match(desk, /\.desk-report-table td\.report-cell--text \{ white-space: pre-line; \}/)
+	assert.match(desk, /\.desk-report-table:not\(\.is-column-sized\) td\.report-cell--text \{ max-width: 18rem; \}/)
 	const css = readFileSync(resolve("frontend/src/styles/reportTables.css"), "utf8")
 	assert.match(css, /td\.report-cell--id \{[^}]*white-space: nowrap/)
 	assert.match(css, /\.report-table \.report-filter-row__input \{\s*width: 0;\s*min-width: max\(100%, 48px\);/)

@@ -111,6 +111,7 @@ const ProcessCostPage = () => import("../departments/merch/process-cost/ProcessC
 const ProcessCostEditorPage = () => import("../departments/merch/process-cost/ProcessCostEditorPage.vue")
 const SuppliersList = () => import("../departments/merch/supplier/SuppliersList.vue")
 const SupplierPage = () => import("../departments/merch/supplier/SupplierPage.vue")
+const LaySheetGrammageApprovals = () => import("../departments/merch/laysheet-grammage/LaySheetGrammageApprovals.vue")
 
 const PLANNING_IPD_ROUTES = { department: "Planning", departmentPath: "/planning", listPath: "/planning/item-production-details", list: PLANNING_ROUTES.ipds, new: PLANNING_ROUTES.ipdNew, view: PLANNING_ROUTES.ipd, edit: PLANNING_ROUTES.ipdEdit }
 const PLANNING_PROCESS_COST_ROUTES = { department: "Planning", departmentPath: "/planning", listPath: "/planning/process-costs", list: PLANNING_ROUTES.processCosts, new: PLANNING_ROUTES.processCostNew, view: PLANNING_ROUTES.processCost, edit: PLANNING_ROUTES.processCostEdit, workOrder: PLANNING_ROUTES.workOrder }
@@ -1017,6 +1018,7 @@ const routes = [
 	{ path: "/merch/suppliers", name: MERCH_ROUTES.suppliers, component: SuppliersList },
 	{ path: "/merch/suppliers/new", name: MERCH_ROUTES.supplierNew, component: SupplierPage },
 	{ path: "/merch/suppliers/:supplierId", name: MERCH_ROUTES.supplier, component: SupplierPage, props: true },
+	{ path: "/merch/laysheet-grammage-approvals", name: MERCH_ROUTES.laysheetGrammageApprovals, component: LaySheetGrammageApprovals },
 	{
 		path: "/purchase/items",
 		name: PURCHASE_ROUTES.items,

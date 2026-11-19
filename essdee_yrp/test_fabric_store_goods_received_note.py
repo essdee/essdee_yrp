@@ -1349,6 +1349,22 @@ class TestPurchaseOrderLotWorkspace(FrappeTestCase):
 		}
 		return po, fieldname, first_lot, other_lot, values
 
+	def test_web_purchase_order_grn_starts_at_zero_and_needs_a_quantity_to_submit(self):
+		po, *_lots, values = self.receipt_values([1])
+		preview = preview_goods_received_note_source({"purchase_order": po.name})
+		cells = [
+			cell
+			for group in preview["matrices"]["items"]
+			for entry in group["items"]
+			for cell in entry["values"].values()
+		]
+		self.assertTrue(cells)
+		self.assertTrue(all(cell["qty"] == 0 for cell in cells))
+		self.assertTrue(all(cell["pending_quantity"] > 0 for cell in cells))
+		values["item_details"] = preview["matrices"]["items"]
+		with self.assertRaisesRegex(frappe.ValidationError, "at least one row before submitting"):
+			save_goods_received_note(values, submit=True)
+
 	def test_web_receives_whole_row_into_another_lot(self):
 		po, fieldname, _first_lot, other_lot, values = self.receipt_values([0, 6])
 		workspace = save_goods_received_note(values, submit=True)

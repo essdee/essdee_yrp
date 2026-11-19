@@ -34,4 +34,5 @@ export const MERCH_ROUTES = {
 	suppliers: "merch-suppliers",
 	supplierNew: "merch-supplier-new",
 	supplier: "merch-supplier",
+	laysheetGrammageApprovals: "merch-laysheet-grammage-approvals",
 }
