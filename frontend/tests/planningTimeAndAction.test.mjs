@@ -60,12 +60,14 @@ test("save bar pending summary", () => {
 	assert.deepEqual(getPendingSummary({ changes: 2, errors: 1 }), ["2 unsaved changes", "1 date to fix"])
 })
 
-test("rows are editable only on In Progress T&As by the row's department or Administrator", () => {
+test("rows are editable only on In Progress T&As by the row's department, Administrator, Production Planner or System Manager", () => {
 	const row = { department: "Cutting" }
 	assert.equal(canEditRow({ status: "In Progress", departments: ["Cutting"] }, row), true)
 	assert.equal(canEditRow({ status: "In Progress", departments: ["Sewing"] }, row), false)
 	assert.equal(canEditRow({ status: "In Progress", departments: [], is_administrator: true }, row), true)
 	assert.equal(canEditRow({ status: "Frozen", is_administrator: true }, row), false)
+	assert.equal(canEditRow({ status: "In Progress", departments: ["Sewing"], can_update_all_departments: true }, row), true)
+	assert.equal(canEditRow({ status: "Completed", departments: [], can_update_all_departments: true }, row), false)
 })
 
 test("report view has the 12 Desk columns in order with Desk value mapping", () => {

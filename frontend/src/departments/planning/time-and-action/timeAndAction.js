@@ -12,9 +12,10 @@ function workingDayCount(count) {
 	return `${count} working ${Math.abs(count) === 1 ? "day" : "days"}`
 }
 
-/** Desk T&A Update rule: only In Progress T&As, and only the user's departments unless Administrator. */
+/** Desk T&A Update rule: only In Progress T&As, and only the user's departments unless Administrator, Production Planner or System Manager. */
 export function canEditRow(data, row) {
-	return data?.status === "In Progress" && Boolean(data.is_administrator || data.departments?.includes(row.department))
+	const allDepartments = data?.is_administrator || data?.can_update_all_departments
+	return data?.status === "In Progress" && Boolean(allDepartments || data.departments?.includes(row.department))
 }
 
 export function isLate(row) {
