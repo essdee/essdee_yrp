@@ -21,17 +21,12 @@ import DepartmentPage from "../components/DepartmentPage.vue"
 import WorkspaceLauncher from "../components/common/WorkspaceLauncher.vue"
 import WorkspaceLoadError from "../components/common/WorkspaceLoadError.vue"
 import { storeReportTabs } from "./departmentReports.js"
-import { storeWorkspaces } from "./fabric-store/storeWorkspaces.js"
-
-const CUT_PANEL_STICKER_KEYS = ["box_stickers", "excel_stickers"]
+import { CUT_PANEL_STICKER_KEYS, FABRIC_STORE_WORKSPACE_KEYS, storeSections, visibleStoreWorkspaces } from "./fabric-store/storeWorkspaces.js"
 
 const props = defineProps({
 	storeName: { type: String, default: "Fabric Store" },
 	basePath: { type: String, default: "/fabric-store" },
-	workspaceKeys: {
-		type: Array,
-		default: () => ["work_orders", "delivery_challans", "goods_received_notes", "purchase_orders", "stock_transfers", "item_conversions", "reports"],
-	},
+	workspaceKeys: { type: Array, default: () => FABRIC_STORE_WORKSPACE_KEYS },
 	reportKeys: { type: Array, default: () => ["stock_balance"] },
 	extraWorkspaces: { type: Array, default: () => [] },
 	extraCapabilitiesLoader: { type: Function, default: null },
@@ -40,16 +35,7 @@ const loading = ref(true)
 const error = ref("")
 const sections = ref({})
 const reportCapabilities = ref({})
-const workspaces = computed(() => [...props.extraWorkspaces, ...storeWorkspaces(props.basePath, props.reportKeys)])
-const visibleWorkspaceKeys = computed(() => new Set([
-	...props.extraWorkspaces.map((workspace) => workspace.key),
-	...props.workspaceKeys,
-]))
-const visibleWorkspaces = computed(() => workspaces.value.filter((workspace) => (
-	visibleWorkspaceKeys.value.has(workspace.key)
-		&& sections.value[workspace.key]
-		&& (workspace.key !== "reports" || props.reportKeys.some((key) => sections.value.reports?.reports?.[key]?.can_read))
-)))
+const visibleWorkspaces = computed(() => visibleStoreWorkspaces(sections.value, props))
 
 async function load() {
 	loading.value = true
@@ -61,11 +47,8 @@ async function load() {
 			stickerKeys.length ? getCutPanelStoreCapabilities() : null,
 			props.extraCapabilitiesLoader ? props.extraCapabilitiesLoader() : null,
 		])
-		sections.value = { ...payload?.sections, ...extraPayload?.sections }
+		sections.value = storeSections(props.workspaceKeys, payload?.sections, cutPanelPayload?.sections, extraPayload?.sections)
 		reportCapabilities.value = payload?.sections?.reports?.reports || {}
-		for (const key of stickerKeys) {
-			if (cutPanelPayload?.sections?.[key]) sections.value[key] = cutPanelPayload.sections[key]
-		}
 	} catch (reason) {
 		error.value = reason?.message || `Unable to load the ${props.storeName} workspace.`
 	} finally {

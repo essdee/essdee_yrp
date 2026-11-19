@@ -53,7 +53,7 @@ test("the Purchase route opens the shared Excel Sticker Print section", () => {
 	assert.deepEqual(JSON.parse(JSON.stringify(route.matched.at(-1).props.default)), { section: "excel_stickers", backTo: "/purchase", backLabel: "Purchase" })
 	assert.deepEqual(getWorkspacePaths(departments.find((item) => item.key === "purchase")).excel_stickers, [PATH])
 	assert.deepEqual(getWorkspacePaths(departments.find((item) => item.key === "merch-purchase")).excel_stickers, [PATH])
-	assert.match(source("../src/departments/FabricStore.vue"), /CUT_PANEL_STICKER_KEYS = \["box_stickers", "excel_stickers"\]/)
+	assert.match(source("../src/departments/fabric-store/storeWorkspaces.js"), /CUT_PANEL_STICKER_KEYS = \["box_stickers", "excel_stickers"\]/)
 })
 
 test("the Purchase and Merch & Purchase layouts open the Excel Sticker Print card", () => {
@@ -92,7 +92,7 @@ test("Accessory Store and Cut Panel Store show the Excel Sticker Print card", ()
 	assert.match(source("../src/departments/AccessoryStore.vue"), /:workspace-keys="ACCESSORY_STORE_WORKSPACE_KEYS"/)
 	const card = storeWorkspaces("/accessory-store").find((item) => item.key === "excel_stickers")
 	assert.equal(card.to, STORE_ROUTES[0].path)
-	assert.match(source("../src/departments/CutPanelStore.vue"), /key: "excel_stickers".*to: "\/cut-panel-store\/excel-sticker-prints"/)
+	assert.match(source("../src/departments/launcherCards.js"), /key: "excel_stickers".*to: "\/cut-panel-store\/excel-sticker-prints"/)
 })
 
 test("the store routes open the shared Excel Sticker Print section inside their layouts", () => {

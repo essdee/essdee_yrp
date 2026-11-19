@@ -4,10 +4,8 @@
 			<div class="administrator-page__intro">
 				<p class="administrator-page__eyebrow">Operations command center</p>
 				<h1>Good work starts here.</h1>
-				<p class="administrator-page__description">
-					Choose a department workspace to manage the day’s production, stock, and commercial flow.
-				</p>
 			</div>
+			<DepartmentSearch class="administrator-page__search" />
 		</header>
 
 		<section aria-labelledby="department-workspaces-title">
@@ -27,6 +25,7 @@
 
 <script setup>
 import DepartmentCard from "./DepartmentCard.vue"
+import DepartmentSearch from "../departments/search/DepartmentSearch.vue"
 import { departments } from "../departments/registry.js"
 import { isOutsideLayout } from "../router/departmentLock.js"
 

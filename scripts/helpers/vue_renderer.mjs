@@ -51,6 +51,7 @@ const sharedModules = {
 	"useDocumentShortcuts.js": { useDocumentShortcuts() {} },
 	"departmentReports.js": await import("../../frontend/src/departments/departmentReports.js"),
 	"workspaceSearch.js": await import("../../frontend/src/components/common/workspaceSearch.js"),
+	"launcherCards.js": await import("../../frontend/src/departments/launcherCards.js"),
 	// The launcher search binds to window and the router; tests that cover it pass the real component explicitly.
 	"WorkspaceSearch.vue": () => null,
 	"childGridColumns.js": await import("../../frontend/src/components/common/childGrid/childGridColumns.js"),

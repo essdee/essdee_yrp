@@ -17,7 +17,7 @@ test("Item Conversions open from Fabric Store, Accessory Store, Purchase and Mer
 	assert.equal(card.to, "/accessory-store/item-conversions")
 	assert.ok(ACCESSORY_STORE_WORKSPACE_KEYS.includes("item_conversions"))
 	assert.ok(PURCHASE_STORE_WORKSPACE_KEYS.includes("item_conversions"))
-	assert.ok(source("../src/departments/FabricStore.vue").includes('"stock_transfers", "item_conversions", "reports"'))
+	assert.ok(source("../src/departments/fabric-store/storeWorkspaces.js").includes('"stock_transfers", "item_conversions", "reports"'))
 	assert.equal(merchPurchaseLauncherItems().find((item) => item.key === "item_conversions").to, "/purchase/item-conversions")
 	for (const key of ["fabric-store", "accessory-store", "purchase"]) {
 		assert.equal(departments.find((item) => item.key === key).sections.item_conversions, "item-conversions", key)
