@@ -98,6 +98,7 @@ class TestMerchWebWorkspace(TestCase):
 			"bill_tracking": ("Vendor Bill Tracking", "YRP Bill Tracking"),
 			"purchase_invoices": ("Purchase Invoice", "YRP Purchase Invoice"),
 			"suppliers": ("Supplier", "Supplier"),
+			"laysheet_grammage_approvals": ("LaySheet Grammage Approval", "SD YRP Cutting LaySheet"),
 		}
 		for key, (label, doctype) in sections.items():
 			for permission in ("read", "create", None):

@@ -161,3 +161,13 @@ export async function searchProcessCostAttributes(values, text = "") {
 		item: values.item, lot: values.lot, process_name: values.process_name, text,
 	})
 }
+
+const GRAMMAGE_METHOD = "essdee_yrp.merch.laysheet_grammage_approval"
+
+export function getPendingGrammageLaySheets(filters) {
+	return callMethod(`${GRAMMAGE_METHOD}.get_pending_laysheets`, filters)
+}
+
+export function approveGrammageLaySheets(laysheets) {
+	return callMethod(`${GRAMMAGE_METHOD}.approve_laysheets`, { laysheets })
+}

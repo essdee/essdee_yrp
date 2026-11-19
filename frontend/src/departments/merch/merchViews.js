@@ -3,9 +3,11 @@ import { MERCH_ROUTES } from "./merchRoutes.js"
 
 export { MERCH_ROUTES }
 
-export const MERCH_SECTION_ORDER = ["lots", "item_production_details", "production_orders", "work_orders", "delivery_challans", "goods_received_notes", "cutting_plans", "process_costs", "bill_tracking", "purchase_invoices", "suppliers", "reports"]
+export const MERCH_SECTION_ORDER = ["lots", "item_production_details", "production_orders", "work_orders", "delivery_challans", "goods_received_notes", "cutting_plans", "process_costs", "bill_tracking", "purchase_invoices", "suppliers", "laysheet_grammage_approvals", "reports"]
 
 export const IPD_LIST_PATH = "/merch/item-production-details"
+
+export const LAYSHEET_GRAMMAGE_APPROVALS_PATH = "/merch/laysheet-grammage-approvals"
 
 export function merchLauncherItems() {
 	return [
@@ -72,6 +74,13 @@ export function merchLauncherItems() {
 			description: "Supplier details, GSTIN, addresses and contacts.",
 			icon: "pi pi-building",
 			to: "/merch/suppliers",
+		},
+		{
+			key: "laysheet_grammage_approvals",
+			label: "LaySheet Grammage Approval",
+			description: "Approve Cutting LaySheets whose piece weight is outside tolerance.",
+			icon: "pi pi-verified",
+			to: LAYSHEET_GRAMMAGE_APPROVALS_PATH,
 		},
 		{
 			key: "reports",
