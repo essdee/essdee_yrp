@@ -347,7 +347,7 @@ function show_revisions() {
 }
 
 function can_edit(row) {
-    return data.value.status === "In Progress" && (data.value.is_administrator || data.value.departments.includes(row.department))
+    return data.value.status === "In Progress" && (data.value.is_administrator || data.value.can_update_all_departments || data.value.departments.includes(row.department))
 }
 
 function is_late(row) {

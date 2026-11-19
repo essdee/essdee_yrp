@@ -213,6 +213,17 @@ class TestUpdateActualDates(TimeAndActionTestCase):
 			reopen_time_and_action(self.name)
 		self.assertEqual(self.status(), "Completed")
 
+	def test_planner_and_system_manager_update_all_departments(self):
+		planner_role = (
+			frappe.db.get_single_value("SD YRP MRP Settings", "production_planner_role")
+			or "Production Planner"
+		)
+		frappe.set_user(make_user("T & A User"))
+		self.assertFalse(get_update_data(self.name)["can_update_all_departments"])
+		for role in (planner_role, "System Manager"):
+			frappe.set_user(make_user("T & A User", role))
+			self.assertTrue(get_update_data(self.name)["can_update_all_departments"])
+
 	def test_reopen_refused_when_not_completed(self):
 		with self.assertRaisesRegex(frappe.ValidationError, "not Completed"):
 			reopen_time_and_action(self.name)

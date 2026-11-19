@@ -7,6 +7,7 @@ from frappe import _
 from frappe.utils import cint, getdate, now_datetime
 
 from essdee_yrp.planning.dashboard_workspace import has_dashboard_access
+from essdee_yrp.sewing.fi_dates import is_production_planner
 from essdee_yrp.time_and_action.create import LOT, TIME_AND_ACTION, get_time_and_action
 from essdee_yrp.time_and_action.derived import apply_schedule
 from essdee_yrp.time_and_action.holidays import get_company_holidays
@@ -159,6 +160,7 @@ def get_user_context(doc) -> dict:
 	return {
 		"departments": departments,
 		"is_administrator": frappe.session.user == "Administrator",
+		"can_update_all_departments": is_production_planner(),
 		"can_revise": can_revise(doc, settings),
 		"can_revert": is_time_and_action_admin(settings) and not get_copy_names(doc.name),
 		"can_complete": can_complete(doc),
