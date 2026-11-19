@@ -87,21 +87,35 @@ class TestMarkerPieceWeight(TestCase):
 			0.11,
 		)
 
-	def test_part_weight_needs_every_panel_of_the_part(self):
+	def test_part_weight_is_split_across_selected_pieces(self):
 		ipd = make_ipd(
 			["Part"], [{"Part": "Top", "Weight": 0.25}, {"Part": "Bottom", "Weight": 0.2}], is_set_item=1
 		)
 		top = ["Front", "Back", "Sleeve"]
-		self.assertAlmostEqual(get_marker_piece_weight(ipd, top, machine_ratios(top, M=1)), 0.25)
-		with self.assertRaisesRegex(MarkerPieceWeightError, "Part Top.*missing: Sleeve"):
-			get_marker_piece_weight(ipd, ["Front", "Back"], machine_ratios(["Front", "Back"], M=1))
+		self.assertEqual(get_marker_piece_weight(ipd, top, machine_ratios(top, M=1)), 0.25)
+		self.assertAlmostEqual(
+			get_marker_piece_weight(ipd, ["Front", "Back"], machine_ratios(["Front", "Back"], M=1)), 0.125
+		)
+		self.assertAlmostEqual(
+			get_marker_piece_weight(ipd, ["Sleeve", "Leg"], machine_ratios(["Sleeve", "Leg"], M=1)), 0.325
+		)
 
-	def test_garment_weight_needs_every_panel(self):
+	def test_part_weight_full_selection_keeps_stored_weight(self):
+		ipd = make_ipd(["Part"], [{"Part": "Top", "Weight": 0.262}], is_set_item=1)
+		ipd.stiching_item_details = [
+			frappe._dict(
+				stiching_attribute_value=f"P{index}", quantity=quantity, set_item_attribute_value="Top"
+			)
+			for index, quantity in enumerate([1, 1, 1, 2, 2, 1, 1, 1, 2, 1, 1])
+		]
+		panels = [f"P{index}" for index in range(11)]
+		self.assertEqual(get_marker_piece_weight(ipd, panels, machine_ratios(panels, M=1)), 0.262)
+
+	def test_garment_weight_is_split_across_selected_pieces(self):
 		ipd = make_ipd(["Colour"], [{"Colour": "Red", "Weight": 0.3}])
 		panels = [panel for panel, *_ in PANELS]
-		self.assertAlmostEqual(get_marker_piece_weight(ipd, panels, machine_ratios(panels, M=1)), 0.3)
-		with self.assertRaisesRegex(MarkerPieceWeightError, "whole garment.*missing: Leg"):
-			get_marker_piece_weight(ipd, panels[:3], machine_ratios(panels[:3], M=1))
+		self.assertEqual(get_marker_piece_weight(ipd, panels, machine_ratios(panels, M=1)), 0.3)
+		self.assertAlmostEqual(get_marker_piece_weight(ipd, panels[:3], machine_ratios(panels[:3], M=1)), 0.2)
 
 	def test_unusable_weights_are_blocked(self):
 		cases = [

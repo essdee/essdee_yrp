@@ -31,7 +31,7 @@
 					<label><span>Width (Inches) *</span><InputNumber v-model="form.width" :min="0" :max-fraction-digits="3" :disabled="!canEdit" fluid /></label>
 					<label><span>Total No Of Plys</span><InputNumber v-model="form.total_no_of_plys" :min="0" :disabled="!canEdit" fluid /></label>
 					<label><span>Efficiency</span><InputNumber v-model="form.efficiency" :min="0" :max="100" suffix="%" :max-fraction-digits="2" :disabled="!canEdit" fluid /></label>
-					<label><span>Required Piece Weight (kg)</span><InputNumber :model-value="piecePreview.weight ?? form.required_piece_weight" :max-fraction-digits="4" readonly disabled fluid /><small class="weight-note" :class="{ 'weight-note--error': piecePreview.message }">{{ piecePreview.message || "Calculated from the IPD cutting weights of the selected panels and size ratios." }}</small></label>
+					<label><span>Required Piece Weight (kg)</span><InputNumber :model-value="piecePreview.weight ?? form.required_piece_weight" :max-fraction-digits="4" readonly disabled fluid /><small class="weight-note" :class="{ 'weight-note--error': piecePreview.message }">{{ piecePreview.message || "Calculated from the IPD cutting weights of the selected panels and size ratios. A Part or whole-garment weight is split evenly per piece." }}</small></label>
 				</div>
 			</section>
 
