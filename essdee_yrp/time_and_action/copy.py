@@ -15,14 +15,22 @@ TABLES = (
 )
 
 
-def copy_time_and_action(source, against: str, against_id: str) -> str:
-	"""Insert a copy of `source` against `against_id`; the engine re-derives rescheduled dates and delays."""
+SKIPPED_ACTUAL_FIELDS = {"actual_date": None, "reason": None, "auto_actual_date": 0}
+
+
+def copy_time_and_action(source, against: str, against_id: str, skipped_actions=()) -> str:
+	"""Insert a copy of `source` against `against_id`, without the actual dates of `skipped_actions`.
+
+	The engine re-derives rescheduled dates and delays."""
 	doc = frappe.new_doc(TIME_AND_ACTION)
 	doc.update({field: source.get(field) for field in HEADER_FIELDS})
 	doc.update({"against": against, "against_id": against_id, "copied_from": source.name})
 	for table in TABLES:
 		for row in source.get(table):
 			doc.append(table, row.as_dict(no_default_fields=True))
+	for row in doc.details:
+		if row.action in skipped_actions:
+			row.update(SKIPPED_ACTUAL_FIELDS)
 	doc.flags.copying = True
 	doc.insert()
 	return doc.name

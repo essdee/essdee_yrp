@@ -168,3 +168,53 @@ class TestSplitTimeAndAction(TimeAndActionTestCase):
 		save_actuals(self.source, ALL_ACTUALS)
 		complete_time_and_action(self.source)
 		self.assertFalse(get_update_data(self.source)["can_split"])
+
+	def test_split_leaves_skipped_actual_dates_empty(self):
+		save_actuals(self.source, {"TA-TEST-YARN": "2026-11-06", "TA-TEST-TRIMS": "2026-11-03"})
+		frappe.db.set_value(
+			"SD YRP Time and Action Detail",
+			{"parent": self.source, "action": "TA-TEST-TRIMS"},
+			"auto_actual_date",
+			1,
+		)
+		[copy] = split_time_and_action(self.source, [self.targets[0]], ["TA-TEST-TRIMS"])
+		rows = {row.action: row for row in frappe.get_doc(TIME_AND_ACTION, copy).details}
+		self.assertEqual(str(rows["TA-TEST-YARN"].actual_date), "2026-11-06")
+		self.assertEqual(rows["TA-TEST-YARN"].reason, "late")
+		trims = rows["TA-TEST-TRIMS"]
+		self.assertEqual(
+			(trims.actual_date, trims.reason, trims.auto_actual_date, trims.completed, trims.performance),
+			(None, None, 0, 0, 0),
+		)
+		source_trims = next(
+			row
+			for row in frappe.get_doc(TIME_AND_ACTION, self.source).details
+			if row.action == "TA-TEST-TRIMS"
+		)
+		self.assertEqual(str(trims.date), str(source_trims.date))
+		self.assertEqual(str(source_trims.actual_date), "2026-11-03")
+		self.assertTrue(any("not copied: TA-TEST-TRIMS" in text for text in info_comments(copy)))
+
+	def test_split_accepts_skipped_actions_as_json(self):
+		save_actuals(self.source, {"TA-TEST-YARN": "2026-11-06"})
+		[copy] = frappe.call(
+			"essdee_yrp.time_and_action.split.split_time_and_action",
+			time_and_action=self.source,
+			lots=frappe.as_json([self.targets[0]]),
+			skipped_actions=frappe.as_json(["TA-TEST-YARN"]),
+		)
+		self.assertIsNone(frappe.get_doc(TIME_AND_ACTION, copy).details[0].actual_date)
+
+	def test_split_refuses_unknown_skipped_action(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "not an action"):
+			split_time_and_action(self.source, [self.targets[0]], ["NO-SUCH-ACTION"])
+		self.assertIsNone(lot_time_and_action(self.targets[0]))
+
+	def test_split_refuses_skipping_an_action_whose_dependent_keeps_its_date(self):
+		save_actuals(self.source, {"TA-TEST-YARN": "2026-11-04", "TA-TEST-KNIT": "2026-11-09"})
+		with self.assertRaisesRegex(frappe.ValidationError, "TA-TEST-KNIT"):
+			split_time_and_action(self.source, [self.targets[0]], ["TA-TEST-YARN"])
+		[copy] = split_time_and_action(self.source, [self.targets[0]], ["TA-TEST-YARN", "TA-TEST-KNIT"])
+		self.assertEqual(
+			[row.actual_date for row in frappe.get_doc(TIME_AND_ACTION, copy).details], [None] * 4
+		)

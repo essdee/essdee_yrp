@@ -5,6 +5,7 @@ from frappe import _
 
 from essdee_yrp.time_and_action.copy import copy_time_and_action, parse_lots
 from essdee_yrp.time_and_action.create import LOT, PRODUCTION_ORDER, TIME_AND_ACTION, validate_can_create
+from essdee_yrp.time_and_action.rules import ActualDateState
 
 SPLIT_LOT_LIMIT = 50
 
@@ -32,14 +33,18 @@ def get_split_lots(time_and_action: str, txt: str | None = None) -> list[dict]:
 
 
 @frappe.whitelist()
-def split_time_and_action(time_and_action: str, lots: list | str) -> list[str]:
-	"""Copy a Lot T&A, actual dates and reasons included, to each Lot; all lots or none."""
+def split_time_and_action(
+	time_and_action: str, lots: list | str, skipped_actions: list | str | None = None
+) -> list[str]:
+	"""Copy a Lot T&A to each Lot, actual dates and reasons included except for `skipped_actions`; all lots or none."""
 	lots = parse_lots(lots)
+	skipped_actions = frappe.parse_json(skipped_actions or "[]")
 	source = get_split_source(time_and_action)
 	source.check_permission("write")
 	validate_split_lots(lots)
-	created = [copy_time_and_action(source, LOT, lot) for lot in lots]
-	log_split(source, created, lots)
+	validate_skipped_actions(source, skipped_actions)
+	created = [copy_time_and_action(source, LOT, lot, skipped_actions) for lot in lots]
+	log_split(source, created, lots, skipped_actions)
 	return created
 
 
@@ -73,10 +78,24 @@ def validate_split_lots(lots: list[str]) -> None:
 		validate_can_create(LOT, lot)
 
 
-def log_split(source, created: list[str], lots: list[str]) -> None:
+def validate_skipped_actions(source, skipped_actions: list[str]) -> None:
+	"""Skipped actions belong to the source; a dated dependent of a skipped action is skipped too."""
+	state = ActualDateState(source)
+	for action in skipped_actions:
+		if action not in state.actual:
+			frappe.throw(_("{0} is not an action of Time and Action {1}.").format(action, source.name))
+		kept = [name for name in state.get_dated_successors(action) if name not in skipped_actions]
+		if kept:
+			frappe.throw(
+				_("{0} depends on {1}. Leave out its actual date too.").format(", ".join(kept), action)
+			)
+
+
+def log_split(source, created: list[str], lots: list[str], skipped_actions: list[str]) -> None:
 	pairs = ", ".join(f"{name} ({lot})" for name, lot in zip(created, lots, strict=True))
 	source.add_comment("Info", _("Split T&A to {0}. This T&A continues.").format(pairs))
+	note = _("Split from Lot {0} Time and Action {1}.").format(source.against_id, source.name)
+	if skipped_actions:
+		note += " " + _("Actual dates not copied: {0}.").format(", ".join(skipped_actions))
 	for name in created:
-		frappe.get_doc(TIME_AND_ACTION, name).add_comment(
-			"Info", _("Split from Lot {0} Time and Action {1}.").format(source.against_id, source.name)
-		)
+		frappe.get_doc(TIME_AND_ACTION, name).add_comment("Info", note)
