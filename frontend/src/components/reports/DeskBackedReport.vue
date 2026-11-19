@@ -126,7 +126,8 @@ onMounted(() => {
 .desk-report-field { display: grid; gap: 6px; font-size: var(--erp-font-size-caption); font-weight: 680; }
 .desk-report-check { display: flex; align-items: center; gap: 8px; font-size: var(--erp-font-size-caption); }
 .desk-report-table { width: max-content; min-width: 100%; }
-.desk-report-table td.report-cell--text { max-width: 18rem; white-space: pre-line; }
+.desk-report-table td.report-cell--text { white-space: pre-line; }
+.desk-report-table:not(.is-column-sized) td.report-cell--text { max-width: 18rem; }
 .desk-report-link { margin-left: var(--erp-space-2); color: var(--erp-accent); font-weight: 650; }
 .desk-report-more__inner { position: sticky; left: 0; display: inline-flex; align-items: center; gap: var(--erp-space-3); color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
 .desk-report-table .desk-report-cell--success { color: var(--erp-success-text); font-weight: 650; }
