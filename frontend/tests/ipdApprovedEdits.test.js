@@ -32,7 +32,17 @@ test("restricted editor opens only the process add action and embellishment pane
 	assert.match(section, /:model-value="embellishment\.model"\n\t+:readonly="editor\.readonly && !editor\.approvedEdits"/)
 	assert.match(section, /<div v-if="!editor\.readonly" class="ipd-inline-add">/)
 	const editor = source("departments/merch/ipd/useIpdEditor.js")
-	assert.match(editor, /readonly: approvedEdits, approvedEdits/)
+	assert.match(editor, /readonly: viewOnly, approvedEdits/)
 	assert.match(source("components/common/EntryGrid.vue"), /:disabled="row\.removable === false"/)
 	assert.match(source("components/common/EntryGrid.vue"), /props\.rows\.filter\(\(row\) => row\.removable !== false\)/)
+})
+
+test("editor is view only whenever the server denies edit, including no write permission", () => {
+	const editor = source("departments/merch/ipd/useIpdEditor.js")
+	assert.match(editor, /const viewOnly = computed\(\(\) => Boolean\(payload\.value\) && !capabilities\.value\.edit\?\.allowed\)/)
+	const desk = readFileSync(new URL("../../essdee_yrp/public/js/item_production_detail.js", import.meta.url), "utf8")
+	assert.match(desk, /is_approved_ipd\(frm\) \|\| \(!frm\.is_new\(\) && !frappe\.perm\.has_perm\(frm\.doctype, 0, "write", frm\.doc\)\)/)
+	const lock = readFileSync(new URL("../../essdee_yrp/public/js/ipd_mapping_lock.js", import.meta.url), "utf8")
+	assert.match(lock, /__onload\?\.ipd_mapping_lock/)
+	assert.match(lock, /frm\.disable_form\(\)/)
 })

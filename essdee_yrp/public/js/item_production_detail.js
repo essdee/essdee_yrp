@@ -13,6 +13,11 @@ function is_approved_ipd(frm) {
 	return !frm.is_new() && frm.doc.approval_status === "Approved";
 }
 
+// Approved IPDs and users without write permission get view-only mapping and combination editors.
+function is_locked_ipd(frm) {
+	return is_approved_ipd(frm) || (!frm.is_new() && !frappe.perm.has_perm(frm.doctype, 0, "write", frm.doc));
+}
+
 function set_saved_process_rows_read_only(frm, rows, read_only) {
 	for (const name of rows) {
 		for (const df of frappe.meta.get_docfields("YRP IPD Process", name)) {
@@ -72,12 +77,13 @@ function restore_approved_ipd_lock(frm) {
 }
 
 function apply_approved_ipd_lock(frm) {
-	if (!is_approved_ipd(frm)) return;
+	if (!is_locked_ipd(frm)) return;
 	ensure_approved_ipd_lock_styles();
 
 	const cloth = Boolean(frm.doc.is_cloth_item);
-	const editable = cloth ? new Set() : APPROVED_IPD_EDITABLE_FIELDS;
-	const process_rows = cloth ? [] : (frm.doc.ipd_processes || []).filter((row) => !row.__islocal).map((row) => row.name);
+	const view_only = cloth || !is_approved_ipd(frm);
+	const editable = view_only ? new Set() : APPROVED_IPD_EDITABLE_FIELDS;
+	const process_rows = view_only ? [] : (frm.doc.ipd_processes || []).filter((row) => !row.__islocal).map((row) => row.name);
 	const state = { fields: {}, html: {}, process_rows };
 	for (const df of frm.meta.fields || []) {
 		if (!df.fieldname || IPD_LAYOUT_FIELDTYPES.has(df.fieldtype) || editable.has(df.fieldname)) continue;
@@ -110,7 +116,7 @@ function apply_approved_ipd_lock(frm) {
 	}
 
 	frm._essdee_approved_ipd_lock_state = state;
-	if (cloth) {
+	if (view_only) {
 		frm.disable_save();
 		return;
 	}
@@ -1115,7 +1121,7 @@ frappe.ui.form.on("YRP Item Production Detail", {
 		frm.panel_wise_consumption_matrix = new frappe.production.ui.PanelWiseConsumptionMatrix(field.wrapper)
 		frm.panel_wise_consumption_matrix.load_data(
 			payload,
-			!frm.is_new() && frm.doc.approval_status === "Approved"
+			is_locked_ipd(frm)
 		)
 	},
 	async render_panel_wise_cloth_mapping(frm){
@@ -1148,7 +1154,7 @@ frappe.ui.form.on("YRP Item Production Detail", {
 		frm.panel_wise_cloth_mapping = new frappe.production.ui.PanelWiseClothMappingMatrix(field.wrapper)
 		frm.panel_wise_cloth_mapping.load_data(
 			payload,
-			!frm.is_new() && frm.doc.approval_status === "Approved"
+			is_locked_ipd(frm)
 		)
 	}
 });
@@ -1642,7 +1648,7 @@ frappe.ui.form.on("YRP Item Production Detail", {
 			() => fill_selected_compacting_dia(frm),
 			"top",
 		);
-		const editable = frm.doc.approval_status !== "Approved";
+		const editable = !is_locked_ipd(frm);
 		button.toggle(editable);
 		fill_button.toggle(editable);
 	},
@@ -1694,7 +1700,7 @@ function fabric_swap_widget_data(frm, cfg) {
 		value_label: cfg.value_label,
 		pin_attribute: cfg.pin_attribute,
 		value_attribute: cfg.value_attribute,
-		locked: !frm.is_new() && frm.doc.approval_status === "Approved",
+		locked: is_locked_ipd(frm),
 		groups: [...groups.entries()].map(([pin, pairs]) => ({ pin, pairs })),
 	};
 }
@@ -1815,7 +1821,7 @@ async function fabric_processes_catalog() {
 }
 
 function fabric_processes_payload(frm, all_processes) {
-	const editable = frm.is_new() || frm.doc.approval_status !== "Approved";
+	const editable = !is_locked_ipd(frm);
 	return {
 		editable,
 		item: frm.doc.item || null,

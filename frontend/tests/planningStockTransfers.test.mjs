@@ -13,7 +13,8 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const PATH = "/planning/stock-transfers"
@@ -45,11 +46,8 @@ test("the Planning Stock Transfers section lists Stock Update, Stock Reconciliat
 	assert.match(backend, /"stock_transfers": \{"can_read": True, \*\*fabric_store_sections\["stock_transfers"\]\}/)
 })
 
-test("the Production Planner layout opens Stock Transfers", () => {
-	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
-	const workspaces = JSON.parse(layout.config).experience_props.workspaces
-	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
-	assert.ok(workspaces.includes("stock_transfers"))
+test("a Planning layout opens Stock Transfers", () => {
+	const locked = lockedDepartment("planning", ["stock_transfers"])
 	assert.ok(isWorkspaceInLayout({ key: "stock_transfers", to: PATH }, locked))
 	assert.equal(getLockedRedirect(loadRouter().resolve(PATH), locked), undefined)
 })

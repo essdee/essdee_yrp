@@ -87,6 +87,8 @@ export function useIpdEditor(initialName, ipdRoutes = MERCH_IPD_ROUTES) {
 	const isNew = computed(() => !name.value)
 	const capabilities = computed(() => payload.value?.capabilities || {})
 	const approvedEdits = computed(() => !capabilities.value.edit?.allowed && Boolean(capabilities.value.approved_edits?.allowed))
+	// Approved IPDs and users without IPD write permission get view-only editors.
+	const viewOnly = computed(() => Boolean(payload.value) && !capabilities.value.edit?.allowed)
 	const fields = computed(() => payload.value?.fields || {})
 	const isDirty = computed(() => dirtyKeys.value.size > 0)
 	const sections = computed(() => sectionsFor(Boolean(record.value.is_cloth_item)))
@@ -387,7 +389,7 @@ export function useIpdEditor(initialName, ipdRoutes = MERCH_IPD_ROUTES) {
 	}))
 	const api = reactive({
 		draft: readonly(draft), context, grids, gridDrift, fields, record, checks, isNew, sections, states,
-		capabilities, isDirty, acting, readonly: approvedEdits, approvedEdits, approve,
+		capabilities, isDirty, acting, readonly: viewOnly, approvedEdits, approve,
 		problemsFor: (sectionKey) => problemsFor(checks.value, sectionKey),
 		cellError: (field, rowKey, column) => gridErrors(checks.value, field)?.[rowKey]?.[column ?? ""] || "",
 		gridErrors: (field) => gridErrors(checks.value, field),

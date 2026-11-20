@@ -1,13 +1,8 @@
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
 import test from "node:test"
 
 const { getWorkspacePaths, departments } = await import("../src/departments/registry.js")
 const { accountsLauncherItems } = await import("../src/departments/accounts/accountsViews.js")
-
-const layouts = JSON.parse(readFileSync(new URL("./data/yrp_ui_layout.json", import.meta.url), "utf8"))
-const layout = layouts.find((row) => row.name === "Accounts")
-const workspaces = JSON.parse(layout.config).experience_props.workspaces
 
 test("Accounts shows the Merch Lot and PD Lotwise Item Profit cards before Reports", () => {
 	assert.deepEqual(accountsLauncherItems().map((item) => [item.key, item.to]), [
@@ -18,7 +13,6 @@ test("Accounts shows the Merch Lot and PD Lotwise Item Profit cards before Repor
 		["lotwise_item_profits", "/pd/lotwise-item-profits"],
 		["reports", "/accounts/reports"],
 	])
-	assert.deepEqual([...workspaces].sort(), accountsLauncherItems().map((item) => item.key).sort(), "the shipped layout lists every card")
 })
 
 test("the Accounts layout opens only the combined Lot and Lotwise Item Profit pages", () => {

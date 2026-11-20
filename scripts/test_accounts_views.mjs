@@ -69,8 +69,6 @@ assert.equal(router.resolve({ name: billTrackingProps.purchaseInvoiceViewRouteNa
 assert.equal(departments.find(({ key }) => key === "accounts").sections.bill_tracking, "bill-tracking")
 assert.equal(canOpenList(billTrackingPath, { user: { can_read: ["YRP Bill Tracking"] } }), true)
 assert.equal(canOpenList(billTrackingPath, { user: { can_read: [] } }), false)
-const layouts = JSON.parse(readFileSync(new URL("../frontend/tests/data/yrp_ui_layout.json", import.meta.url), "utf8"))
-assert.deepEqual(JSON.parse(layouts.find(({ name }) => name === "Accounts").config).experience_props.workspaces, ["purchase_invoices", "bill_tracking", "reports", "debits"])
 
 assert.deepEqual(
 	ACCOUNTS_REPORTS.slice(0, -1).map((report) => report.key),

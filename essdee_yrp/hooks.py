@@ -293,7 +293,12 @@ doctype_js = {
 	"YRP Goods Received Note": "public/js/goods_received_note.js",
 	"YRP Purchase Invoice": "public/js/purchase_invoice.js",
 	"YRP Bill Tracking": "public/js/bill_tracking.js",
-	"YRP Item BOM Attribute Mapping": "public/js/item_bom_attribute_mapping.js",
+	"YRP Item BOM Attribute Mapping": [
+		"public/js/item_bom_attribute_mapping.js",
+		"public/js/ipd_mapping_lock.js",
+	],
+	"YRP Item Item Attribute Mapping": "public/js/ipd_mapping_lock.js",
+	"YRP Item Dependent Attribute Mapping": "public/js/ipd_mapping_lock.js",
 	"YRP Process Cost": "public/js/process_cost.js",
 	"SD YRP Finishing Plan": "public/js/finishing_plan.js",
 	# List form: both scripts load for Stock Entry. The guard hides the desk Cancel
@@ -513,6 +518,18 @@ doc_events = {
 	},
 	"Supplier": {"after_insert": "essdee_yrp.api.supplier_warehouse.create_supplier_warehouse"},
 	"Warehouse": {"autoname": "essdee_yrp.overrides.warehouse.autoname"},
+	"YRP Item Item Attribute Mapping": {
+		"onload": "essdee_yrp.merch.ipd.mapping_lock.onload",
+		"validate": "essdee_yrp.merch.ipd.mapping_lock.validate",
+	},
+	"YRP Item Dependent Attribute Mapping": {
+		"onload": "essdee_yrp.merch.ipd.mapping_lock.onload",
+		"validate": "essdee_yrp.merch.ipd.mapping_lock.validate",
+	},
+	"YRP Item BOM Attribute Mapping": {
+		"onload": "essdee_yrp.merch.ipd.mapping_lock.onload",
+		"validate": "essdee_yrp.merch.ipd.mapping_lock.validate",
+	},
 	"YRP Item Production Detail": {
 		"onload": "essdee_yrp.ipd_ui.onload",
 		"before_validate": [

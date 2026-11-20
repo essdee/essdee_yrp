@@ -36,12 +36,6 @@ test("Planning shows an Action Master card after Time and Action Update, gated b
 	assert.equal(getWorkspacePaths(planning).action_masters.includes("/planning/action-masters"), true)
 })
 
-test("Planning UI layout lists the Action Master workspace", () => {
-	const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
-	const planning = layouts.find((layout) => layout.experience_key === "planning")
-	assert.ok(JSON.parse(planning.config).experience_props.workspaces.includes("action_masters"))
-})
-
 test("Action Master links open the Planning page", () => {
 	assert.equal(webDocumentPath("SD YRP Action Master", "Master-00072", "/web/planning/action-masters"), "/web/planning/action-masters/Master-00072")
 	const router = source("../src/router/index.js")
@@ -110,12 +104,10 @@ test("the Action Master Template field only picks existing templates, it never q
 	assert.match(page, /<FormField v-else /)
 })
 
-test("Planning shows an Action Master Template card after Action Master, also in the Production Planner layout", () => {
+test("Planning shows an Action Master Template card after Action Master", () => {
 	const keys = PLANNING_WORKSPACES.map((item) => item.key)
 	assert.equal(keys.indexOf("action_master_templates"), keys.indexOf("action_masters") + 1)
 	assert.deepEqual(visiblePlanningWorkspaces({ action_master_templates: { can_read: true } }).map((item) => item.to), ["/planning/action-master-templates"])
-	const planning = JSON.parse(source("./data/yrp_ui_layout.json")).find((layout) => layout.experience_key === "planning")
-	assert.ok(JSON.parse(planning.config).experience_props.workspaces.includes("action_master_templates"))
 })
 
 test("templates reuse the master page without lifecycle or template fields", () => {

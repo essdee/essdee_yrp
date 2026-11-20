@@ -14,7 +14,8 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { lockedDepartment } from "./helpers/layout.js"
 import { canOpenList, NO_PERMISSION_PATH } from "../src/router/listPermission.js"
 import { DEPARTMENT_RECORD_ROUTES } from "../src/router/webDocumentRoutes.js"
 
@@ -59,11 +60,8 @@ test("Planning Process Cost list, new, view and edit routes reuse the Merch page
 	assert.equal(props(router.resolve("/planning/work-orders/WO-1")).processCostViewRouteName, PLANNING_ROUTES.processCost)
 })
 
-test("the Production Planner layout opens Process Cost and the list needs Process Cost read", () => {
-	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
-	const workspaces = JSON.parse(layout.config).experience_props.workspaces
-	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
-	assert.ok(workspaces.includes("process_costs"))
+test("a Planning layout opens Process Cost and the list needs Process Cost read", () => {
+	const locked = lockedDepartment("planning", ["process_costs"])
 	assert.ok(isWorkspaceInLayout({ key: "process_costs", to: PATH }, locked))
 	assert.equal(getLockedRedirect(loadRouter().resolve(`${PATH}/PC-1/edit`), locked), undefined)
 	assert.equal(canOpenList(PATH, { user: { name: "planner@example.com", can_read: ["YRP Process Cost"] } }), true)

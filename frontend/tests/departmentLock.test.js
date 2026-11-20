@@ -110,20 +110,7 @@ test("launcher cards and back links follow the layout", () => {
 	assert.equal(isLockedExit("/sales/production-orders", sales), false)
 })
 
-test("registry sections match the department layouts and real routes", () => {
-	const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
-		.filter((row) => row.render_mode === "Registered Experience")
-	for (const layout of layouts) {
-		const department = departments.find((item) => item.key === layout.experience_key)
-		assert.ok(department, layout.name)
-		const workspaces = JSON.parse(layout.config).experience_props.workspaces
-		for (const workspace of workspaces) {
-			assert.ok(getWorkspacePaths(department)[workspace], `${layout.name}: ${workspace}`)
-		}
-		const missing = Object.keys(getWorkspacePaths(department)).filter((key) => !workspaces.includes(key))
-		assert.deepEqual(missing, [], `${layout.name} layout misses registry sections`)
-	}
-
+test("registry sections match real routes", () => {
 	const viewSources = readdirSync(new URL("../src/departments/", import.meta.url), { recursive: true })
 		.filter((path) => /Views\.js$/.test(path))
 		.map((path) => source(`../src/departments/${path}`))

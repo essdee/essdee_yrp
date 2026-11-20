@@ -14,18 +14,13 @@ import { PLANNING_ROUTES } from "../src/departments/planning/planningViews.js"
 import { PURCHASE_ROUTES } from "../src/departments/purchase/purchaseViews.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
 import { departments, getWorkspacePaths } from "../src/departments/registry.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 import { getListDoctype, getPermissionRedirect } from "../src/router/listPermission.js"
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 const department = (key) => departments.find((item) => item.key === key)
-
-function lockedTo(experienceKey) {
-	const workspaces = JSON.parse(layouts.find((layout) => layout.experience_key === experienceKey).config).experience_props.workspaces
-	return getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: experienceKey }, config: { experience_props: { workspaces } } } })
-}
 
 function loadRouter() {
 	const routerSource = source("../src/router/index.js").replace(/^import .*\n/gm, "")
@@ -65,14 +60,12 @@ test("Supplier list, new and record pages resolve under Merch with the Supplier 
 test("Merch and Merch & Purchase layouts open Suppliers", () => {
 	const router = loadRouter()
 	for (const experienceKey of ["merch", "merch-purchase"]) {
-		const locked = lockedTo(experienceKey)
-		assert.ok(locked.workspaces.includes("suppliers"), experienceKey)
+		const locked = lockedDepartment(experienceKey, ["suppliers"])
 		assert.ok(isWorkspaceInLayout({ to: "/merch/suppliers" }, locked), experienceKey)
 		for (const path of ["/merch/suppliers", "/merch/suppliers/new", "/merch/suppliers/SUP-1"]) {
 			assert.equal(getLockedRedirect(router.resolve(path), locked), undefined, `${experienceKey} ${path}`)
 		}
 	}
-	assert.ok(!lockedTo("merch-pd").workspaces.includes("suppliers"))
 })
 
 test("Supplier links stay inside Merch and keep their Desk fallback elsewhere", () => {

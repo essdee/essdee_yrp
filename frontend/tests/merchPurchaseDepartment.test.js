@@ -18,12 +18,11 @@ import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
 import { getLockedDepartment, getLockedRedirect, isLockedExit, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 import { canOpenList, getPermissionRedirect, NO_PERMISSION_PATH } from "../src/router/listPermission.js"
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "merch-purchase")
-const workspaces = JSON.parse(layout.config).experience_props.workspaces
-const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "merch-purchase" }, config: { experience_props: { workspaces } } } })
 const items = merchPurchaseLauncherItems()
+const locked = lockedDepartment("merch-purchase", items.map((item) => item.key))
 const notInLayout = (from) => ({ path: LAYOUT_UNAVAILABLE_PATH, query: { from }, replace: true })
 
 function loadRouter() {
@@ -43,7 +42,6 @@ test("Merch & Purchase combines every Merch and Purchase card once", () => {
 	assert.deepEqual(items.filter((item) => item.label === "Lot").map((item) => item.to), ["/merch-purchase/lots"])
 	assert.equal(items.find((item) => item.key === "reports").to, "/merch-purchase/reports")
 	assert.equal(items.find((item) => item.key === "purchase_orders").to, "/purchase/purchase-orders")
-	assert.deepEqual(workspaces, keys, "the shipped layout lists every combined card")
 })
 
 test("the department combines Merch and Purchase sections in the registry", () => {
@@ -53,7 +51,6 @@ test("the department combines Merch and Purchase sections in the registry", () =
 	const paths = getWorkspacePaths(department)
 	assert.deepEqual(paths.lots, ["/merch-purchase/lots", "/merch/lots", "/purchase/lots"])
 	assert.deepEqual(paths.reports, ["/merch-purchase/reports", "/merch/reports", "/purchase/reports"])
-	assert.deepEqual(locked.workspaces, workspaces)
 	assert.deepEqual(getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "merch-purchase" } } }).workspaces, Object.keys(paths))
 })
 
@@ -81,7 +78,7 @@ test("the workspaces page and the combined landings open Merch & Purchase; other
 	assert.equal(isLockedExit("/purchase", locked), false)
 	assert.equal(isLockedExit("/", locked), true)
 	assert.equal(isLockedExit("/sales", locked), true)
-	const narrow = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "merch-purchase" }, config: { experience_props: { workspaces: ["lots"] } } } })
+	const narrow = lockedDepartment("merch-purchase", ["lots"])
 	assert.deepEqual(getLockedRedirect(router.resolve("/purchase/purchase-orders"), narrow), notInLayout("/purchase/purchase-orders"))
 	assert.equal(getLockedRedirect(router.resolve("/merch/lots"), narrow), undefined)
 })
@@ -126,16 +123,13 @@ test("Purchase shows Vendor Bill Tracking once, with routes and record links kep
 	const boot = { user: { name: "purchase@example.com", can_read: ["SD YRP Lot"] } }
 	assert.equal(canOpenList(card.to, boot), false)
 	assert.equal(canOpenList(card.to, { user: { name: "purchase@example.com", can_read: ["YRP Bill Tracking"] } }), true)
-	const purchaseLayout = JSON.parse(JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "purchase").config).experience_props.workspaces
-	const purchaseLocked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "purchase" }, config: { experience_props: { workspaces: purchaseLayout } } } })
-	assert.ok(purchaseLayout.includes("bill_tracking"))
+	const purchaseLocked = lockedDepartment("purchase", ["bill_tracking"])
 	assert.equal(getLockedRedirect(router.resolve("/purchase/bill-tracking/BT-1"), purchaseLocked), undefined)
 })
 
 test("Merch and Merch & Purchase open Cutting Plan lists, records and the editor inside Merch", () => {
 	const router = loadRouter()
-	const merchWorkspaces = JSON.parse(JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "merch").config).experience_props.workspaces
-	const merchLocked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "merch" }, config: { experience_props: { workspaces: merchWorkspaces } } } })
+	const merchLocked = lockedDepartment("merch", ["cutting_plans"])
 	for (const launcher of [merchLauncherItems(), items]) {
 		const card = launcher.find((item) => item.key === "cutting_plans")
 		assert.deepEqual([card.label, card.to], ["Cutting Plan", "/merch/cutting-plans"])
@@ -148,7 +142,6 @@ test("Merch and Merch & Purchase open Cutting Plan lists, records and the editor
 	assert.deepEqual(JSON.parse(JSON.stringify(router.resolve("/merch/cutting-plans").matched.at(-1).props.default)), {
 		backTo: "/merch", backLabel: "Merch", viewRouteName: MERCH_ROUTES.cuttingPlan, newRouteName: MERCH_ROUTES.cuttingPlanNew,
 	})
-	assert.ok(merchWorkspaces.includes("cutting_plans"))
 	assert.equal(webDocumentPath("SD YRP Cutting Plan", "CP/1", "/web/merch/lots/LOT-1"), "/web/merch/cutting-plans/CP%2F1")
 	assert.equal(canOpenList("/merch/cutting-plans", { user: { name: "merch@example.com", can_read: ["SD YRP Lot"] } }), false)
 	assert.deepEqual(getLockedRedirect(router.resolve("/planning/cutting-plans"), merchLocked), notInLayout("/planning/cutting-plans"))

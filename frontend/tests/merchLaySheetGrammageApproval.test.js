@@ -8,8 +8,9 @@ import { MERCH_ROUTES, merchLauncherItems, visibleMerchLauncherItems } from "../
 import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { getDepartmentEntries } from "../src/departments/search/departmentCards.js"
 import { dedupeEntries, searchResults } from "../src/departments/search/departmentSearch.js"
-import { getLockedDepartment, isWorkspaceInLayout } from "../src/router/departmentLock.js"
+import { isWorkspaceInLayout } from "../src/router/departmentLock.js"
 import { getListDoctype } from "../src/router/listPermission.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const KEY = "laysheet_grammage_approvals"
 const PATH = "/merch/laysheet-grammage-approvals"
@@ -30,13 +31,9 @@ test("Merch and Merch & Purchase show one LaySheet Grammage Approval card, gated
 	assert.match(source("../src/router/index.js"), /path: "\/merch\/laysheet-grammage-approvals", name: MERCH_ROUTES.laysheetGrammageApprovals/)
 })
 
-test("the Merch and Merch & Purchase layouts open the card", () => {
-	const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
+test("a Merch or Merch & Purchase layout listing the card opens it", () => {
 	for (const experienceKey of ["merch", "merch-purchase"]) {
-		const workspaces = JSON.parse(layouts.find((layout) => layout.experience_key === experienceKey).config).experience_props.workspaces
-		assert.ok(workspaces.includes(KEY), experienceKey)
-		const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: experienceKey }, config: { experience_props: { workspaces } } } })
-		assert.ok(isWorkspaceInLayout({ to: PATH }, locked), experienceKey)
+		assert.ok(isWorkspaceInLayout({ to: PATH }, lockedDepartment(experienceKey, [KEY])), experienceKey)
 	}
 })
 

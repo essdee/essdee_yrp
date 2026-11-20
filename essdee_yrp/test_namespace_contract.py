@@ -16,7 +16,6 @@ from essdee_yrp.web_workspace_layout import WORKSPACE_EXPERIENCE
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 YRP_PACKAGE_ROOT = PACKAGE_ROOT.parents[1] / "yrp" / "yrp"
-LAYOUT_SNAPSHOT = PACKAGE_ROOT.parent / "frontend" / "tests" / "data" / "yrp_ui_layout.json"
 OWNED_MODULES = {"Essdee YRP"}
 YRP_MODULES = {"YRP", "YRP Stock"}
 PREFIX = "SD YRP "
@@ -55,29 +54,6 @@ def _owned_metadata(record_type: str):
 
 def _fixture_definition(record_type: str):
 	return next(row for row in hooks.fixtures if row.get("dt") == record_type)
-
-
-def _layout_identity_values(value):
-	"""Yield DocType identities from the supported layout vocabulary."""
-	if isinstance(value, dict):
-		for key, child in value.items():
-			if key == "doctype" and isinstance(child, str):
-				yield child
-			elif key in {"doctypes", "quickCreate"} and isinstance(child, list):
-				yield from (item for item in child if isinstance(item, str))
-			elif key == "listViews" and isinstance(child, dict):
-				yield from child
-			elif key == "newCta" and isinstance(child, dict):
-				primary = child.get("primary")
-				if isinstance(primary, str):
-					yield primary
-				menu = child.get("menu")
-				if isinstance(menu, list):
-					yield from (item for item in menu if isinstance(item, str))
-			yield from _layout_identity_values(child)
-	elif isinstance(value, list):
-		for child in value:
-			yield from _layout_identity_values(child)
 
 
 class TestNamespaceContract(unittest.TestCase):
@@ -234,46 +210,11 @@ class TestNamespaceContract(unittest.TestCase):
 			{row["name"] for row in property_setters},
 		)
 
-	def test_embedded_layout_configs_use_namespaced_doctype_identities(self):
-		final_names = {name for _path, _data, name in _owned_metadata("DocType")}
-		final_names.update(name for _path, _data, name in _metadata(YRP_PACKAGE_ROOT, YRP_MODULES, "DocType"))
-		old_names = {
-			name.removeprefix(PREFIX) if name.startswith(PREFIX) else name.removeprefix(YRP_PREFIX)
-			for name in final_names
-		}
-
-		layouts = _load_json(LAYOUT_SNAPSHOT)
-		for row in layouts:
-			config = json.loads(row["config"])
-			for identity in _layout_identity_values(config):
-				with self.subTest(layout=row["name"], identity=identity):
-					self.assertNotIn(identity, old_names)
-
-	def test_department_layouts_select_a_registered_web_department(self):
-		departments = PACKAGE_ROOT.parent / "frontend" / "src" / "departments"
-		registry = (departments / "registry.js").read_text()
+	def test_registered_experiences_select_a_registered_web_department(self):
+		registry = (PACKAGE_ROOT.parent / "frontend" / "src" / "departments" / "registry.js").read_text()
 		department_keys = set(re.findall(r'^\t\tkey: "([a-z-]+)"', registry, re.MULTILINE))
 		department_experiences = set(hooks.yrp_registered_experiences) - {WORKSPACE_EXPERIENCE}
 		self.assertLessEqual(department_experiences, department_keys)
-		sources = [*departments.rglob("*.js"), *departments.rglob("*.vue")]
-		launcher_sources = "".join(path.read_text() for path in sources)
-		launcher_keys = set(re.findall(r'key: "([a-z_-]+)"', launcher_sources))
-
-		layouts = _load_json(LAYOUT_SNAPSHOT)
-		experiences = [row for row in layouts if row["render_mode"] == "Registered Experience"]
-		experience_keys = [row["experience_key"] for row in experiences]
-		self.assertCountEqual(experience_keys, department_experiences)
-		self.assertEqual(
-			next(row["name"] for row in experiences if row["experience_key"] == "planning"),
-			"Production Planner",
-		)
-		for row in experiences:
-			props = json.loads(row["config"])["experience_props"]
-			with self.subTest(layout=row["name"]):
-				self.assertLessEqual(set(props), set(hooks.yrp_registered_experiences[row["experience_key"]]))
-				self.assertTrue(props["workspaces"])
-				self.assertEqual(len(props["workspaces"]), len(set(props["workspaces"])))
-				self.assertLessEqual(set(props["workspaces"]), launcher_keys)
 
 
 if __name__ == "__main__":

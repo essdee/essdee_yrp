@@ -15,16 +15,16 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 import { getListDoctype } from "../src/router/listPermission.js"
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
 import { Vue, findNodes, loadComponent, mountComponent } from "../../scripts/helpers/vue_renderer.mjs"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const tick = async () => { await new Promise((done) => setImmediate(done)); await Vue.nextTick() }
 const stub = (name) => (props, { slots }) => Vue.h(name, props, slots.default?.())
 const nodes = (root, type) => findNodes(root, (node) => node.type === type)
-const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 const department = (key) => departments.find((item) => item.key === key)
 const plain = (value) => JSON.parse(JSON.stringify(value))
 
@@ -35,11 +35,6 @@ function loadRouter() {
 		createRouter, createWebHistory: () => createMemoryHistory("/web/"), getLockedRedirect: () => undefined, getPermissionRedirect: () => undefined, NO_PERMISSION_PATH: "/no-permission" }
 	vm.runInNewContext(routerSource, context)
 	return context.router
-}
-
-function lockedLayout(key) {
-	const workspaces = JSON.parse(layouts.find((row) => row.experience_key === key).config).experience_props.workspaces
-	return getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: key }, config: { experience_props: { workspaces } } } })
 }
 
 async function finishingCards(sections) {
@@ -114,10 +109,8 @@ test("the Sewing and Finishing layouts own the other department's plan pages", (
 	const router = loadRouter()
 	assert.deepEqual(getWorkspacePaths(department("finishing")).sewing_plans, ["/finishing/sewing-plans"])
 	assert.deepEqual(getWorkspacePaths(department("sewing")).finishing_plans, ["/sewing/finishing-plans"])
-	const finishing = lockedLayout("finishing")
-	const sewing = lockedLayout("sewing")
-	assert.ok(finishing.workspaces.includes("sewing_plans"))
-	assert.ok(sewing.workspaces.includes("finishing_plans"))
+	const finishing = lockedDepartment("finishing", ["sewing_plans"])
+	const sewing = lockedDepartment("sewing", ["finishing_plans"])
 	assert.equal(getLockedRedirect(router.resolve("/finishing/sewing-plans"), finishing), undefined)
 	assert.equal(getLockedRedirect(router.resolve("/sewing/finishing-plans"), sewing), undefined)
 	assert.equal(getLockedRedirect(router.resolve("/sewing/finishing-plans/FP-1"), sewing), undefined)

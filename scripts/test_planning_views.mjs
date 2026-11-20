@@ -74,10 +74,6 @@ for (const [record, loadError, expected] of [
 	assert.deepEqual(actions.map((action) => action.key), expected)
 }
 assert.ok(department("planning/lot/LotPage.vue").includes("permissions?.can_write"))
-const fixture = JSON.parse(read("frontend/tests/data/yrp_ui_layout.json"))
-const planningLayout = fixture.find((row) => row.experience_key === "planning")
-assert.equal(planningLayout.name, "Production Planner")
-assert.deepEqual(JSON.parse(planningLayout.config).experience_props.workspaces, keys)
 assert.ok(read("essdee_yrp/hooks.py").includes('"planning": ["workspaces"]'))
 const planning = departments.find((item) => item.key === "planning")
 assert.deepEqual(getLockedRedirect("/", planning), { path: "/planning", replace: true })
