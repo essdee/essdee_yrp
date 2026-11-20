@@ -259,7 +259,7 @@ function resetDraft() {
 	draft.source_process = fabricSourceProcess(fabricContext.value)
 	fabricRows.value = hydrateFabricRows(fabricContext.value)
 	baselineFabricEntries.value = JSON.stringify(fabricRows.value.map((row) => row.entries))
-	closeContext.value = {}; reworkRows.value = []; recutGroups.value = []; recutCanSubmit.value = false; changeItemContext.value = {}; changeItemPreview.value = {}; error.value = ""
+	closeContext.value = {}; reworkRows.value = []; recutGroups.value = []; recutCanSubmit.value = false; changeItemContext.value = {}; changeItemPreview.value = {}; error.value = garment.error || fabricContext.value.error || ""
 }
 async function attachDebitDocument(file) {
 	uploading.value = true; error.value = ""

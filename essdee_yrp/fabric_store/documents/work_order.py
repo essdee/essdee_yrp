@@ -610,9 +610,15 @@ def _calculation_contexts(doc, selection: Mapping) -> dict:
 		return {}
 	if not doc.get("lot") or not doc.get("process_name") or not doc.get("production_detail"):
 		return {}
+	kind, loader = ("garment", get_garment_work_order_context)
 	if selection.get("process_is_cloth_process") or selection.get("is_cloth_process"):
-		return {"fabric": get_fabric_deliverable_context(doc.name)}
-	return {"garment": get_garment_work_order_context(doc.name)}
+		kind, loader = ("fabric", get_fabric_deliverable_context)
+	try:
+		return {kind: loader(doc.name)}
+	except frappe.ValidationError as exc:
+		# The editor must still load so the user can fix the setup; Calculate shows the error.
+		frappe.clear_last_message()
+		return {kind: {"error": str(exc)}}
 
 
 def get_work_order_editor(name: str | None = None, source=None, *, _adapter=None) -> dict:

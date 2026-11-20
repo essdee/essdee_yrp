@@ -319,6 +319,29 @@ class TestFabricStoreWorkOrder(TestCase):
 
 		self.assertEqual([dimension["fieldname"] for dimension in editor["dimensions"]], ["lot"])
 
+	def test_editor_loads_when_garment_context_fails_and_defers_the_error_to_calculate(self):
+		doc = self.make_document()
+		message = "Mention process Yolk Fusing in Item Production Detail IPD-1."
+
+		def failing_context(name):
+			frappe.throw(message)
+
+		frappe.clear_messages()
+		with (
+			patch("essdee_yrp.fabric_store.documents.work_order._get_work_order", return_value=doc),
+			patch("essdee_yrp.fabric_store.documents.work_order.frappe.has_permission", return_value=True),
+			patch("essdee_yrp.fabric_store.documents.work_order.group_items_for_ui", side_effect=[[], []]),
+			patch("essdee_yrp.fabric_store.documents.work_order.get_stock_dimensions_for_ui", return_value=[]),
+			patch("essdee_yrp.fabric_store.documents.work_order.get_work_order_selection_context", return_value={
+				"process_is_cloth_process": False,
+			}),
+			patch("essdee_yrp.fabric_store.documents.work_order.get_garment_work_order_context", side_effect=failing_context),
+		):
+			editor = get_work_order_editor(doc.name)
+
+		self.assertEqual(editor["calculation_contexts"], {"garment": {"error": message}})
+		self.assertEqual(frappe.local.message_log, [])
+
 	def test_editor_returns_authoritative_fabric_context_unchanged(self):
 		doc = self.make_document()
 		fabric_context = {"is_fabric_process": True, "kind": "dyeing", "rows": [{"fabric_row": "FAB-1"}]}
