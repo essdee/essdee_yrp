@@ -42,6 +42,7 @@ export function sizeRange(sizes = []) {
 
 export function weightSpan(span) {
 	if (!span) return "—"
+	if (span.parts) return span.parts.map(({ part, ...partSpan }) => `${part} ${partSpan.min == null ? "—" : weightSpan(partSpan)}`).join(" · ")
 	return span.min === span.max ? `${kilograms(span.min)} kg` : `${kilograms(span.min)}–${kilograms(span.max)} kg`
 }
 

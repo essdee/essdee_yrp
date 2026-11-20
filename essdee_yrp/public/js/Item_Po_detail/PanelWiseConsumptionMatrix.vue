@@ -6,25 +6,31 @@
 		</div>
 
 		<div class="pwc-tabs">
-			<button
-				v-for="panel in matrix.panels"
-				:key="panel.group_id"
-				type="button"
-				class="pwc-tab"
-				:class="{ active: panel.group_id === activePanel }"
-				@click="activePanel = panel.group_id"
-			>
-				{{ panel.panel_value }}
-			</button>
+			<template v-for="section in partSections" :key="section.part || 'all'">
+				<span v-if="section.part" class="pwc-part-label">{{ section.part }}</span>
+				<button
+					v-for="panel in section.panels"
+					:key="panel.group_id"
+					type="button"
+					class="pwc-tab"
+					:class="{ active: panel.group_id === activePanel }"
+					@click="activePanel = panel.group_id"
+				>
+					{{ panel.panel_value }}
+				</button>
+			</template>
 		</div>
 
 		<div v-if="!locked && singletonPanels.length > 1" class="pwc-group-editor">
 			<strong>Group panels</strong>
 			<div class="pwc-group-options">
-				<label v-for="panel in singletonPanels" :key="panel">
-					<input v-model="selectedPanelValues" type="checkbox" :value="panel" />
-					<span>{{ panel }}</span>
-				</label>
+				<template v-for="section in partSections" :key="section.part || 'all'">
+					<span v-if="section.part" class="pwc-part-label">{{ section.part }}</span>
+					<label v-for="panel in singletonsOf(section)" :key="panel">
+						<input v-model="selectedPanelValues" type="checkbox" :value="panel" />
+						<span>{{ panel }}</span>
+					</label>
+				</template>
 			</div>
 			<button
 				type="button"
@@ -179,6 +185,19 @@ const otherPanels = computed(() =>
 	)
 );
 const panelValuesFor = (panel) => panel?.panel_values || [panel?.panel_value].filter(Boolean);
+const partSections = computed(() => {
+	const sections = new Map();
+	for (const panel of matrix.value?.panels || []) {
+		const part = panel.part || null;
+		if (!sections.has(part)) sections.set(part, { part, panels: [] });
+		sections.get(part).panels.push(panel);
+	}
+	return [...sections.values()];
+});
+const singletonsOf = (section) =>
+	section.panels
+		.filter((panel) => panelValuesFor(panel).length === 1)
+		.map((panel) => panelValuesFor(panel)[0]);
 const singletonPanels = computed(() =>
 	(matrix.value?.panels || [])
 		.filter((panel) => panelValuesFor(panel).length === 1)
@@ -647,6 +666,10 @@ function groupSelectedPanels() {
 		frappe.msgprint("Ungroup an existing group before creating a different group.");
 		return;
 	}
+	if (new Set(sourceGroups.map((panel) => panel.part || null)).size > 1) {
+		frappe.msgprint("The selected panels belong to different parts and cannot be grouped.");
+		return;
+	}
 	const packingValues = packingValuesFor(sourceGroups[0]);
 	if (
 		sourceGroups.some(
@@ -693,6 +716,7 @@ function groupSelectedPanels() {
 
 	const newGroup = normalizePanelGroup({
 		panel_values: selected,
+		part: sourceGroups[0].part,
 		packing_values: [...packingValues],
 		rows,
 	});
@@ -717,6 +741,7 @@ function ungroupCurrentPanel() {
 	const splitGroups = panelValues.map((panelValue, panelIndex) =>
 		normalizePanelGroup({
 			panel_values: [panelValue],
+			part: group.part,
 			packing_values: [...packingValuesFor(group)],
 			rows: group.rows.map((row) => ({
 				primary_value: row.primary_value,
@@ -792,6 +817,14 @@ defineExpose({ load_data, get_data });
 	overflow-x: auto;
 	border-bottom: 1px solid var(--border-color, #e5e7eb);
 	background: var(--subtle-fg, #f8fafc);
+}
+.pwc-part-label {
+	align-self: center;
+	padding: 0 4px;
+	color: var(--text-muted, #64748b);
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
 }
 .pwc-tab {
 	border: 1px solid transparent;

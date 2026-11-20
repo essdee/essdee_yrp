@@ -74,6 +74,71 @@ def _set_item_garment_ipd():
 	)
 
 
+def _set_item_panel_matrix_ipd():
+	"""Set item whose Cutting rows were expanded from the panel-wise matrix (Panel x Colour, Part derived)."""
+	panels = (("Front", "Top", 1), ("Sleeve", "Top", 2), ("Leg", "Bottom", 1))
+	cutting = [
+		("Front", "Navy", "Top", "26 Dia", 0.03),
+		("Sleeve", "White", "Top", "20 Dia", 0.01),
+		("Leg", "Black", "Bottom", "30 Dia", 0.04),
+	]
+	return frappe._dict(
+		{
+			"stiching_attribute": "Panel",
+			"packing_attribute": "Colour",
+			"set_item_attribute": "Part",
+			"is_set_item": 1,
+			"is_same_packing_attribute": 0,
+			"enable_panel_wise_consumption_matrix": 1,
+			"panel_wise_consumption_matrix_json": {"schema_version": 4},
+			"cutting_attributes": [
+				frappe._dict(attribute=name) for name in ("Size", "Panel", "Colour", "Part")
+			],
+			"cloth_attributes": [frappe._dict(attribute=name) for name in ("Panel", "Part")],
+			"accessory_attributes": [],
+			"cutting_items_json": {
+				"attributes": ["Size", "Panel", "Colour", "Part", "Dia", "Weight"],
+				"items": [
+					{
+						"Size": "S",
+						"Panel": panel,
+						"Colour": colour,
+						"Part": part,
+						"Dia": dia,
+						"Weight": weight,
+					}
+					for panel, colour, part, dia, weight in cutting
+				],
+			},
+			"cutting_cloths_json": {
+				"attributes": ["Panel", "Part", "Cloth"],
+				"items": [
+					{"Panel": "Front", "Part": "Top", "Cloth": "MAIN FABRIC"},
+					{"Panel": "Sleeve", "Part": "Top", "Cloth": "RIB"},
+					{"Panel": "Leg", "Part": "Bottom", "Cloth": "MAIN FABRIC"},
+				],
+			},
+			"cloth_accessory_json": None,
+			"accessory_clothtype_json": None,
+			"stiching_item_details": [
+				frappe._dict(stiching_attribute_value=panel, set_item_attribute_value=part, quantity=quantity)
+				for panel, part, quantity in panels
+			],
+			"stiching_item_combination_details": [
+				frappe._dict(
+					major_attribute_value="Navy", set_item_attribute_value="Front", attribute_value="Navy"
+				),
+				frappe._dict(
+					major_attribute_value="Navy", set_item_attribute_value="Sleeve", attribute_value="White"
+				),
+				frappe._dict(
+					major_attribute_value="Black", set_item_attribute_value="Leg", attribute_value="Black"
+				),
+			],
+		}
+	)
+
+
 def _aishwarya_garment_ipd():
 	"""AISHWARYA-style (Size, Panel)-keyed garment IPD (probe family F4, 33 live
 	IPDs): NOT a set item; cutting keyed (Size, Panel) with dia varying BY SIZE
@@ -318,6 +383,22 @@ class TestFabricRequirement(IntegrationTestCase):
 		)
 		for row, expected in zip(rows, [0.9, 0.8, 1.0], strict=False):
 			self.assertAlmostEqual(row["quantity"], expected, places=6)
+
+	def test_set_item_panel_matrix_demand_uses_the_part_panels_only(self):
+		ipd = _set_item_panel_matrix_ipd()
+		cc = get_cloth_combination(ipd)
+		sc = get_stitching_combination(ipd)
+
+		top = calculate_cloth(ipd, {"Size": "S", "Colour": "Navy", "Part": "Top"}, 100, cc, sc)
+		bottom = calculate_cloth(ipd, {"Size": "S", "Colour": "Black", "Part": "Bottom"}, 100, cc, sc)
+
+		self.assertEqual(
+			[(row["colour"], row["cloth_type"], row["dia"]) for row in top],
+			[("Navy", "MAIN FABRIC", "26 Dia"), ("White", "RIB", "20 Dia")],
+		)
+		for row, expected in zip(top, [3.0, 2.0], strict=True):
+			self.assertAlmostEqual(row["quantity"], expected, places=6)
+		self.assertEqual([(row["colour"], row["quantity"]) for row in bottom], [("Black", 4.0)])
 
 	def test_incomplete_ipd_raises_clear_error(self):
 		# 25 live empty-draft garment IPDs (10 with live Lots, e.g. 34178) must get

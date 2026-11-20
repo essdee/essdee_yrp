@@ -378,6 +378,9 @@ export function groupPanels(matrix, selectedValues) {
 	if (selected.length < 2) throw new Error("Select at least two panels to group.")
 	const sources = selected.map((value) => (matrix.panels || []).find((panel) => panelValuesFor(panel).length === 1 && panelValuesFor(panel)[0] === value))
 	if (sources.some((panel) => !panel)) throw new Error("Ungroup an existing group before creating a different group.")
+	if (new Set(sources.map((panel) => panel.part || null)).size > 1) {
+		throw new Error("The selected panels belong to different parts and cannot be grouped.")
+	}
 	const packings = packingValuesFor(sources[0], matrix)
 	if (sources.some((panel) => stableStringify(packingValuesFor(panel, matrix)) !== stableStringify(packings))) {
 		throw new Error("The selected panels have different fabric colour columns and cannot be grouped.")
@@ -387,7 +390,7 @@ export function groupPanels(matrix, selectedValues) {
 		const values = Object.fromEntries(packings.map((packing) => [packing, groupedCell(matching.map((row) => row?.values?.[packing]), sourceRow.primary_value, packing)]))
 		return { primary_value: sourceRow.primary_value, values }
 	})
-	const group = normalizeGroup({ panel_values: selected, packing_values: [...packings], rows })
+	const group = normalizeGroup({ panel_values: selected, part: sources[0].part, packing_values: [...packings], rows })
 	const ids = new Set(sources.map((panel) => panel.group_id))
 	const first = Math.min(...sources.map((panel) => matrix.panels.indexOf(panel)))
 	const panels = matrix.panels.filter((panel) => !ids.has(panel.group_id))
@@ -402,6 +405,7 @@ export function ungroupPanel(matrix, groupId) {
 	const packings = packingValuesFor(group, matrix)
 	const split = values.map((value, index) => normalizeGroup({
 		panel_values: [value],
+		part: group.part,
 		packing_values: [...packings],
 		rows: (group.rows || []).map((row) => ({
 			primary_value: row.primary_value,
@@ -414,6 +418,17 @@ export function ungroupPanel(matrix, groupId) {
 	const panels = [...matrix.panels]
 	panels.splice(panels.indexOf(group), 1, ...split)
 	return { matrix: { ...matrix, panels }, groupId: split[0].group_id }
+}
+
+/** Panel groups under their Set Item part heading (Top / Bottom); one unlabelled section otherwise. */
+export function panelsByPart(panels = []) {
+	const sections = new Map()
+	for (const panel of panels) {
+		const part = panel.part || null
+		if (!sections.has(part)) sections.set(part, { part, panels: [] })
+		sections.get(part).panels.push(panel)
+	}
+	return [...sections.values()]
 }
 
 export function panelProgress(matrix) {

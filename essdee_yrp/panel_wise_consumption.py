@@ -71,7 +71,21 @@ def _group_label(panel_values):
 	return " + ".join(panel_values)
 
 
+def get_group_part(context, panel_values):
+	"""Set Item part shared by every panel of a group; None for non-set items."""
+	panel_part = context.get("panel_part") or {}
+	parts = _unique(panel_part.get(panel) for panel in panel_values)
+	if len(parts) > 1:
+		frappe.throw(
+			_("Panels {0} cannot be grouped because they belong to different {1} values ({2}).").format(
+				", ".join(panel_values), context.get("set_item_attribute"), ", ".join(parts)
+			)
+		)
+	return parts[0] if parts else None
+
+
 def _group_packing_values(context, panel_values):
+	get_group_part(context, panel_values)
 	packing_lists = [context["panel_packing_values"][panel] for panel in panel_values]
 	if any(values != packing_lists[0] for values in packing_lists[1:]):
 		frappe.throw(
@@ -126,6 +140,33 @@ def _panel_colour_context(doc, panel_values, source_packing_values):
 	return panel_colour_map, panel_packing_values
 
 
+def get_panel_parts(doc, panel_values):
+	"""Map each stitched panel to its Set Item part (e.g. Top / Bottom)."""
+	panel_part = {
+		_attribute_value(row.stiching_attribute_value): _attribute_value(row.set_item_attribute_value)
+		for row in doc.get("stiching_item_details") or []
+	}
+	missing = [panel for panel in panel_values if not panel_part.get(panel)]
+	if missing:
+		frappe.throw(
+			_("Select the {0} for panel(s) {1} in the Stitching tab.").format(
+				doc.get("set_item_attribute"), ", ".join(missing)
+			)
+		)
+	return {panel: panel_part[panel] for panel in panel_values}
+
+
+def matrix_attributes(context):
+	attributes = {
+		"primary": context["primary_attribute"],
+		"panel": context["panel_attribute"],
+		"packing": context["packing_attribute"],
+	}
+	if context.get("set_item_attribute"):
+		attributes["set_item"] = context["set_item_attribute"]
+	return attributes
+
+
 def get_matrix_context(doc):
 	primary_attribute = doc.get("primary_item_attribute")
 	panel_attribute = doc.get("stiching_attribute")
@@ -143,13 +184,6 @@ def get_matrix_context(doc):
 				"for the Panel-wise Consumption Matrix."
 			)
 		)
-	if doc.get("is_set_item") and doc.get("set_item_attribute") not in attributes:
-		frappe.throw(
-			_("Panel-wise Consumption Matrix cannot omit the Set Item Attribute {0}.").format(
-				doc.get("set_item_attribute")
-			)
-		)
-
 	primary_values = _mapping_values(doc, primary_attribute)
 	source_packing_values = _unique(
 		_attribute_value(row.attribute_value) for row in doc.get("packing_attribute_details") or []
@@ -177,9 +211,14 @@ def get_matrix_context(doc):
 
 	panel_colour_map, panel_packing_values = _panel_colour_context(doc, panel_values, source_packing_values)
 	packing_values = _unique(colour for panel in panel_values for colour in panel_packing_values[panel])
+	set_item_attribute = doc.get("set_item_attribute") if doc.get("is_set_item") else None
+	if set_item_attribute in attributes:
+		set_item_attribute = None
 
 	return {
 		"primary_attribute": primary_attribute,
+		"set_item_attribute": set_item_attribute,
+		"panel_part": get_panel_parts(doc, panel_values) if set_item_attribute else {},
 		"panel_attribute": panel_attribute,
 		"packing_attribute": packing_attribute,
 		"primary_values": primary_values,
@@ -196,11 +235,7 @@ def _blank_matrix(context, panel_groups=None):
 	panel_groups = panel_groups or [[panel] for panel in context["panel_values"]]
 	return {
 		"schema_version": SCHEMA_VERSION,
-		"attributes": {
-			"primary": context["primary_attribute"],
-			"panel": context["panel_attribute"],
-			"packing": context["packing_attribute"],
-		},
+		"attributes": matrix_attributes(context),
 		"primary_values": list(context["primary_values"]),
 		"packing_values": list(context["packing_values"]),
 		"panel_values": list(context["panel_values"]),
@@ -209,6 +244,7 @@ def _blank_matrix(context, panel_groups=None):
 				"group_id": _group_id(panel_values),
 				"panel_value": _group_label(panel_values),
 				"panel_values": list(panel_values),
+				"part": get_group_part(context, panel_values),
 				"packing_values": _group_packing_values(context, panel_values),
 				"rows": [
 					{
@@ -437,12 +473,7 @@ def make_panel_wise_matrix(doc, include_saved=True):
 def expand_panel_wise_matrix(matrix, context, require_complete=True):
 	"""Validate and expand a compact matrix into the existing Cutting contract."""
 	matrix = _as_json(matrix)
-	expected_attributes = {
-		"primary": context["primary_attribute"],
-		"panel": context["panel_attribute"],
-		"packing": context["packing_attribute"],
-	}
-	if matrix.get("attributes") != expected_attributes:
+	if matrix.get("attributes") != matrix_attributes(context):
 		frappe.throw(
 			_(
 				"The Panel-wise Consumption Matrix attributes changed. Reload the "
@@ -450,6 +481,7 @@ def expand_panel_wise_matrix(matrix, context, require_complete=True):
 			)
 		)
 
+	set_item_attribute = context.get("set_item_attribute")
 	items = []
 	seen_panels = set()
 	for panel in matrix.get("panels") or []:
@@ -524,15 +556,14 @@ def expand_panel_wise_matrix(matrix, context, require_complete=True):
 							1,
 						)
 						panel_weight = flt(panel_total / panel_quantity, 6)
-					items.append(
-						{
-							context["primary_attribute"]: primary_value,
-							context["panel_attribute"]: panel_value,
-							context["packing_attribute"]: packing_value,
-							"Dia": dia,
-							"Weight": panel_weight,
-						}
-					)
+					item = {
+						context["primary_attribute"]: primary_value,
+						context["panel_attribute"]: panel_value,
+						context["packing_attribute"]: packing_value,
+					}
+					if set_item_attribute:
+						item[set_item_attribute] = context["panel_part"][panel_value]
+					items.append({**item, "Dia": dia, "Weight": panel_weight})
 
 	missing_panels = [panel for panel in context["panel_values"] if panel not in seen_panels]
 	if missing_panels:
@@ -540,11 +571,7 @@ def expand_panel_wise_matrix(matrix, context, require_complete=True):
 			_("Panel(s) missing from the consumption matrix: {0}.").format(", ".join(missing_panels))
 		)
 
-	attributes = [
-		context["primary_attribute"],
-		context["panel_attribute"],
-		context["packing_attribute"],
-	]
+	attributes = list(matrix_attributes(context).values())
 	return {
 		"combination_type": "Cutting",
 		"attributes": [*attributes, "Dia", "Weight"],
@@ -582,11 +609,7 @@ def sync_panel_wise_consumption_matrix(doc):
 	doc.cutting_items_json = expanded
 	doc.set(
 		"cutting_attributes",
-		[
-			{"attribute": context["primary_attribute"]},
-			{"attribute": context["panel_attribute"]},
-			{"attribute": context["packing_attribute"]},
-		],
+		[{"attribute": attribute} for attribute in matrix_attributes(context).values()],
 	)
 
 

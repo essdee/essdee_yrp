@@ -2,13 +2,16 @@
 # For license information, please see license.txt
 
 from pathlib import Path
+from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from essdee_yrp import panel_wise_cloth_mapping
 from essdee_yrp.panel_wise_cloth_mapping import (
 	_merge_saved_matrix,
 	expand_panel_wise_cloth_mapping_matrix,
+	get_cloth_matrix_context,
 )
 from essdee_yrp.panel_wise_consumption import get_permitted_ipd
 
@@ -51,6 +54,61 @@ def _matrix(cloth="Main Fabric"):
 			}
 		],
 	}
+
+
+def _set_item_consumption():
+	return {
+		"primary_attribute": "Size",
+		"panel_attribute": "Panel",
+		"packing_attribute": "Colour",
+		"primary_values": ["S"],
+		"panel_values": ["Front", "Leg"],
+		"panel_packing_values": {"Front": ["Black"], "Leg": ["Black"]},
+		"source_packing_values": ["Black"],
+		"set_item_attribute": "Part",
+		"panel_part": {"Front": "Top", "Leg": "Bottom"},
+	}
+
+
+def _set_item_cloth_context(cloth_attributes):
+	doc = frappe._dict(
+		cloth_attributes=[frappe._dict(attribute=attribute) for attribute in cloth_attributes],
+		cloth_detail=[frappe._dict(name1="Main Fabric", cloth="Jersey")],
+	)
+	with patch.object(panel_wise_cloth_mapping, "get_matrix_context", return_value=_set_item_consumption()):
+		return get_cloth_matrix_context(doc)
+
+
+class TestSetItemClothMapping(FrappeTestCase):
+	def test_part_follows_the_panel_instead_of_adding_rows(self):
+		context = _set_item_cloth_context(["Panel", "Part"])
+		self.assertEqual(context["other_attributes"], [])
+		self.assertEqual(context["set_item_attribute"], "Part")
+
+	def test_default_cloth_attributes_include_the_part(self):
+		context = _set_item_cloth_context([])
+		self.assertEqual(context["attributes"], ["Panel", "Colour", "Part"])
+
+	def test_expanded_cloth_rows_carry_the_panel_part(self):
+		context = _set_item_cloth_context(["Panel", "Part"])
+		matrix = {
+			"attributes": ["Panel", "Part"],
+			"panels": [
+				{
+					"panel_values": [panel],
+					"rows": [{"attribute_values": {}, "values": {"__single__": {"cloth": "Main Fabric"}}}],
+				}
+				for panel in ("Front", "Leg")
+			],
+		}
+		expanded = expand_panel_wise_cloth_mapping_matrix(matrix, context)
+		self.assertEqual(
+			expanded["items"],
+			[
+				{"Panel": "Front", "Part": "Top", "Cloth": "Main Fabric"},
+				{"Panel": "Leg", "Part": "Bottom", "Cloth": "Main Fabric"},
+			],
+		)
 
 
 class TestPanelWiseClothMapping(FrappeTestCase):

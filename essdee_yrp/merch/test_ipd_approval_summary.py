@@ -15,7 +15,7 @@ def grid(attributes, items):
 FRONT_ONLY = [{"stiching_attribute_value": "Front", "quantity": 1, "category": "Body"}]
 
 
-def summary(**values):
+def summary(panel_wise=None, **values):
 	base = {
 		"primary_item_attribute": "Size",
 		"packing_attribute": "Colour",
@@ -41,6 +41,7 @@ def summary(**values):
 	payload = {
 		"values": base,
 		"context": {"attributes": [{"attribute": "Size", "values": SIZES}], "bom_mappings": {}},
+		"panel_wise": panel_wise,
 	}
 	return build_summary(payload, {"name": "IPD-TEST"})
 
@@ -208,6 +209,43 @@ class TestIpdApprovalSummary(IntegrationTestCase):
 		self.assertEqual(
 			texts(result, "accessories"),
 			["Label has zero quantity.", "Tag is attribute-mapped but the mapping has no rows."],
+		)
+
+	def test_set_item_matrix_shows_piece_weight_per_part(self):
+		def group(part, panels, weights):
+			return {
+				"part": part,
+				"panel_value": " + ".join(panels),
+				"panel_values": panels,
+				"packing_values": ["Navy"],
+				"rows": [
+					{"primary_value": size, "values": {"Navy": {"dia": "26 Dia", "weight": weight}}}
+					for size, weight in weights.items()
+				],
+			}
+
+		matrix = {
+			"panels": [
+				group("Top", ["Front", "Back"], {"S": 0.1, "M": 0.12}),
+				group("Top", ["Sleeve"], {"S": 0.02, "M": 0.02}),
+				group("Bottom", ["Leg"], {"S": 0.08, "M": 0.08}),
+			]
+		}
+		result = summary(
+			panel_wise={"consumption": {"matrix": matrix}},
+			is_set_item=1,
+			set_item_attribute="Part",
+			enable_panel_wise_consumption_matrix=1,
+			cutting_items_json=grid(["Size", "Panel", "Colour", "Part"], []),
+		)
+		self.assertEqual(
+			result["key_numbers"]["piece_weight"],
+			{
+				"parts": [
+					{"part": "Top", "min": 0.12, "max": 0.14},
+					{"part": "Bottom", "min": 0.08, "max": 0.08},
+				]
+			},
 		)
 
 	def test_attributes_list_the_ipd_colours(self):

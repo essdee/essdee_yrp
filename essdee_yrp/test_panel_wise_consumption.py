@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 import frappe
 from frappe.tests import IntegrationTestCase
 
+from essdee_yrp import panel_wise_consumption
 from essdee_yrp.ipd_ui import (
 	DUPLICATE_IPD_SCALAR_FIELDS,
 	get_approval_roles,
@@ -17,7 +18,9 @@ from essdee_yrp.ipd_validations import validate_stiching_fields
 from essdee_yrp.panel_wise_consumption import (
 	_blank_matrix,
 	_merge_cutting_rows,
+	_saved_panel_groups,
 	expand_panel_wise_matrix,
+	get_matrix_context,
 )
 
 
@@ -63,6 +66,114 @@ def _centre_panel_context():
 			},
 		},
 	}
+
+
+def _set_item_ipd(parts=None):
+	parts = parts or {"Front": "Top", "Sleeve": "Top", "Leg": "Bottom"}
+	return frappe._dict(
+		is_set_item=1,
+		set_item_attribute="Part",
+		primary_item_attribute="Size",
+		stiching_attribute="Panel",
+		packing_attribute="Colour",
+		packing_attribute_details=[frappe._dict(attribute_value="Navy")],
+		stiching_item_details=[
+			frappe._dict(stiching_attribute_value=panel, set_item_attribute_value=part, quantity=1)
+			for panel, part in parts.items()
+		],
+		stiching_item_combination_details=[],
+	)
+
+
+def _set_item_context():
+	with patch.object(panel_wise_consumption, "_mapping_values", return_value=["S"]):
+		return get_matrix_context(_set_item_ipd())
+
+
+def _fill(matrix, weight=0.05):
+	for panel in matrix["panels"]:
+		for row in panel["rows"]:
+			for packing in panel["packing_values"]:
+				row["values"][packing] = {"dia": "26 Dia", "weight": weight}
+	return matrix
+
+
+class TestSetItemPanelWiseConsumption(IntegrationTestCase):
+	def test_context_derives_each_panel_part_from_the_stitching_tab(self):
+		context = _set_item_context()
+		self.assertEqual(context["set_item_attribute"], "Part")
+		self.assertEqual(context["panel_part"], {"Front": "Top", "Sleeve": "Top", "Leg": "Bottom"})
+
+	def test_panel_without_a_part_is_rejected(self):
+		with (
+			patch.object(panel_wise_consumption, "_mapping_values", return_value=["S"]),
+			self.assertRaisesRegex(frappe.ValidationError, "Leg"),
+		):
+			get_matrix_context(_set_item_ipd({"Front": "Top", "Leg": None}))
+
+	def test_set_item_attribute_already_in_the_matrix_is_not_repeated(self):
+		doc = _set_item_ipd()
+		doc.stiching_attribute = "Part"
+		doc.stiching_item_details = [
+			frappe._dict(stiching_attribute_value=part, set_item_attribute_value=part, quantity=1)
+			for part in ("Top", "Bottom")
+		]
+		with patch.object(panel_wise_consumption, "_mapping_values", return_value=["S"]):
+			context = get_matrix_context(doc)
+		self.assertIsNone(context["set_item_attribute"])
+		self.assertNotIn("set_item", _blank_matrix(context)["attributes"])
+
+	def test_matrix_groups_carry_their_part(self):
+		matrix = _blank_matrix(_set_item_context())
+		self.assertEqual([panel["part"] for panel in matrix["panels"]], ["Top", "Top", "Bottom"])
+		self.assertEqual(matrix["attributes"]["set_item"], "Part")
+
+	def test_grouping_panels_of_different_parts_is_rejected(self):
+		with self.assertRaisesRegex(frappe.ValidationError, "different"):
+			_blank_matrix(_set_item_context(), panel_groups=[["Front", "Leg"], ["Sleeve"]])
+
+	def test_saved_cross_part_group_is_rejected(self):
+		saved = {"schema_version": 4, "panels": [{"panel_values": ["Sleeve", "Leg"]}]}
+		with self.assertRaisesRegex(frappe.ValidationError, "different"):
+			_saved_panel_groups(saved, _set_item_context())
+
+	def test_expanded_rows_include_the_part(self):
+		context = _set_item_context()
+		matrix = _fill(_blank_matrix(context, panel_groups=[["Front", "Sleeve"], ["Leg"]]))
+		expanded = expand_panel_wise_matrix(matrix, context)
+		self.assertEqual(expanded["attributes"], ["Size", "Panel", "Colour", "Part", "Dia", "Weight"])
+		self.assertEqual(
+			[(item["Panel"], item["Part"], item["Weight"]) for item in expanded["items"]],
+			[("Front", "Top", 0.025), ("Sleeve", "Top", 0.025), ("Leg", "Bottom", 0.05)],
+		)
+
+	def test_standard_set_item_rows_with_part_seed_the_matrix(self):
+		context = _set_item_context()
+		matrix = _blank_matrix(context)
+		rows = [
+			{"Part": "Top", "Colour": "Navy", "Panel": "Front", "Dia": "26 Dia", "Weight": 0.03},
+			{"Part": "Bottom", "Colour": "Navy", "Panel": "Leg", "Dia": "30 Dia", "Weight": 0.04},
+		]
+		_merge_cutting_rows(matrix, {"items": rows}, context)
+		cells = {panel["panel_value"]: panel["rows"][0]["values"]["Navy"] for panel in matrix["panels"]}
+		self.assertEqual(cells["Front"], {"dia": "26 Dia", "weight": 0.03})
+		self.assertEqual(cells["Leg"], {"dia": "30 Dia", "weight": 0.04})
+		self.assertEqual(cells["Sleeve"], {"dia": None, "weight": None})
+
+	def test_sync_puts_the_part_in_cutting_attributes(self):
+		doc = frappe.new_doc("YRP Item Production Detail")
+		doc.enable_panel_wise_consumption_matrix = 1
+		context = _set_item_context()
+		matrix = _fill(_blank_matrix(context))
+		with (
+			patch.object(panel_wise_consumption, "make_panel_wise_matrix", return_value=(matrix, context)),
+			patch("yrp.yrp.doctype.yrp_item.yrp_item.get_global_attribute_values", return_value=["26 Dia"]),
+		):
+			panel_wise_consumption.sync_panel_wise_consumption_matrix(doc)
+		self.assertEqual(
+			[row.attribute for row in doc.cutting_attributes], ["Size", "Panel", "Colour", "Part"]
+		)
+		self.assertEqual(doc.cutting_items_json["items"][0]["Part"], "Top")
 
 
 class TestPanelWiseConsumption(IntegrationTestCase):
