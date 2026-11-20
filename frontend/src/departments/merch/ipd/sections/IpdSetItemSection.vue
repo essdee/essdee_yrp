@@ -20,7 +20,7 @@
 				:rows="grid.rows"
 				:columns="grid.columns"
 				:model-value="grid.model"
-				:readonly="editor.readonly"
+				:readonly="!editor.canEdit('set_item_detail')"
 				:errors="editor.gridErrors('set_item_detail')"
 				:toolbar="[]"
 				:fill-shortcuts="false"

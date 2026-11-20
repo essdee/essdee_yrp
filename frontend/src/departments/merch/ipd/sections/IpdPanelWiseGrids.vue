@@ -22,7 +22,7 @@
 							@click="active = panel.group_id"
 						/>
 					</div>
-					<div v-if="!editor.readonly && singletonsOf(section).length > 1" class="ipd-inline-add">
+					<div v-if="editor.canEdit('panel_wise_consumption_matrix_json') && singletonsOf(section).length > 1" class="ipd-inline-add">
 						<IpdChoiceChips :label="section.part ? `Group ${section.part} panels cut as one` : 'Group panels cut as one'" :choices="singletonsOf(section)" :selected="selectedPanels" @toggle="togglePanel" />
 						<Button label="Group selected" icon="pi pi-link" size="small" outlined :disabled="!canGroup(section)" @click="group" />
 					</div>
@@ -37,14 +37,14 @@
 					:rows="grid.rows"
 					:columns="grid.columns"
 					:model-value="grid.model"
-					:readonly="editor.readonly"
+					:readonly="!editor.canEdit('panel_wise_consumption_matrix_json')"
 					:errors="errors"
 					:toolbar="[]"
 					:fill-shortcuts="false"
 					@update:model-value="update"
 				>
 					<template #toolbar>
-						<Button v-if="!editor.readonly && panelValuesFor(current).length > 1" label="Ungroup" icon="pi pi-link" text severity="secondary" size="small" @click="ungroup" />
+						<Button v-if="editor.canEdit('panel_wise_consumption_matrix_json') && panelValuesFor(current).length > 1" label="Ungroup" icon="pi pi-link" text severity="secondary" size="small" @click="ungroup" />
 					</template>
 				</EntryGrid>
 				<p v-if="groupError" class="ipd-grid-notice ipd-grid-notice--error" role="alert"><i class="pi pi-exclamation-circle" aria-hidden="true" />{{ groupError }}</p>
@@ -64,7 +64,7 @@
 					:rows="clothGrid(panel).rows"
 					:columns="clothGrid(panel).columns"
 					:model-value="clothGrid(panel).model"
-					:readonly="editor.readonly"
+					:readonly="!editor.canEdit('panel_wise_cloth_mapping_json')"
 					:toolbar="[]"
 					:fill-shortcuts="false"
 					@update:model-value="updateCloth(panel.group_id, $event)"

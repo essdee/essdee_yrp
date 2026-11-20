@@ -6,16 +6,40 @@ const IPD_LAYOUT_FIELDTYPES = new Set([
 ]);
 
 const APPROVED_IPD_HTML_LOCK_CLASS = "essdee-approved-ipd-html-locked";
-// Approved IPDs still accept new process rows and embellishment panel changes.
-const APPROVED_IPD_EDITABLE_FIELDS = new Set(["ipd_processes", "emblishment_details_html"]);
+// Approved IPDs still accept new process rows, embellishment panels, packing,
+// combinations and attribute mappings (mirrors essdee_yrp.ipd_approved_edits).
+const APPROVED_IPD_EDITABLE_FIELDS = new Set([
+	"ipd_processes", "emblishment_details_html",
+	"item_attribute_list_values_html", "dependent_attribute_details_html", "bom_attribute_mapping_html",
+	"packing_combo", "packing_attribute_no", "auto_calculate", "get_packing_attribute_values",
+	"packing_attribute_details", "based_on_other_attribute_mapping", "packing_mode", "packing_size_details",
+	"packing_assortment_attributes", "get_packing_combination", "packing_assortment_html", "packing_assortment_json",
+	"get_set_item_combination", "set_items_html", "set_item_combination_details",
+	"is_same_packing_attribute", "get_stiching_item_combination", "stiching_items_html", "stiching_item_combination_details",
+	"cutting_attributes", "select_attributes_html", "get_cutting_combination", "cutting_items_html", "cutting_items_json",
+	"cloth_attributes", "select_cloths_attribute_html", "get_cloth_combination", "cutting_cloths_html", "cutting_cloths_json",
+	"panel_wise_consumption_matrix_json", "panel_wise_cloth_mapping_json",
+	"accessory_attributes", "accessory_clothtype_combination_html", "accessory_clothtype_json",
+	"select_cloth_accessory_html", "get_accessory_combination", "cloth_accessories_html", "cloth_accessory_json",
+	"get_stiching_accessory_combination", "stiching_accessory_html", "stiching_accessory_json",
+]);
 
 function is_approved_ipd(frm) {
 	return !frm.is_new() && frm.doc.approval_status === "Approved";
 }
 
-// Approved IPDs and users without write permission get view-only mapping and combination editors.
+function can_write_ipd(frm) {
+	return frm.is_new() || frappe.perm.has_perm(frm.doctype, 0, "write", frm.doc);
+}
+
+// Approved IPDs and users without write permission get view-only cloth editors.
 function is_locked_ipd(frm) {
-	return is_approved_ipd(frm) || (!frm.is_new() && !frappe.perm.has_perm(frm.doctype, 0, "write", frm.doc));
+	return is_approved_ipd(frm) || !can_write_ipd(frm);
+}
+
+// Garment combinations stay editable on approved IPDs for users with write permission.
+function is_combination_locked(frm) {
+	return !can_write_ipd(frm) || (is_approved_ipd(frm) && Boolean(frm.doc.is_cloth_item));
 }
 
 function set_saved_process_rows_read_only(frm, rows, read_only) {
@@ -81,7 +105,7 @@ function apply_approved_ipd_lock(frm) {
 	ensure_approved_ipd_lock_styles();
 
 	const cloth = Boolean(frm.doc.is_cloth_item);
-	const view_only = cloth || !is_approved_ipd(frm);
+	const view_only = cloth || !can_write_ipd(frm);
 	const editable = view_only ? new Set() : APPROVED_IPD_EDITABLE_FIELDS;
 	const process_rows = view_only ? [] : (frm.doc.ipd_processes || []).filter((row) => !row.__islocal).map((row) => row.name);
 	const state = { fields: {}, html: {}, process_rows };
@@ -121,6 +145,99 @@ function apply_approved_ipd_lock(frm) {
 		return;
 	}
 	set_saved_process_rows_read_only(frm, process_rows, 1);
+}
+
+// Write the packing, combination and panel-wise widgets back into their stored fields.
+function serialise_combination_widgets(frm) {
+	if(frm.doc.enable_panel_wise_consumption_matrix && frm.panel_wise_consumption_matrix){
+		let matrix = frm.panel_wise_consumption_matrix.get_data()
+		if(matrix){
+			frm.doc.panel_wise_consumption_matrix_json = matrix
+		}
+	}
+	if(frm.doc.enable_panel_wise_consumption_matrix && frm.panel_wise_cloth_mapping){
+		let matrix = frm.panel_wise_cloth_mapping.get_data()
+		if(matrix){
+			frm.doc.panel_wise_cloth_mapping_json = matrix
+		}
+	}
+	if(frm.set_item && frm.doc.is_set_item){
+		let item_details = frm.set_item.get_data()
+		frm.doc['set_item_detail'] = JSON.stringify(item_details);
+	}
+
+	if(frm.stiching_item){
+		let item_details = frm.stiching_item.get_data()
+		if(item_details['values'].length > 0){
+			frm.doc['stiching_item_detail'] = JSON.stringify(item_details);
+		}
+	}
+
+	if(frm.select_attrs_multicheck){
+		let cutting_attr_list = []
+		let get_checked_attributes = frm.select_attrs_multicheck.get_checked_options()
+		for(let i = 0 ; i< get_checked_attributes.length; i++){
+			cutting_attr_list.push({'attribute':get_checked_attributes[i]})
+		}
+		frm.set_value('cutting_attributes',cutting_attr_list)
+	}
+
+	if(frm.select_cloth_attrs_multicheck){
+		let cutting_attr_list = []
+		let get_checked_attributes = frm.select_cloth_attrs_multicheck.get_checked_options()
+		for(let i = 0 ; i< get_checked_attributes.length; i++){
+			cutting_attr_list.push({'attribute':get_checked_attributes[i]})
+		}
+		frm.set_value('cloth_attributes',cutting_attr_list)
+	}
+
+	if(frm.select_cloth_accessory_multicheck){
+		let cloth_accessories_list = []
+		let get_checked_attributes = frm.select_cloth_accessory_multicheck.get_checked_options()
+		for(let i = 0 ; i< get_checked_attributes.length; i++){
+			cloth_accessories_list.push({'attribute':get_checked_attributes[i]})
+		}
+		frm.set_value('accessory_attributes',cloth_accessories_list)
+	}
+
+	// Only overwrite each tab's stored JSON when its widget actually rendered
+	// and returned rows. When get_data()/get_items() is null (tab never opened,
+	// e.g. on a freshly-synced doc) PRESERVE the stored value — wiping it to {}
+	// here was destroying synced Cutting / Cloth-Accessory data on the first save.
+	if(frm.cutting_item && !frm.doc.enable_panel_wise_consumption_matrix){
+		let item_details = frm.cutting_item.get_data()
+		if(item_details && item_details.items && item_details.items.length > 0){
+			frm.doc.cutting_items_json = item_details
+		}
+	}
+
+	if(frm.cloth_item){
+		let item_details = frm.cloth_item.get_data()
+		if(item_details && item_details.items && item_details.items.length > 0){
+			frm.doc.cutting_cloths_json = item_details
+		}
+	}
+
+	if(frm.cloth_accessories){
+		let item_details = frm.cloth_accessories.get_data()
+		if(item_details && item_details.items && item_details.items.length > 0){
+			frm.doc.cloth_accessory_json = item_details
+		}
+	}
+
+	if(frm.stiching_accessory){
+		let item_details = frm.stiching_accessory.get_data()
+		if(item_details && item_details.items && item_details.items.length > 0){
+			frm.doc.stiching_accessory_json = item_details
+		}
+	}
+
+	if(frm.accessory_clothtype){
+		let item_details = frm.accessory_clothtype.get_data()
+		if(item_details != null){
+			frm.doc.accessory_clothtype_json = item_details
+		}
+	}
 }
 
 function add_ipd_process_matrix_button(frm) {
@@ -712,102 +829,15 @@ frappe.ui.form.on("YRP Item Production Detail", {
 	},
 	validate:async function(frm){
 		if(is_approved_ipd(frm)){
-			// Other widgets are locked; re-serialising them would look like an edit.
+			// Locked widgets are not re-serialised; only allowed approved edits are.
 			if(frm.emblishment){
 				frm.doc.emblishment_details_json = frm.emblishment.get_items()
 			}
+			serialise_combination_widgets(frm)
 			return
 		}
 		if(!frm.doc.__islocal){
-			if(frm.doc.enable_panel_wise_consumption_matrix && frm.panel_wise_consumption_matrix){
-				let matrix = frm.panel_wise_consumption_matrix.get_data()
-				if(matrix){
-					frm.doc.panel_wise_consumption_matrix_json = matrix
-				}
-			}
-			if(frm.doc.enable_panel_wise_consumption_matrix && frm.panel_wise_cloth_mapping){
-				let matrix = frm.panel_wise_cloth_mapping.get_data()
-				if(matrix){
-					frm.doc.panel_wise_cloth_mapping_json = matrix
-				}
-			}
-			if(frm.set_item && frm.doc.is_set_item){
-				let item_details = frm.set_item.get_data()
-				frm.doc['set_item_detail'] = JSON.stringify(item_details);
-			}
-
-			if(frm.stiching_item){
-				let item_details = frm.stiching_item.get_data()
-				if(item_details['values'].length > 0){
-					frm.doc['stiching_item_detail'] = JSON.stringify(item_details);
-				}
-			}
-
-			if(frm.select_attrs_multicheck){
-				let cutting_attr_list = []
-				let get_checked_attributes = frm.select_attrs_multicheck.get_checked_options()
-				for(let i = 0 ; i< get_checked_attributes.length; i++){
-					cutting_attr_list.push({'attribute':get_checked_attributes[i]})
-				}
-				frm.set_value('cutting_attributes',cutting_attr_list)
-			}
-
-			if(frm.select_cloth_attrs_multicheck){
-				let cutting_attr_list = []
-				let get_checked_attributes = frm.select_cloth_attrs_multicheck.get_checked_options()
-				for(let i = 0 ; i< get_checked_attributes.length; i++){
-					cutting_attr_list.push({'attribute':get_checked_attributes[i]})
-				}
-				frm.set_value('cloth_attributes',cutting_attr_list)
-			}
-
-			if(frm.select_cloth_accessory_multicheck){
-				let cloth_accessories_list = []
-				let get_checked_attributes = frm.select_cloth_accessory_multicheck.get_checked_options()
-				for(let i = 0 ; i< get_checked_attributes.length; i++){
-					cloth_accessories_list.push({'attribute':get_checked_attributes[i]})
-				}
-				frm.set_value('accessory_attributes',cloth_accessories_list)
-			}
-
-			// Only overwrite each tab's stored JSON when its widget actually rendered
-			// and returned rows. When get_data()/get_items() is null (tab never opened,
-			// e.g. on a freshly-synced doc) PRESERVE the stored value — wiping it to {}
-			// here was destroying synced Cutting / Cloth-Accessory data on the first save.
-			if(frm.cutting_item && !frm.doc.enable_panel_wise_consumption_matrix){
-				let item_details = frm.cutting_item.get_data()
-				if(item_details && item_details.items && item_details.items.length > 0){
-					frm.doc.cutting_items_json = item_details
-				}
-			}
-
-			if(frm.cloth_item){
-				let item_details = frm.cloth_item.get_data()
-				if(item_details && item_details.items && item_details.items.length > 0){
-					frm.doc.cutting_cloths_json = item_details
-				}
-			}
-
-			if(frm.cloth_accessories){
-				let item_details = frm.cloth_accessories.get_data()
-				if(item_details && item_details.items && item_details.items.length > 0){
-					frm.doc.cloth_accessory_json = item_details
-				}
-			}
-
-			if(frm.stiching_accessory){
-				let item_details = frm.stiching_accessory.get_data()
-				if(item_details && item_details.items && item_details.items.length > 0){
-					frm.doc.stiching_accessory_json = item_details
-				}
-			}
-
-			if(frm.accessory_clothtype){
-				let item_details = frm.accessory_clothtype.get_data()
-				if(item_details != null){
-					frm.doc.accessory_clothtype_json = item_details
-				}
-			}
+			serialise_combination_widgets(frm)
 			if(frm.emblishment){
 				let items = frm.emblishment.get_items()
 				if(items){
@@ -1121,7 +1151,7 @@ frappe.ui.form.on("YRP Item Production Detail", {
 		frm.panel_wise_consumption_matrix = new frappe.production.ui.PanelWiseConsumptionMatrix(field.wrapper)
 		frm.panel_wise_consumption_matrix.load_data(
 			payload,
-			is_locked_ipd(frm)
+			is_combination_locked(frm)
 		)
 	},
 	async render_panel_wise_cloth_mapping(frm){
@@ -1154,7 +1184,7 @@ frappe.ui.form.on("YRP Item Production Detail", {
 		frm.panel_wise_cloth_mapping = new frappe.production.ui.PanelWiseClothMappingMatrix(field.wrapper)
 		frm.panel_wise_cloth_mapping.load_data(
 			payload,
-			is_locked_ipd(frm)
+			is_combination_locked(frm)
 		)
 	}
 });

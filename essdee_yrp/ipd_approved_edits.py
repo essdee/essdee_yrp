@@ -4,7 +4,39 @@ from frappe.utils import cint, cstr, flt
 
 APPENDABLE_TABLE = "ipd_processes"
 EMBELLISHMENT_FIELD = "emblishment_details_json"
-APPROVED_EDIT_FIELDS = (APPENDABLE_TABLE, EMBELLISHMENT_FIELD)
+# Packing setup, "based on other attribute" packing, and every combination grid
+# (with the panel-wise matrices regenerated from them) stay editable once Approved.
+COMBINATION_FIELDS = (
+	"packing_combo",
+	"packing_attribute_no",
+	"auto_calculate",
+	"packing_attribute_details",
+	"based_on_other_attribute_mapping",
+	"packing_mode",
+	"packing_size_details",
+	"packing_assortment_attributes",
+	"packing_assortment_json",
+	"set_item_combination_details",
+	"is_same_packing_attribute",
+	"stiching_item_combination_details",
+	"cutting_attributes",
+	"cutting_items_json",
+	"cloth_attributes",
+	"cutting_cloths_json",
+	"panel_wise_consumption_matrix_json",
+	"panel_wise_cloth_mapping_json",
+	"accessory_attributes",
+	"accessory_clothtype_json",
+	"cloth_accessory_json",
+	"stiching_accessory_json",
+)
+VIRTUAL_COMBINATION_FIELDS = ("set_item_detail", "stiching_item_detail")
+APPROVED_EDIT_FIELDS = (
+	APPENDABLE_TABLE,
+	EMBELLISHMENT_FIELD,
+	*COMBINATION_FIELDS,
+	*VIRTUAL_COMBINATION_FIELDS,
+)
 NUMERIC_FIELDTYPES = ("Float", "Currency", "Percent")
 INTEGER_FIELDTYPES = ("Int", "Check")
 
@@ -13,7 +45,7 @@ def get_approved_edit_changes(doc, before) -> tuple[list[str], bool]:
 	"""Compare a save of an Approved IPD with its stored copy.
 
 	Returns the labels of locked fields that changed, and whether an allowed edit
-	(new IPD Processes rows or Embellishment panel changes) is present.
+	(new IPD Processes rows, Embellishment panels, packing or combination changes) is present.
 	"""
 	locked = []
 	allowed = False
@@ -28,13 +60,19 @@ def get_approved_edit_changes(doc, before) -> tuple[list[str], bool]:
 			allowed = allowed or panels_changed
 			if not valid:
 				locked.append(df.label)
-		elif df.fieldtype in table_fields:
-			if get_rows(doc, df) != get_rows(before, df):
-				locked.append(df.label)
-		elif df.fieldtype not in no_value_fields:
-			if normalize(df, doc.get(df.fieldname)) != normalize(df, before.get(df.fieldname)):
-				locked.append(df.label or df.fieldname)
+		elif df.fieldtype in no_value_fields and df.fieldtype not in table_fields:
+			continue
+		elif df.fieldname in COMBINATION_FIELDS:
+			allowed = allowed or has_changed(doc, before, df)
+		elif has_changed(doc, before, df):
+			locked.append(df.label or df.fieldname)
 	return locked, allowed
+
+
+def has_changed(doc, before, df) -> bool:
+	if df.fieldtype in table_fields:
+		return get_rows(doc, df) != get_rows(before, df)
+	return normalize(df, doc.get(df.fieldname)) != normalize(df, before.get(df.fieldname))
 
 
 def get_appended_rows(doc, before) -> tuple[bool, bool]:

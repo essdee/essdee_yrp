@@ -526,7 +526,10 @@ def build_payload(doc, editor=False):
 
 
 def editor_grids(doc):
-	if doc.is_new() or doc.get("approval_status") == "Approved":
+	from essdee_yrp.merch.ipd.capabilities import can_edit_approved, get_permissions
+
+	approved = doc.get("approval_status") == "Approved"
+	if doc.is_new() or (approved and not can_edit_approved(doc, get_permissions(doc))):
 		return {"grids": {}, "grid_errors": {}}
 	from essdee_yrp.merch.ipd.grids import active_grid_keys, build_grids
 

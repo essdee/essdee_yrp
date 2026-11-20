@@ -31,7 +31,7 @@
 			<IpdPanelWiseGrids v-if="panelWise && part !== 'cloths'" ref="panelGrids" :part="part" />
 			<template v-if="part === 'consumption' && !panelWise">
 				<div id="ipd-edit-cutting_attributes" tabindex="-1" aria-label="Cutting attributes">
-					<IpdChoiceChips label="Cutting attributes" :choices="choices" :selected="draft.cutting_attributes || []" :readonly="editor.readonly" empty-text="Set the stitching in stage and the dependent attribute to choose cutting attributes." @toggle="(value, on) => toggleList('cutting_attributes', value, on)" />
+					<IpdChoiceChips label="Cutting attributes" :choices="choices" :selected="draft.cutting_attributes || []" :readonly="!editor.canEdit('cutting_attributes')" empty-text="Set the stitching in stage and the dependent attribute to choose cutting attributes." @toggle="(value, on) => toggleList('cutting_attributes', value, on)" />
 				</div>
 				<IpdGridNotice grid-key="cutting_items" :empty="!cutting.rows.length" section="cutting" field="cutting_items_json" />
 				<EntryGrid
@@ -43,7 +43,7 @@
 					:rows="cutting.rows"
 					:columns="cutting.columns"
 					:model-value="cutting.model"
-					:readonly="editor.readonly"
+					:readonly="!editor.canEdit('cutting_items_json')"
 					:errors="editor.gridErrors('cutting_items_json')"
 					:toolbar="[]"
 					:fill-shortcuts="false"
@@ -52,7 +52,7 @@
 			</template>
 			<template v-if="part === 'mapping' && !panelWise">
 				<div id="ipd-edit-cloth_attributes" tabindex="-1" aria-label="Cloth attributes">
-					<IpdChoiceChips label="Cloth attributes" :choices="clothChoices" :selected="draft.cloth_attributes || []" :readonly="editor.readonly" @toggle="(value, on) => toggleList('cloth_attributes', value, on)" />
+					<IpdChoiceChips label="Cloth attributes" :choices="clothChoices" :selected="draft.cloth_attributes || []" :readonly="!editor.canEdit('cloth_attributes')" @toggle="(value, on) => toggleList('cloth_attributes', value, on)" />
 				</div>
 				<IpdGridNotice grid-key="cutting_cloths" :empty="!clothItems.rows.length" section="cutting" field="cutting_cloths_json" />
 				<EntryGrid
@@ -63,7 +63,7 @@
 					:rows="clothItems.rows"
 					:columns="clothItems.columns"
 					:model-value="clothItems.model"
-					:readonly="editor.readonly"
+					:readonly="!editor.canEdit('cutting_cloths_json')"
 					:errors="editor.gridErrors('cutting_cloths_json')"
 					:toolbar="[]"
 					:fill-shortcuts="false"

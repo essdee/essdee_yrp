@@ -42,7 +42,7 @@
 					:rows="combination.rows"
 					:columns="combination.columns"
 					:model-value="combination.model"
-					:readonly="editor.readonly || isSame"
+					:readonly="!editor.canEdit('stiching_item_detail') || isSame"
 					:errors="editor.gridErrors('stiching_item_detail')"
 					:toolbar="[]"
 					:fill-shortcuts="false"

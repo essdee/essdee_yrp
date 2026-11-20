@@ -1,5 +1,5 @@
 <template>
-	<dl v-if="editor.readonly" class="ipd-facts">
+	<dl v-if="!editable" class="ipd-facts">
 		<div v-for="field in visibleFields" :id="`ipd-edit-${field.fieldname}`" :key="field.fieldname" tabindex="-1">
 			<dt>{{ field.label }}</dt>
 			<dd><DocumentLink v-if="target(field)" v-bind="target(field)" :label="display(field)" /><template v-else>{{ display(field) }}</template></dd>
@@ -42,6 +42,7 @@ const props = defineProps({
 })
 const editor = inject(IPD_EDITOR_KEY)
 const visibleFields = computed(() => props.fields.filter((field) => !field.hidden))
+const editable = computed(() => visibleFields.value.every((field) => editor.canEdit(field.fieldname)))
 
 function schema(field) {
 	const stored = editor.fields?.[field.fieldname] || {}

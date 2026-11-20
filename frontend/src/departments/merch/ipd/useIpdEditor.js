@@ -89,6 +89,10 @@ export function useIpdEditor(initialName, ipdRoutes = MERCH_IPD_ROUTES) {
 	const approvedEdits = computed(() => !capabilities.value.edit?.allowed && Boolean(capabilities.value.approved_edits?.allowed))
 	// Approved IPDs and users without IPD write permission get view-only editors.
 	const viewOnly = computed(() => Boolean(payload.value) && !capabilities.value.edit?.allowed)
+	// On approved IPDs only the server's approved-edit fields (packing, combinations, mappings) open.
+	const approvedFields = computed(() => new Set(approvedEdits.value ? capabilities.value.approved_edits?.fields || [] : []))
+	const canEdit = (fieldname) => !viewOnly.value || approvedFields.value.has(fieldname)
+	const canEditMappings = computed(() => !viewOnly.value || approvedEdits.value)
 	const fields = computed(() => payload.value?.fields || {})
 	const isDirty = computed(() => dirtyKeys.value.size > 0)
 	const sections = computed(() => sectionsFor(Boolean(record.value.is_cloth_item)))
@@ -389,7 +393,7 @@ export function useIpdEditor(initialName, ipdRoutes = MERCH_IPD_ROUTES) {
 	}))
 	const api = reactive({
 		draft: readonly(draft), context, grids, gridDrift, fields, record, checks, isNew, sections, states,
-		capabilities, isDirty, acting, readonly: viewOnly, approvedEdits, approve,
+		capabilities, isDirty, acting, readonly: viewOnly, approvedEdits, canEdit, canEditMappings, approve,
 		problemsFor: (sectionKey) => problemsFor(checks.value, sectionKey),
 		cellError: (field, rowKey, column) => gridErrors(checks.value, field)?.[rowKey]?.[column ?? ""] || "",
 		gridErrors: (field) => gridErrors(checks.value, field),
