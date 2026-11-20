@@ -86,6 +86,14 @@
 			@hide="documentsRail?.restoreFocus()"
 		/>
 		<CreateTimeAndActionDialog v-model:visible="timeAndAction.createVisible" v-bind="timeAndAction.dialogProps" @created="timeAndAction.created" />
+		<DocumentConfirmationDialog
+			v-model:visible="unlinkVisible"
+			title="Unlink PPO"
+			:message="`Unlink the Production Order from ${lotId}? Item, Item Production Detail and the PPO quantities will be cleared.`"
+			confirm-label="Unlink PPO"
+			:busy="acting === 'unlink_ppo'"
+			@confirm="unlinkPpo"
+		/>
 		<SplitTimeAndActionDialog v-if="timeAndAction.tabProps.timeAndAction" v-model:visible="splitTimeAndActionVisible" :time-and-action="timeAndAction.tabProps.timeAndAction" />
 	</DepartmentPage>
 </template>
@@ -100,9 +108,11 @@ import Tabs from "primevue/tabs"
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
 
-import { getLotDocuments, getLotWorkspace } from "../../../api/planning.js"
+import { useToast } from "primevue/usetoast"
+import { getLotDocuments, getLotWorkspace, unlinkLotProductionOrder } from "../../../api/planning.js"
 import DepartmentPage from "../../../components/DepartmentPage.vue"
 import DocumentActionStrip from "../../../components/documents/DocumentActionStrip.vue"
+import DocumentConfirmationDialog from "../../../components/documents/DocumentConfirmationDialog.vue"
 import { preserveListNavigationState } from "../../../router/listDocumentNavigation.js"
 import FabricDocumentWorkspace from "../../fabric-store/FabricDocumentWorkspace.vue"
 import LotBomPanel from "./LotBomPanel.vue"
@@ -113,7 +123,7 @@ import LotIdentity from "./LotIdentity.vue"
 import LotViewMain from "./LotViewMain.vue"
 import { editTabFor } from "./lotEditor.js"
 import { LOT_VIEW_TABS } from "./lotLayout.js"
-import { lotTabCount } from "./lotViews.js"
+import { lotTabCount, unlinkPpoAction } from "./lotViews.js"
 import { useLotLayout } from "./useLotLayout.js"
 import "./lot.css"
 import { PLANNING_ROUTES, isCurrentRecordRequest } from "../planningViews.js"
@@ -127,6 +137,8 @@ import { useLotTimeAndActionTab } from "../time-and-action/useLotTimeAndActionTa
 
 const props = defineProps({ lotId: { type: String, required: true } })
 const router = useRouter()
+const toast = useToast()
+const unlinkVisible = ref(false)
 const workspace = ref({})
 const loading = ref(true)
 const loadError = ref("")
@@ -172,11 +184,27 @@ const lotActions = computed(() => [
 		key: "edit", label: "Edit", icon: "pi pi-pencil", primary: true,
 		command: openEditor, disabled: Boolean(acting.value),
 	}] : []),
+	...unlinkPpoAction(workspace.value, () => { unlinkVisible.value = true }, acting.value),
 ])
 function openEditor() {
  return router.push({ name: PLANNING_ROUTES.lotEdit, params: { lotId: props.lotId },
   query: { tab: editTabFor(activeTab.value) },
   state: preserveListNavigationState(props.lotId, workspace.value.modified) })
+}
+
+async function unlinkPpo() {
+	if (acting.value) return
+	acting.value = "unlink_ppo"
+	try {
+		await unlinkLotProductionOrder(props.lotId, workspace.value.modified)
+		unlinkVisible.value = false
+		toast.add({ severity: "success", summary: "PPO unlinked", detail: props.lotId, life: 3500 })
+		await load(true)
+	} catch (error) {
+		toast.add({ severity: "error", summary: "Could not unlink PPO", detail: error.message, life: 6000 })
+	} finally {
+		if (acting.value === "unlink_ppo") acting.value = ""
+	}
 }
 
 async function load(refresh = false) {

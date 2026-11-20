@@ -48,10 +48,7 @@ export function merchLotActions(workspace, execute, acting = "") {
 		"calculate_order_items",
 		"recalculate_cloth_program",
 	]
-		.filter(
-			(key) =>
-				workspace.capabilities?.[key]?.visible ?? workspace.capabilities?.[key]?.allowed,
-		)
+		.filter((key) => workspace.capabilities?.[key]?.allowed && workspace.capabilities[key].visible !== false)
 		.map((key) => {
 			const capability = workspace.capabilities[key]
 			return {
@@ -60,8 +57,7 @@ export function merchLotActions(workspace, execute, acting = "") {
 				icon: ACTION_ICONS[key] || "pi pi-refresh",
 				primary: key === "edit",
 				menuOnly: ["calculate_order_items", "recalculate_cloth_program"].includes(key),
-				disabled: Boolean(acting) || !capability.allowed,
-				disabledReason: capability.reason,
+				disabled: Boolean(acting),
 				loading: acting === key,
 				command: () => execute(key),
 			}

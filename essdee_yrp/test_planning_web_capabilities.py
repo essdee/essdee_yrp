@@ -1,5 +1,5 @@
 from unittest import TestCase
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import frappe
 
@@ -179,6 +179,7 @@ class TestPlanningLotWrappers(TestCase):
 			flow.return_value.order_pieces.return_value = {"values": {"S": 5}, "total": 5}
 			self.assertEqual(lot_workspace.get_lot_workspace("LOT-1"), {
 				"name": "LOT-1", "header": [{"fieldname": "season", "value": None}], "order_pieces": {"values": {"S": 5}, "total": 5},
+				"plan_access": ANY, "unlink_ppo": {"visible": False},
 			})
 			source.assert_called_once_with("LOT-1")
 			flow.assert_called_once_with("LOT-1")

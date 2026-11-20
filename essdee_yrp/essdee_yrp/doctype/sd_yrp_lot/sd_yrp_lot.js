@@ -53,6 +53,7 @@ frappe.ui.form.on("SD YRP Lot", {
 			}, __("View"));
 			if (frm.has_perm("write")) {
 				add_purchase_order_link_actions(frm);
+				add_unlink_ppo_action(frm);
 			}
 		}
 		frm.set_df_property('bom_summary', 'cannot_add_rows', true)
@@ -309,6 +310,26 @@ frappe.ui.form.on("SD YRP Lot", {
 		}
 	}
 });
+
+function add_unlink_ppo_action(frm) {
+	const allowed = frm.doc.assigned_person === frappe.session.user
+		|| frappe.user.has_role(["Merch Manager", "System Manager"]);
+	if (!frm.doc.production_order || !allowed) return;
+	frm.add_custom_button(__("Unlink PPO"), () => {
+		frappe.confirm(
+			__("Unlink Production Order {0} from {1}? Item, Item Production Detail and the PPO quantities will be cleared.", [frm.doc.production_order, frm.doc.name]),
+			() => frappe.call({
+				method: "essdee_yrp.merch.lot_ppo.unlink_lot_production_order",
+				args: { lot: frm.doc.name, expected_modified: frm.doc.modified },
+				freeze: true,
+				freeze_message: __("Unlinking Production Order..."),
+				callback() {
+					frm.reload_doc();
+				},
+			}),
+		);
+	}, __("Actions"));
+}
 
 function add_purchase_order_link_actions(frm) {
 	frm.add_custom_button(__("Link to PO"), () => {
