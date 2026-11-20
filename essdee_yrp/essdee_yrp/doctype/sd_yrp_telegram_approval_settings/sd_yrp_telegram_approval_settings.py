@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from essdee_yrp.merch import laysheet_grammage_telegram
+
 
 class SDYRPTelegramApprovalSettings(Document):
 	def validate(self):
@@ -12,6 +14,8 @@ class SDYRPTelegramApprovalSettings(Document):
 			frappe.throw(_("Bot Token is required when Telegram approvals are enabled."))
 		seen_routes = set()
 		for route in self.routes:
+			if route.reference_doctype == laysheet_grammage_telegram.DOCTYPE:
+				laysheet_grammage_telegram.apply_route_values(route)
 			if not route.enabled:
 				continue
 			key = (

@@ -10,6 +10,7 @@ from yrp.attribute_links import value as _attribute_value
 from yrp.yrp.doctype.yrp_item.yrp_item import get_parent_item
 
 from essdee_yrp.cutting.cloth_usage import get_actual_cloth_key, get_cloth_keys
+from essdee_yrp.telegram_approval.service import handle_document_event
 
 
 class SDYRPCuttingBulkLaySheets(Document):
@@ -946,6 +947,7 @@ def get_label_print_context(doc_name, detail_name):
 	difference = abs(flt(laysheet.piece_weight) - flt(laysheet.required_pcs_weight))
 	if difference > tolerance and not laysheet.approved_by:
 		laysheet.db_set("status", "Approval Pending")
+		handle_document_event(laysheet)
 		refresh_bulk_status(doc.name)
 		return {
 			"approval_required": True,
