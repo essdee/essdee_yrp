@@ -20,3 +20,7 @@ test("Desk Calculate Items accepts any quantity and reselecting restores the Lot
 	assert.match(desk, /\$\(this\)\.val\(selected \? \$\(this\)\.data\("lot-qty"\) : 0\);/)
 	assert.doesNotMatch(desk, /attr\("max"\)/)
 })
+
+test("/web Calculate shows the deferred calculation-context error when the panel opens", () => {
+	assert.match(panel, /error\.value = garment\.error \|\| fabricContext\.value\.error \|\| ""/)
+})
