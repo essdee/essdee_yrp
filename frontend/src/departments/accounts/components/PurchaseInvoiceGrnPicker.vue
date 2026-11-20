@@ -279,4 +279,9 @@ function number(value) {
 .purchase-invoice-grn-picker__empty { display: grid; min-height: 92px; color: var(--erp-text-muted); place-content: center; }
 .purchase-invoice-grn-picker__message, .purchase-invoice-grn-picker__error { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); }
 .purchase-invoice-grn-picker__error { color: var(--erp-danger); }
+@media (max-width: 640px) {
+	.purchase-invoice-grn-picker > header { flex-wrap: wrap; }
+	.purchase-invoice-grn-picker__body { padding: 8px; }
+	.purchase-invoice-grn-picker__search :deep(.p-inputtext) { min-height: 40px; font-size: 16px; }
+}
 </style>

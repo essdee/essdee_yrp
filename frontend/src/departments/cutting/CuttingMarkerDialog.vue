@@ -426,4 +426,5 @@ function documentDeleted() {
 	.marker-group-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.table-scroll { -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); }
 }
+@media (max-width: 640px) { .marker-status-row, .section-heading { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

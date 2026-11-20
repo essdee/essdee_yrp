@@ -70,9 +70,16 @@ const runningDelay = computed(() => getRunningDelay(props.data.delay))
 .ta-head__actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; }
 .ta-head__buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
 .ta-head__hint { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
-@media (max-width: 767px) {
+@media (max-width: 900px) {
 	.ta-head__actions { align-items: stretch; margin-left: 0; }
 	.ta-head__buttons { justify-content: flex-start; }
+}
+@media (max-width: 640px) {
+	.ta-head { gap: 10px; padding-bottom: 10px; }
+	.ta-head__actions { width: 100%; }
+	.ta-head__buttons > :deep(.p-button) { flex: 1 1 calc(50% - 4px); min-height: 40px; }
+	.ta-head__buttons > :deep(.p-button-icon-only) { flex: none; width: 40px; }
+	.ta-head__dates { gap: 2px 12px; }
 }
 </style>
 

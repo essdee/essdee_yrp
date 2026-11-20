@@ -60,3 +60,10 @@
 	.ipd-approval__grid { grid-template-columns: 1fr; }
 	.ipd-approval__stats { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 640px) {
+	.ipd-approval.p-dialog { width: 95vw; }
+	.ipd-approval__body { max-height: none; margin: 0 calc(-1 * var(--erp-space-3)); padding: var(--erp-space-2); }
+	.ipd-approval__card { padding: 10px; }
+	.ipd-approval .p-dialog-footer { flex-wrap: wrap; }
+	.ipd-approval__hint { flex-basis: 100%; }
+}

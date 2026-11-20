@@ -65,4 +65,5 @@ function formatValue(field) {
 .erp-count { padding: 3px 8px; color: var(--erp-accent) !important; background: var(--erp-accent-soft); border-radius: var(--erp-pill-radius); white-space: nowrap; }
 @media (max-width: 900px) { .work-order-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .work-order-field:nth-child(4n) { border-right: 1px solid var(--erp-border); } .work-order-field:nth-child(2n) { border-right: 0; } }
 @media (max-width: 620px) { .work-order-field { min-height: 48px; padding: 8px 10px; } }
+@media (max-width: 640px) { .work-order-section > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

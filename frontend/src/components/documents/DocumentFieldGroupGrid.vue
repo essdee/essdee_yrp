@@ -134,11 +134,15 @@ function headingId(group, index) {
 @media (max-width: 1200px) {
 	.document-field-group-grid { grid-template-columns: 1fr; }
 }
-@media (max-width: 620px) {
-	.document-field-group-grid__header { align-items: flex-start; }
+@media (max-width: 640px) {
+	.document-field-group-grid { gap: var(--erp-space-2); }
+	.document-field-group-grid__header { align-items: flex-start; padding: 8px 12px; }
 	.document-field-group-grid__header > small { display: none; }
 	.document-field-group-grid__content {
 		grid-template-columns: 1fr;
+		gap: 12px;
+		padding: 12px;
 	}
+	.document-field-group-grid__content--facts { gap: 0; padding: 4px 12px 8px; }
 }
 </style>

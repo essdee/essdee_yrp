@@ -197,7 +197,7 @@ function clone(value) { return JSON.parse(JSON.stringify(value || [])) }
 .delivery-challan-return-panel__empty { display: grid; min-height: 110px; place-items: center; align-content: center; gap: 6px; color: var(--erp-text-muted); }
 .delivery-challan-return-panel footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: var(--erp-space-3); }
 @media (max-width: 900px) { .delivery-challan-return-panel__controls { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .delivery-challan-return-panel footer { align-items: stretch; flex-direction: column; } }
+@media (max-width: 640px) { .delivery-challan-return-panel footer { align-items: stretch; flex-direction: column; } }
 @media (max-width: 1024px), (pointer: coarse) { .delivery-challan-return-panel :deep(.p-button) { min-width: 44px; min-height: 44px; } .delivery-challan-return-panel__table :deep(.p-inputnumber-input) { height: 44px; min-height: 44px; } }
 .delivery-challan-return-panel__footer th, .delivery-challan-return-panel__footer td { color: var(--erp-text); font-weight: 800; text-align: left; background: var(--erp-surface-muted); border-top: 1px solid var(--erp-border-strong); }
 .delivery-challan-return-panel__footer td.erp-number { text-align: right; font-variant-numeric: tabular-nums; }

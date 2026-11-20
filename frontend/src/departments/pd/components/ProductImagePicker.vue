@@ -183,6 +183,7 @@ async function handleCreated(name) {
 .product-image-picker__result-image { display: flex; height: 125px; overflow: hidden; align-items: center; justify-content: center; border-radius: calc(var(--erp-control-radius) - 2px); background: var(--erp-bg); }
 .product-image-picker__result-image img { display: block; width: 100%; height: 100%; background: white; object-fit: contain; }
 .product-image-picker__status { margin: 0; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
-@media (max-width: 880px) { .product-image-picker__selected, .product-image-picker__results { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .product-image-picker__selected, .product-image-picker__results { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .product-image-picker__selected, .product-image-picker__results { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .product-image-picker__selected, .product-image-picker__results { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .pd-media-panel { padding: var(--erp-space-3); } }
 </style>

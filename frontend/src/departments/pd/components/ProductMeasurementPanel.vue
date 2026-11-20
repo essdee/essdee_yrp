@@ -68,7 +68,7 @@ function description(row) {
 .product-measurement__images figure { display: grid; min-width: 0; gap: 8px; margin: 0; }
 .product-measurement__images figcaption { color: var(--erp-text); font-size: var(--erp-font-size-caption); font-weight: 720; text-align: center; }
 .product-measurement__images img { width: 100%; height: 270px; border: 1px solid var(--erp-border); border-radius: var(--erp-control-radius); background: white; object-fit: contain; }
-.product-measurement__groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: var(--erp-space-3); }
+.product-measurement__groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr)); gap: var(--erp-space-3); }
 .product-measurement__groups article { display: grid; align-content: start; gap: 10px; padding: var(--erp-space-3); border: 1px solid var(--erp-border); border-radius: var(--erp-control-radius); background: var(--erp-surface); }
 .product-measurement__groups h3 { margin: 0; color: var(--erp-text); font-size: var(--erp-font-size-body); font-weight: 720; }
 .product-measurement__rows { display: grid; gap: 8px; }
@@ -76,4 +76,10 @@ function description(row) {
 .product-measurement__rows label > span { display: grid; min-height: 34px; color: var(--erp-text-secondary); font-size: var(--erp-font-size-caption); border: 1px solid var(--erp-border); border-radius: 5px; background: var(--erp-bg); place-items: center; }
 .product-measurement__rows input { min-width: 0; min-height: 36px; padding: 7px 10px; color: var(--erp-text); border: 1px solid var(--erp-border); border-radius: var(--erp-control-radius); background: var(--erp-bg); font: inherit; }
 @media (max-width: 720px) { .product-measurement__images--set { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+	.pd-media-panel { padding: var(--erp-space-3); }
+	.product-measurement__images img { height: 220px; }
+	.product-measurement__groups article { padding: var(--erp-space-2); }
+	.product-measurement__rows input { min-height: 40px; font-size: 16px; }
+}
 </style>

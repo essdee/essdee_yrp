@@ -309,4 +309,9 @@ onBeforeUnmount(() => {
 .pd-release-front-image { display: grid; width: min(100%, 420px); gap: 10px; margin: 0; padding: var(--erp-space-3); border: 1px solid var(--erp-border); background: var(--erp-surface); box-shadow: var(--erp-shadow-xs); }
 .pd-release-front-image figcaption { color: var(--erp-text); font-size: var(--erp-font-size-section); font-weight: 760; }
 .pd-release-front-image img { width: 100%; height: 300px; border-radius: var(--erp-control-radius); background: white; object-fit: contain; }
+@media (max-width: 640px) {
+	.pd-release-front-image { width: 100%; padding: var(--erp-space-2); }
+	.pd-release-front-image img { height: 240px; }
+	.pd-release-product-link { min-height: 40px; justify-content: center; }
+}
 </style>

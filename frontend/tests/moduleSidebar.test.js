@@ -40,3 +40,18 @@ test("a launcher under the module sidebar reports its permitted cards and render
 		assert.equal(findNodes(root, (node) => node.type === "router-link" || node.type === "section").length, 0)
 	} finally { root.__vue_app__.unmount() }
 })
+
+test("tablets and phones open the module sidebar as a drawer from the top bar", async () => {
+	const { readFileSync } = await import("node:fs")
+	const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
+	const { DRAWER_MEDIA_QUERY } = await import("../src/components/navigation/moduleSidebar.js")
+	assert.equal(DRAWER_MEDIA_QUERY, "(max-width: 900px), (hover: none)")
+	const app = read("../src/App.vue")
+	assert.match(app, /<ModuleSidebar v-model:open="isModuleNavigationOpen"[^>]*@availability="hasModuleNavigation = \$event"/)
+	assert.match(app, /v-if="hasModuleNavigation"[\s\S]*?class="app-theme-toggle app-nav-toggle"[\s\S]*?aria-controls="module-sidebar"/)
+	assert.match(app, /isModuleNavigationOpen\.value = false/)
+	const sidebar = read("../src/components/navigation/ModuleSidebar.vue")
+	assert.match(sidebar, /:pinned="isDrawer"/)
+	assert.match(sidebar, /@media \(max-width: 900px\), \(hover: none\) \{\n\t\.module-sidebar \{ display: none; \}\n\t\.module-sidebar\.is-open \{/)
+	assert.match(sidebar, /event\.key === "Escape" && isDrawerOpen\.value/)
+})

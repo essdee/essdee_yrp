@@ -1,5 +1,5 @@
 <template>
-	<Dialog :visible="visible" modal :header="`Update Action · ${name}`" :closable="!busy" :style="{ width: 'min(920px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="reset">
+	<Dialog :visible="visible" modal :header="`Update Action · ${name}`" :closable="!busy" :breakpoints="{ '640px': '95vw' }" :style="{ width: 'min(920px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="reset">
 		<div class="ta-steps">
 			<p class="ta-steps__info">Completed actions are locked. Remove actions that are not dated yet, change what they depend on, or add new ones after the last completed action. Nothing is saved until you confirm.</p>
 			<div class="ta-steps__scroll">
@@ -7,14 +7,14 @@
 					<thead><tr><th class="erp-number">#</th><th>Action</th><th class="erp-number">Lead Time</th><th>Rescheduled Date</th><th class="ta-steps__depends">Depends On</th><th class="ta-steps__control" /></tr></thead>
 					<tbody>
 						<tr v-for="(row, index) in rows" :key="row.action" :class="{ 'is-done': row.actual_date, 'is-new': isNew(row.action) }">
-							<td class="erp-number">{{ index + 1 }}</td>
-							<td><b>{{ row.action }}</b><span v-if="isNew(row.action)" class="ta-steps__tag">New</span></td>
-							<td class="erp-number">{{ row.lead_time }}</td>
-							<td class="ta-steps__date">
+							<td class="erp-number ta-steps__index">{{ index + 1 }}</td>
+							<td class="ta-steps__action"><b>{{ row.action }}</b><span v-if="isNew(row.action)" class="ta-steps__tag">New</span></td>
+							<td class="erp-number ta-steps__lead" data-label="Lead Time">{{ row.lead_time }}</td>
+							<td class="ta-steps__date" data-label="Rescheduled Date">
 								<span v-if="row.actual_date"><i class="pi pi-lock" aria-hidden="true" /> Done {{ formatDisplayDate(row.actual_date, "") }}</span>
 								<template v-else>{{ formatDisplayDate(row.rescheduled_date, "") }}</template>
 							</td>
-							<td class="ta-steps__depends">
+							<td class="ta-steps__depends" data-label="Depends On">
 								<MultiSelectField v-if="!row.actual_date && !isNew(row.action)" :model-value="dependsOnFor(row)" :options="getEditDependsOnOptions(rows, row.action).map(asOption)" placeholder="None" display="comma" :max-selected-labels="2" :aria-label="`${row.action} depends on`" @update:model-value="changeDependsOn(row.action, $event)" />
 								<span v-else class="ta-steps__muted">{{ getDependsOn(row).join(", ") || "None" }}</span>
 							</td>
@@ -205,4 +205,24 @@ async function confirm() {
 .ta-impact--late { color: var(--erp-attention-text); background: var(--erp-attention-soft); border: 1px solid var(--erp-attention-border); }
 .ta-impact--early { color: var(--erp-success-text); background: var(--erp-success-soft); }
 .ta-impact--none { color: var(--erp-text-muted); }
+@media (max-width: 640px) {
+	.ta-steps__form { grid-template-columns: minmax(0, 1fr); padding: 10px; }
+	.ta-steps__scroll { max-height: 50vh; border: 0; }
+	.ta-steps__table, .ta-steps__table > tbody { display: block; min-width: 0; }
+	.ta-steps__table > thead { display: none; }
+	.ta-steps__table > tbody > tr { display: grid; grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 40px; grid-template-areas: "index action action control" ". lead date date" ". depends depends depends"; gap: 6px 10px; margin-bottom: 6px; padding: 8px 10px; border: 1px solid var(--erp-border); border-radius: 7px; }
+	.ta-steps__table > tbody > tr.is-done { background: color-mix(in srgb, var(--erp-success-soft) 70%, transparent); }
+	.ta-steps__table > tbody > tr.is-new { background: color-mix(in srgb, var(--erp-attention-soft) 45%, transparent); }
+	.ta-steps__table.erp-data-table > tbody > tr > td { display: block; min-width: 0; width: auto; padding: 0; text-align: left; background: none; border: 0; }
+	.ta-steps__table td[data-label]::before { content: attr(data-label); display: block; color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+	.ta-steps__table td.ta-steps__index { grid-area: index; align-self: center; color: var(--erp-text-muted); }
+	.ta-steps__table td.ta-steps__action { grid-area: action; align-self: center; }
+	.ta-steps__table td.ta-steps__lead { grid-area: lead; }
+	.ta-steps__table td.ta-steps__date { grid-area: date; }
+	.ta-steps__table td.ta-steps__depends { grid-area: depends; }
+	.ta-steps__table td.ta-steps__control { grid-area: control; }
+	.ta-steps__depends :deep(.p-multiselect) { max-width: none; width: 100%; min-height: 40px; }
+	.ta-steps__control :deep(.p-button) { width: 40px; height: 40px; }
+	.ta-steps__add { justify-content: flex-start; }
+}
 </style>

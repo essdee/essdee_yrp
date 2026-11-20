@@ -276,6 +276,6 @@ function documentDeleted() {
 .document-transaction-dialog__footer :deep(.p-button) { white-space: nowrap; }
 .dirty-close-copy { margin: 0; color: var(--erp-text-muted); line-height: 1.55; }
 @media (max-width: 900px) { .document-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px) { .document-transaction-dialog__footer { align-items: stretch; flex-direction: column; } .document-transaction-dialog__footer > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .document-transaction-dialog__footer :deep(.p-button) { width: 100%; } }
+@media (max-width: 640px) { .document-transaction-dialog__footer { align-items: stretch; flex-direction: column; } .document-transaction-dialog__footer > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .document-transaction-dialog__footer :deep(.p-button) { width: 100%; } }
 @media (max-width: 480px) { .document-summary-strip, .document-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .document-summary-metric { min-height: 52px; padding: 7px 9px; } .document-detail-grid > div { min-height: 46px; padding: 6px 8px; } }
 </style>

@@ -98,7 +98,7 @@ function openRow(row, snapshot) {
 	display: none;
 }
 
-@media (max-width: 620px) {
+@media (max-width: 640px) {
 	.related-records-dialog.p-dialog {
 		width: 100vw;
 		height: 100dvh;

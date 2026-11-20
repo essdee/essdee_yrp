@@ -41,4 +41,5 @@ function signed(value) { const number = Number(value || 0); return number > 0 ? 
 .planner-plan-empty { display: grid; min-height: 220px; place-content: center; justify-items: center; gap: 7px; color: var(--erp-text-muted); text-align: center; }.planner-plan-empty i { color: var(--erp-accent); font-size: 1.8rem; }.planner-plan-empty strong { color: var(--erp-text); }
 @media (max-width: 1150px) { .planner-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }.planner-summary-grid article { border-bottom: 1px solid var(--erp-border); } }
 @media (max-width: 650px) { .planner-lay-plan { padding: var(--erp-space-3); }.planner-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .planner-lay-plan__header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

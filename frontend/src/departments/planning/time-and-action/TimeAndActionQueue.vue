@@ -68,4 +68,10 @@ const countLabel = computed(() => (props.loading && !props.rows.length ? "Loadin
 .ta-card__meta { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); }
 .ta-card__meta b { color: var(--erp-text-secondary); font-weight: 600; white-space: nowrap; }
 @media (max-width: 1023px) { .ta-queue__list { max-height: 300px; } }
+@media (max-width: 640px) {
+	.ta-queue { gap: var(--erp-space-2); padding: 10px; }
+	.ta-queue__list { grid-auto-flow: column; grid-auto-columns: minmax(240px, 82%); max-height: none; overflow-x: auto; overflow-y: hidden; margin: 0 -10px; padding: 0 10px 4px; scroll-snap-type: x mandatory; scroll-padding-inline: 10px; }
+	.ta-card__top { flex-wrap: wrap; justify-content: flex-start; gap: 4px 8px; }
+	.ta-card { align-content: start; min-height: 44px; padding: 10px; scroll-snap-align: start; }
+}
 </style>

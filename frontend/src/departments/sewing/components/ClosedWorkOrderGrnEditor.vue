@@ -67,5 +67,6 @@ small { display: block; color: var(--erp-text-muted); font-size: 11px; margin-to
 	.closed-grn-editor__fields :deep(.erp-date-time-field .p-inputtext) { font-size: 14px; padding-inline: 8px; }
 	.closed-grn-editor__fields :deep(.p-datepicker-dropdown) { width: 32px; flex-shrink: 0; }
 }
+@media (max-width: 640px) { input { min-height: 40px; font-size: 16px; } }
 @media (max-width: 360px) { .closed-grn-editor__fields { grid-template-columns: minmax(0, 1fr); } }
 </style>

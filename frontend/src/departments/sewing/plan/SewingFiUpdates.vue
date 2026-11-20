@@ -99,5 +99,5 @@ p { margin: 0; color: var(--erp-text-muted); font-size: var(--erp-font-size-capt
 .sewing-fi-updates__table th, .sewing-fi-updates__table td { padding: 6px 8px; border-bottom: 1px solid var(--erp-border); vertical-align: middle; }
 .sewing-fi-updates__table th:last-child { width: 220px; }
 .sewing-fi-updates__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-bottom: var(--erp-space-3); }
-@media (max-width: 600px) { .sewing-fi-updates__toolbar { align-items: stretch; flex-direction: column; } .sewing-fi-updates__table th:last-child { width: 160px; } }
+@media (max-width: 640px) { .sewing-fi-updates__toolbar { align-items: stretch; flex-direction: column; } .sewing-fi-updates__table th:last-child { width: 160px; } }
 </style>

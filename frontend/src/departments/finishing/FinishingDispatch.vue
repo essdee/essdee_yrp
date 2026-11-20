@@ -269,4 +269,10 @@ watch(dispatchId, () => {
 .finishing-plan__fact { display: grid; gap: 2px; padding-left: 12px; border-left: 1px solid var(--erp-border); }
 .finishing-plan__fact small { color: var(--erp-text-muted); font-size: var(--erp-font-size-label); font-weight: 720; letter-spacing: .035em; text-transform: uppercase; }
 .finishing-plan__fact strong { color: var(--erp-text); font-size: var(--erp-font-size-table); font-weight: 730; }
+@media (max-width: 640px) {
+	.finishing-dispatch { gap: var(--erp-space-3); padding: 10px; }
+	.finishing-dispatch__title h1 { white-space: normal; overflow-wrap: anywhere; }
+	.finishing-dispatch__actions { width: 100%; }
+	.finishing-dispatch__fields { grid-template-columns: minmax(0, 1fr); }
+}
 </style>

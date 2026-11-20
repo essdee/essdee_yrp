@@ -240,7 +240,7 @@ function relativeTime(value, now) {
 	color: var(--erp-accent);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
 	.report-run-status {
 		grid-template-columns: minmax(0, 1fr);
 		align-content: center;

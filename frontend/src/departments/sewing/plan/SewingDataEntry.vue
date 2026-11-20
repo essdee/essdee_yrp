@@ -322,4 +322,5 @@ small { color: var(--erp-text-muted); font-size: 11px; }
 @media (max-width: 700px) { .sewing-data-entry__inspection-heading { align-items: flex-start; flex-direction: column; } .sewing-data-entry__filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sewing-data-entry__inspection-heading .common-field { width: 100%; } }
 @media (max-width: 540px) { .sewing-data-entry__toolbar { flex-wrap: wrap; } .sewing-data-entry__toolbar .common-field { width: 100%; } .sewing-data-entry__count { margin-left: 0; } }
 @media (max-width: 430px) { .sewing-data-entry__filters { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .sewing-data-entry__lot-header, .sewing-data-entry__plan-card > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

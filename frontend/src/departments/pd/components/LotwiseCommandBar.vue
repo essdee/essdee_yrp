@@ -147,10 +147,16 @@ async function submitRate() {
 	padding: 4px 0 8px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
 	.lotwise-command-bar {
 		align-items: stretch;
 		flex-direction: column;
+	}
+}
+
+@media (max-width: 640px) {
+	.lotwise-command-bar {
+		padding: 10px;
 	}
 }
 </style>

@@ -62,5 +62,6 @@ function addRow(event) {
 .purchase-order-ppo-dialog { display: grid; gap: var(--erp-space-3); }
 .purchase-order-ppo-dialog table { width: 100%; }
 .purchase-order-ppo-dialog__actions { width: 1%; text-align: right; }
+@media (max-width: 1024px), (pointer: coarse) { .purchase-order-ppo-dialog__actions :deep(.p-button) { min-width: 44px; min-height: 44px; } }
 .purchase-order-ppo-dialog__empty { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
 </style>

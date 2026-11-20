@@ -109,7 +109,7 @@ thead th { position: sticky; top: 0; z-index: 1; color: var(--erp-text-secondary
 tfoot th { background: var(--erp-surface-soft); font-weight: 700; }
 .numeric { text-align: right; font-variant-numeric: tabular-nums; }
 .attendance-strength__table:focus-visible { outline: 2px solid var(--erp-accent); outline-offset: 2px; }
-@media (max-width: 560px) {
+@media (max-width: 640px) {
 	.attendance-strength__heading { align-items: flex-start; flex-direction: column; }
 	:deep(.report-filter-grid) { grid-template-columns: minmax(0, 1fr); }
 	:deep(.report-shell__commands) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }

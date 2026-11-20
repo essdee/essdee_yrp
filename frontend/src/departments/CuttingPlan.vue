@@ -394,7 +394,7 @@ watch(cuttingPlanId, probeEditor, { immediate: true })
 	gap: var(--erp-space-3);
 }
 
-@media (max-width: 620px) {
+@media (max-width: 640px) {
 	.cutting-plan-workspace-error { align-items: stretch; flex-direction: column; }
 }
 
@@ -592,6 +592,19 @@ watch(cuttingPlanId, probeEditor, { immediate: true })
 		flex-basis: 100%;
 		padding-left: 0;
 		border-left: 0;
+	}
+}
+
+@media (max-width: 640px) {
+	.cutting-plan-layout :deep(.form-toolbar) {
+		padding: 8px 10px;
+	}
+	.cutting-plan-main {
+		padding: 8px;
+	}
+	.cutting-plan-header-fact--lot,
+	.cutting-plan-header-fact--item {
+		max-width: 100%;
 	}
 }
 </style>

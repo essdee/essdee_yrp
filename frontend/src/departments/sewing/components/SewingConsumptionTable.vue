@@ -38,4 +38,5 @@ input:focus-visible, .sewing-consumption-table__scroll:focus-visible { outline: 
 input[aria-invalid="true"] { border-color: var(--erp-danger); }
 input:disabled { opacity: .65; }
 small { display: block; max-width: 112px; margin-top: 4px; color: var(--erp-danger); font-size: 11px; }
+@media (max-width: 640px) { input { min-height: 40px; font-size: 16px; } th, td { padding: 8px; } }
 </style>

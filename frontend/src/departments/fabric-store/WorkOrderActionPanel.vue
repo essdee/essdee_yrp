@@ -422,4 +422,5 @@ watch(() => props.visible, (value, previous) => { if (value && !previous) initia
 	.work-order-garment-calculation__toolbar :deep(.p-button), .work-order-action-panel__existing :deep(.p-button), .work-order-action-panel__check :deep(.p-button) { min-height: 44px; }
 	.work-order-action-panel__body :deep(.p-inputnumber-input) { height: 44px; min-height: 44px; }
 }
+@media (max-width: 640px) { .work-order-fabric-row > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

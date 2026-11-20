@@ -14,7 +14,7 @@
 			<PlanningReportTable title="Dispatch Percentage" :columns="columns" :rows="rows" :cell-value="cellValue" inline-filters :cell-align="cellAlign" :formatted-cell="formattedCell" />
 		</ReportShell>
 		<ReportColumnPicker v-model:visible="pickerVisible" :columns="allColumns" :link-sources="linkSources" :fields-by-source="fieldsBySource" :load-field-options="loadFieldOptions" :apply-layout="applyLayout" :save-layout="saveLayout" :reset-layout="resetLayout" :error="layoutError" />
-		<Dialog v-model:visible="pasteVisible" header="Paste values" modal>
+		<Dialog v-model:visible="pasteVisible" header="Paste values" modal :breakpoints="{ '640px': '95vw' }">
 			<div class="finishing-stack"><label class="common-field"><span class="erp-field-label">Apply to</span><Select v-model="pasteTarget" :options="['Lot', 'Item']" aria-label="Apply to" fluid /></label>
 			<label class="common-field"><span class="erp-field-label">One value per line or comma separated</span><Textarea v-model="pastedText" rows="8" aria-label="Values" fluid /></label></div>
 			<template #footer><Button label="Apply" :disabled="!pastedText.trim()" @click="applyPaste" /></template>

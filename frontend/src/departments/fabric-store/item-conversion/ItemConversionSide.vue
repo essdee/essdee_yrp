@@ -123,5 +123,5 @@ function changeItem(item) {
 .conversion-side__value div { display: grid; gap: 2px; }
 .conversion-side__value dt { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); font-weight: 700; }
 .conversion-side__value dd { margin: 0; color: var(--side-tone); font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-@media (max-width: 560px) { .conversion-side__fields { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .conversion-side__fields { grid-template-columns: 1fr; } }
 </style>

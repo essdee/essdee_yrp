@@ -253,7 +253,27 @@ const headingId = computed(() => `${props.title.toLowerCase().replace(/[^a-z0-9]
 	}
 }
 
-@media (max-width: 540px) {
+@media (max-width: 640px) {
+	.workspace-launcher.erp-workspace.erp-workspace-entry {
+		padding-top: var(--erp-space-4);
+	}
+	.workspace-launcher__header {
+		flex-wrap: wrap;
+		row-gap: var(--erp-space-3);
+	}
+	.workspace-launcher__title {
+		flex: 1 1 auto;
+	}
+	.workspace-launcher__search,
+	.workspace-launcher__context,
+	.workspace-launcher__search + .workspace-launcher__context {
+		width: 100%;
+		margin-left: 0;
+	}
+	.workspace-launcher--compact .workspace-launcher__context,
+	.workspace-launcher--compact .workspace-launcher__search {
+		padding-left: 0;
+	}
 	.workspace-launcher__grid {
 		grid-template-columns: 1fr;
 	}

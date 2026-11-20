@@ -4,6 +4,18 @@
 		<a class="app-skip-link" href="#app-main">Skip to main content</a>
 
 		<header class="app-topbar">
+			<button
+				v-if="hasModuleNavigation"
+				type="button"
+				class="app-theme-toggle app-nav-toggle"
+				aria-label="Workspace menu"
+				title="Workspace menu"
+				aria-controls="module-sidebar"
+				:aria-expanded="isModuleNavigationOpen"
+				@click="isModuleNavigationOpen = !isModuleNavigationOpen"
+			>
+				<i :class="isModuleNavigationOpen ? 'pi pi-times' : 'pi pi-bars'" aria-hidden="true" />
+			</button>
 			<RouterLink class="app-brand" :to="getHomePath()" aria-label="Essdee YRP administrator home">
 				<img v-if="appLogo && !isLogoBroken" class="app-brand__logo" :src="appLogo" alt="" @error="isLogoBroken = true" />
 				<span v-else class="app-brand__mark" aria-hidden="true">EY</span>
@@ -37,7 +49,7 @@
 			</nav>
 		</header>
 
-		<ModuleSidebar :department="activeDepartment" />
+		<ModuleSidebar v-model:open="isModuleNavigationOpen" :department="activeDepartment" @availability="hasModuleNavigation = $event" />
 
 		<div id="app-main" class="app-main" tabindex="-1">
 			<RouterView v-slot="{ Component }">
@@ -76,6 +88,8 @@ const isLogoBroken = ref(false)
 const router = useRouter()
 const isNavigating = ref(false)
 const isDarkTheme = ref(currentTheme() === "dark")
+const hasModuleNavigation = ref(false)
+const isModuleNavigationOpen = ref(false)
 const themeToggleLabel = computed(() => isDarkTheme.value ? "Switch to light theme" : "Switch to dark theme")
 
 function switchTheme() {
@@ -119,6 +133,7 @@ watchEffect(() => {
 watch(
 	() => route.path,
 	async () => {
+		isModuleNavigationOpen.value = false
 		await nextTick()
 		window.requestAnimationFrame(() => document.getElementById("app-main")?.focus({ preventScroll: true }))
 	},

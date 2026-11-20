@@ -295,4 +295,5 @@ function attributeText(row, group) {
 .wo-delivery-matrix__empty i {
 	color: var(--erp-accent);
 }
+@media (max-width: 640px) { .wo-delivery-matrix > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

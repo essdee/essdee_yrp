@@ -258,6 +258,13 @@ async function save() {
 .bom-mapping-problem { display: block; margin-top: 2px; color: var(--erp-danger); white-space: normal; }
 .bom-mapping-included { color: var(--erp-danger); }
 .bom-mapping-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-@media (max-width: 700px) { .bom-mapping-sides { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .bom-mapping-sides { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+	.bom-mapping-side { overflow-x: auto; }
+	.bom-mapping-attributes :deep(.p-select) { min-width: 140px; }
+	.bom-mapping-selection { flex-wrap: wrap; justify-content: flex-start; }
+	.bom-mapping-fill { flex-wrap: wrap; }
+	.bom-mapping-checkbox { width: 20px; height: 20px; }
+}
 </style>
 

@@ -628,7 +628,7 @@ onBeforeUnmount(() => { dashboardGeneration += 1; pendingGeneration.value += 1; 
     .filter-card select { flex: 1; }
     .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
     .audit-dashboard { padding-top: 10px; }
     .dashboard-header { align-items: flex-start; }
     .dashboard-header h2 { font-size: 22px; }

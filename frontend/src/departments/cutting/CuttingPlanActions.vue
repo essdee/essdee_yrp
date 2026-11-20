@@ -541,4 +541,5 @@ function toggleMoreActions(event) {
 	.recut-form { grid-template-columns: 1fr; }
 	.table-scroll { -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); }
 }
+@media (max-width: 640px) { :global(.action-dialog), :global(.action-dialog--small) { width: 96vw; } .plan-action-feedback { top: 60px; width: calc(100vw - 24px); } .row-checkbox { width: 20px; height: 20px; } .row-selection-footer { flex-wrap: wrap; } .recut-form__button :deep(.p-button) { width: 100%; min-height: 40px; } }
 </style>

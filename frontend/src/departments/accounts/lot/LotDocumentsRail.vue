@@ -108,7 +108,7 @@ let origin = ""
 const documentSections = computed(() =>
 	lotDocumentSections(props.documents, expanded.value, previewLimit.value, props.sections),
 )
-const mediaQuery = window.matchMedia("(max-width: 620px)")
+const mediaQuery = window.matchMedia("(max-width: 640px)")
 function updatePreview() {
 	previewLimit.value = mediaQuery.matches ? 3 : 5
 }

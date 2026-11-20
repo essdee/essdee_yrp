@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import test from "node:test"
 
 import { merchPurchaseLauncherItems } from "../src/departments/merch-purchase/merchPurchaseViews.js"
-import { applyApprovalResult, grammageCellText, grammageFilterArgs, GRAMMAGE_COLUMNS, GRAMMAGE_FILTERS } from "../src/departments/merch/laysheet-grammage/laysheetGrammageApproval.js"
+import { applyApprovalResult, grammageCellText, grammageDifference, grammageFilterArgs, GRAMMAGE_COLUMNS, GRAMMAGE_FILTERS } from "../src/departments/merch/laysheet-grammage/laysheetGrammageApproval.js"
 import { MERCH_ROUTES, merchLauncherItems, visibleMerchLauncherItems } from "../src/departments/merch/merchViews.js"
 import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { getDepartmentEntries } from "../src/departments/search/departmentCards.js"
@@ -82,4 +82,15 @@ test("the page shows Approve only when the server allows it and approves through
 	assert.match(page, /:header="detail \? `LaySheet \$\{detail\.name\}`/, "the popup title names the LaySheet")
 	assert.match(page, /<template v-for="column in GRAMMAGE_COLUMNS"/, "the popup uses the list labels")
 	assert.match(source("../src/api/merch.js"), /essdee_yrp\.merch\.laysheet_grammage_approval/)
+})
+
+test("phone cards show the signed grammage difference and keep select and Approve reachable", () => {
+	assert.deepEqual(grammageDifference({ required_pcs_weight: 0.229, piece_weight: 0.24 }), { text: "+0.011", tone: "over" })
+	assert.deepEqual(grammageDifference({ required_pcs_weight: 0.278, piece_weight: 0.264 }), { text: "−0.014", tone: "under" })
+	assert.deepEqual(grammageDifference({ required_pcs_weight: 0.1, piece_weight: 0.1 }), { text: "0", tone: "equal" })
+	const page = source("../src/departments/merch/laysheet-grammage/LaySheetGrammageApprovals.vue")
+	assert.match(page, /<Checkbox v-if="canApprove" v-model="selectedRows" :value="row"/)
+	assert.match(page, /class="grammage-card__approve"[^>]*@click="approve\(\[row\]\)"/)
+	assert.match(page, /grammage-approval__filters:not\(\.is-open\) \{ display: none; \}/, "phone filters fold behind the Filters toggle")
+	assert.match(page, /\.grammage-approval \{ display: grid; grid-template-columns: minmax\(0, 1fr\)/, "the wide table cannot widen the page")
 })

@@ -280,4 +280,5 @@ function money(value) {
 	.work-order-matrix-empty i { grid-row: 1 / span 2; }
 	.work-order-matrix-empty span { text-align: left; }
 }
+@media (max-width: 640px) { .work-order-item-group__header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

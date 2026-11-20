@@ -81,4 +81,8 @@ const rejectionTotal = computed(() => detailRows.value.reduce((sum, block) => su
 .rejection__filter { display: flex; align-items: center; gap: 8px; color: var(--erp-text-secondary); font-size: var(--erp-font-size-caption); font-weight: 650; }
 .rejection__filter :deep(.p-select) { min-width: 200px; }
 .rejection__summary { justify-self: start; min-width: min(100%, 420px); }
+@media (max-width: 640px) {
+	.rejection__filter { width: 100%; }
+	.rejection__filter :deep(.p-select) { min-width: 0; flex: 1 1 auto; }
+}
 </style>

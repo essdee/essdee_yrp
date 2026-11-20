@@ -288,4 +288,5 @@ const CombinationMatrix = defineComponent({
 .discard-copy { margin: 0; color: var(--erp-text-muted); }
 :global(.cutting-order-detail-dialog) { width: min(96vw, 1180px); }
 @media (max-width: 800px) { .detail-fields, .detail-loading { grid-template-columns: 1fr; } .table-scroll { -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); } }
+@media (max-width: 640px) { .detail-identity, .detail-section > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

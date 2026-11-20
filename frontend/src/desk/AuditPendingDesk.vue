@@ -61,4 +61,8 @@ import AuditPendingFinishingPlans from "../departments/accounts/reports/AuditPen
 .audit-pending-desk :deep(.erp-action-button:disabled) { opacity: .6; cursor: wait; }
 .audit-pending-desk :deep(.report-shell__message) { padding: 12px; color: var(--erp-danger); background: var(--erp-danger-soft); }
 .audit-pending-desk :deep(.p-skeleton) { background: var(--erp-surface-muted); }
+@media (max-width: 640px) {
+	.audit-pending-desk { padding: 8px 0 16px; }
+	.audit-pending-desk :deep(.erp-action-button) { min-height: 40px; }
+}
 </style>

@@ -239,7 +239,7 @@ useReportQueryPrefill(linkedLot, ["lot"], () => { if (dimensionsLoaded.value) ap
 	accent-color: var(--erp-accent);
 }
 
-@media (max-width: 800px) {
+@media (max-width: 900px) {
 	.stock-checks {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));

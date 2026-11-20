@@ -55,7 +55,7 @@ const { renderedRows, unrenderedCount, sentinel: moreRowsSentinel, renderMoreRow
 .planning-tone--pass { background: var(--erp-success-soft); color: var(--erp-success-text); }
 .planning-tone--fail { background: var(--erp-danger-soft); color: var(--erp-danger); }
 .planning-tone--hold { background: var(--erp-warning-soft); color: var(--erp-warning); }
-@media (min-width: 701px) {
+@media (min-width: 641px) {
 	th:first-child, td.planning-report-first, :deep(.report-filter-row > th:first-child) { position: sticky; left: 0; background: var(--erp-surface); z-index: 2; }
 	thead th:first-child { z-index: 3; background: var(--erp-surface-muted); }
 	.report-total-row > td.planning-report-first { background: var(--erp-attention-soft); }

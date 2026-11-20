@@ -89,7 +89,7 @@ watch(() => route.query?.[props.queryKey], value => {
 	min-width: 0;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
 	.report-workspace {
 		grid-template-columns: minmax(0, 1fr);
 		gap: var(--erp-space-2);
