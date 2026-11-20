@@ -52,10 +52,11 @@ export function createAccountConfirmation(actions = { logout: logOut, "logout-al
 	return { pending, busy, error, current, open, cancel, confirm }
 }
 
-/** ⋮ menu items; "Switch to Desk" only for System Managers (Desk always admits them). */
-export function getAccountMenuItems({ changePassword, logOutAllDevices }, boot = globalThis.window?.frappe?.boot) {
+/** ⋮ menu items; "Layout Builder" and "Switch to Desk" only for System Managers (Desk always admits them). */
+export function getAccountMenuItems({ changePassword, logOutAllDevices, openLayoutBuilder }, boot = globalThis.window?.frappe?.boot) {
 	const items = [{ label: "Change Password", icon: "pi pi-key", command: changePassword }]
 	if (hasSystemManagerRole(boot)) {
+		items.push({ label: "Layout Builder", icon: "pi pi-objects-column", command: openLayoutBuilder })
 		items.push({ label: "Switch to Desk", icon: "pi pi-desktop", command: () => window.location.assign("/desk") })
 	}
 	items.push({ label: "Log out from all devices", icon: "pi pi-sign-out", class: "app-account-menu__item--danger", command: logOutAllDevices })

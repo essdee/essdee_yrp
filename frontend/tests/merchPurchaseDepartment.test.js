@@ -20,7 +20,7 @@ import { canOpenList, getPermissionRedirect, NO_PERMISSION_PATH } from "../src/r
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const layout = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.experience_key === "merch-purchase")
+const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "merch-purchase")
 const workspaces = JSON.parse(layout.config).experience_props.workspaces
 const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "merch-purchase" }, config: { experience_props: { workspaces } } } })
 const items = merchPurchaseLauncherItems()
@@ -126,7 +126,7 @@ test("Purchase shows Vendor Bill Tracking once, with routes and record links kep
 	const boot = { user: { name: "purchase@example.com", can_read: ["SD YRP Lot"] } }
 	assert.equal(canOpenList(card.to, boot), false)
 	assert.equal(canOpenList(card.to, { user: { name: "purchase@example.com", can_read: ["YRP Bill Tracking"] } }), true)
-	const purchaseLayout = JSON.parse(JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.experience_key === "purchase").config).experience_props.workspaces
+	const purchaseLayout = JSON.parse(JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "purchase").config).experience_props.workspaces
 	const purchaseLocked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "purchase" }, config: { experience_props: { workspaces: purchaseLayout } } } })
 	assert.ok(purchaseLayout.includes("bill_tracking"))
 	assert.equal(getLockedRedirect(router.resolve("/purchase/bill-tracking/BT-1"), purchaseLocked), undefined)
@@ -134,7 +134,7 @@ test("Purchase shows Vendor Bill Tracking once, with routes and record links kep
 
 test("Merch and Merch & Purchase open Cutting Plan lists, records and the editor inside Merch", () => {
 	const router = loadRouter()
-	const merchWorkspaces = JSON.parse(JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.experience_key === "merch").config).experience_props.workspaces
+	const merchWorkspaces = JSON.parse(JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "merch").config).experience_props.workspaces
 	const merchLocked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "merch" }, config: { experience_props: { workspaces: merchWorkspaces } } } })
 	for (const launcher of [merchLauncherItems(), items]) {
 		const card = launcher.find((item) => item.key === "cutting_plans")

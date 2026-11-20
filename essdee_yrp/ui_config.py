@@ -10,8 +10,9 @@ A preference that selects a Registered Experience layout additionally narrows
 
 import frappe
 from frappe import _
-
 from yrp.yrp.api import ui_config as base_ui_config
+
+from essdee_yrp.web_workspace_layout import get_department_workspaces
 
 PREMIUM_LAYOUT_NAME = "Premium White"
 
@@ -155,7 +156,7 @@ def get_config_for_boot():
 	"""Never let a layout failure make the Essdee /web boot fail."""
 	try:
 		config, meta = resolve_config(frappe.session.user)
-		return {"config": config, "meta": meta}
+		return {"config": config, "meta": meta, "department_workspaces": get_department_workspaces()}
 	except Exception:
 		try:
 			frappe.log_error(

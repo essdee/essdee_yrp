@@ -39,6 +39,9 @@
 <script setup>
 import Menu from "primevue/menu"
 import { defineAsyncComponent, ref, watch } from "vue"
+import { useRouter } from "vue-router"
+
+import { LAYOUT_BUILDER_PATH } from "../../departments/workspace/builderAccess.js"
 
 import { createAccountConfirmation, getAccountMenuItems } from "./accountMenu.js"
 import UserAvatar from "./UserAvatar.vue"
@@ -48,6 +51,7 @@ const DocumentConfirmationDialog = defineAsyncComponent(() => import("../documen
 const ChangePasswordDialog = defineAsyncComponent(() => import("./ChangePasswordDialog.vue"))
 const Message = defineAsyncComponent(() => import("primevue/message"))
 
+const router = useRouter()
 const menu = ref(null)
 const menuOpen = ref(false)
 const changingPassword = ref(false)
@@ -59,5 +63,6 @@ watch(changingPassword, (open) => { if (open) passwordDialogLoaded.value = true 
 const menuItems = getAccountMenuItems({
 	changePassword: () => { changingPassword.value = true },
 	logOutAllDevices: () => confirmation.open("logout-all"),
+	openLayoutBuilder: () => router.push(LAYOUT_BUILDER_PATH),
 })
 </script>

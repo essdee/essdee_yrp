@@ -42,7 +42,7 @@ test("Sales shows a Sales Item Price card and route in the Sales layout", () => 
 	assert.deepEqual(getWorkspacePaths(sales).item_prices, ["/sales/item-prices"])
 	assert.match(source("../src/departments/launcherCards.js"), /key: "item_prices",\s*label: "Sales Item Price"[\s\S]*to: "\/sales\/item-prices"/)
 	assert.match(source("../src/router/index.js"), /path: "\/sales\/item-prices", name: "sales-item-prices", component: SalesItemPricePage/)
-	const layout = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.experience_key === "sales")
+	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "sales")
 	assert.deepEqual(JSON.parse(layout.config).experience_props.workspaces, ["production_orders", "item_prices", "reports"])
 })
 

@@ -5,7 +5,7 @@ import test from "node:test"
 const { getWorkspacePaths, departments } = await import("../src/departments/registry.js")
 const { accountsLauncherItems } = await import("../src/departments/accounts/accountsViews.js")
 
-const layouts = JSON.parse(readFileSync(new URL("../../essdee_yrp/fixtures/yrp_ui_layout.json", import.meta.url), "utf8"))
+const layouts = JSON.parse(readFileSync(new URL("./data/yrp_ui_layout.json", import.meta.url), "utf8"))
 const layout = layouts.find((row) => row.name === "Accounts")
 const workspaces = JSON.parse(layout.config).experience_props.workspaces
 

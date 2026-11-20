@@ -57,7 +57,7 @@ test("Purchase reuses the Production Order list, page and editor inside Purchase
 
 test("the Purchase layout opens Production Orders and keeps PO and PPO links inside Purchase", () => {
 	const router = loadRouter()
-	const layouts = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json"))
+	const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 	const workspaces = JSON.parse(layouts.find((layout) => layout.experience_key === "purchase").config).experience_props.workspaces
 	assert.ok(workspaces.includes("production_orders"))
 	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "purchase" }, config: { experience_props: { workspaces } } } })

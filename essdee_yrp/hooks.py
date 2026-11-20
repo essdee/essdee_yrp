@@ -160,17 +160,6 @@ fixtures = [
 			]
 		],
 	},
-	# /web per-user UI (spec §12.2): the code-owned layouts shipped to every site.
-	# THE FILTER IS LOAD-BEARING — sync_fixtures force-imports on every
-	# `bench migrate`, so an unfiltered fixture would silently revert every
-	# same-named prod-edited layout and ship stray dev test layouts. Names listed
-	# here are therefore CODE-OWNED: never edit them live on prod (a migrate
-	# reverts the change) — duplicate to a new name instead. Per-user assignment
-	# (YRP UI Preference) is NOT fixtured, so who-gets-which stays prod-owned.
-	# 2026-07-20 (owner): ship ALL enabled layouts (status = Enabled), not a name
-	# list. `disabled = 0` — so any enabled layout on the exporting site is
-	# captured; disabled layouts (dev drills, unfinished templates) stay out.
-	{"dt": "YRP UI Layout", "filters": [["disabled", "=", 0]]},
 ]
 
 # Apps
@@ -252,6 +241,8 @@ yrp_registered_experiences = {
 	"merch-purchase": ["workspaces"],
 	"merch-pd": ["workspaces"],
 	"quality": ["workspaces"],
+	# Layout Builder (web_workspace_layout.py): title + sections of catalogue card ids.
+	"workspace": ["workspace"],
 }
 
 # Desk and /web page loads follow the role lists in SD YRP MRP Settings.

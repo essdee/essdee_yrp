@@ -25,7 +25,7 @@ const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const tick = async () => { await new Promise((done) => setImmediate(done)); await Vue.nextTick() }
 const stub = (name) => (props, { slots }) => Vue.h(name, props, slots.default?.())
 const nodes = (root, type) => findNodes(root, (node) => node.type === type)
-const layouts = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json"))
+const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 const finishingLayout = () => {
 	const workspaces = JSON.parse(layouts.find((row) => row.experience_key === "finishing").config).experience_props.workspaces
 	return getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "finishing" }, config: { experience_props: { workspaces } } } })

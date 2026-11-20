@@ -75,7 +75,7 @@ assert.equal(launcherItems.at(-1).key, "reports")
 assert.deepEqual(visibleMerchLauncherItems({ reports: { can_read: true } }).map(({ key, to }) => ({ key, to })), [{ key: "reports", to: "/merch/reports" }])
 assert.deepEqual(visibleMerchLauncherItems({ reports: { can_read: false } }), [])
 assert.match(router, /path: "\/merch\/reports", name: MERCH_ROUTES.reports, component: MerchReports/)
-const layout = JSON.parse(readFileSync(new URL("../essdee_yrp/fixtures/yrp_ui_layout.json", import.meta.url), "utf8")).find((row) => row.experience_key === "merch")
+const layout = JSON.parse(readFileSync(new URL("../frontend/tests/data/yrp_ui_layout.json", import.meta.url), "utf8")).find((row) => row.experience_key === "merch")
 assert.deepEqual(JSON.parse(layout.config).experience_props.workspaces, MERCH_SECTION_ORDER)
 assert.deepEqual(launcherItems.map((item) => item.key), JSON.parse(layout.config).experience_props.workspaces)
 for (const key of ["lots", "item_production_details", "production_orders", "work_orders", "bill_tracking", "purchase_invoices"]) {

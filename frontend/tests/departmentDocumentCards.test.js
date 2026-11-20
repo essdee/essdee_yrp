@@ -25,7 +25,7 @@ const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const tick = async () => { await new Promise((done) => setImmediate(done)); await Vue.nextTick() }
 const stub = (name) => (props, { slots }) => Vue.h(name, props, slots.default?.())
 const nodes = (root, type) => findNodes(root, (node) => node.type === type)
-const layouts = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json"))
+const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 const DOCUMENT_KEYS = ["delivery_challans", "goods_received_notes"]
 const READABLE = { work_orders: { can_read: true }, delivery_challans: { can_read: true, doctype: "YRP Delivery Challan" }, goods_received_notes: { can_read: true, doctype: "YRP Goods Received Note" } }
 /** Departments with a Work Orders card, their route prefix and the layout experience key. */

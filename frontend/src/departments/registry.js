@@ -1,3 +1,8 @@
+import { getDepartmentWorkspace } from "./workspace/departmentWorkspaces.js"
+
+/** Department landing page: the Layout Builder sections when its built-in layout is overridden, else `load`. */
+const landing = (key, load) => () => (getDepartmentWorkspace(key) ? import("./workspace/ConfiguredWorkspace.vue") : load())
+
 /** /web departments. `sections` maps each launcher workspace key to the route segment(s) under `path` it owns; `combines` adds the sections of other departments, limited to `combinedSections` when set. */
 export const departments = [
 	{
@@ -6,7 +11,7 @@ export const departments = [
 		shortLabel: "CT",
 		path: "/cutting",
 		sections: { "cutting-plans": "plans", "cutting-orders": "orders", "bulk-lay-sheets": "bulk-lay-sheets", "lay-sheet-planner": "lay-sheet-planner", "stock-transfers": "stock-transfers", reports: "reports" },
-		component: () => import("./Cutting.vue"),
+		component: landing("cutting", () => import("./Cutting.vue")),
 	},
 	{
 		key: "fabric-store",
@@ -14,7 +19,7 @@ export const departments = [
 		shortLabel: "FS",
 		path: "/fabric-store",
 		sections: { work_orders: ["work-orders", "delivery-challans", "goods-received-notes"], delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes", purchase_orders: ["purchase-orders", "goods-received-notes"], stock_transfers: "stock-transfers", item_conversions: "item-conversions", reports: "reports" },
-		component: () => import("./FabricStore.vue"),
+		component: landing("fabric-store", () => import("./FabricStore.vue")),
 	},
 	{
 		key: "cut-panel-store",
@@ -22,7 +27,7 @@ export const departments = [
 		shortLabel: "CP",
 		path: "/cut-panel-store",
 		sections: { delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes", movements: "movements", work_orders: "work-orders", cut_bundle_edits: "cut-bundle-edits", box_stickers: "box-sticker-prints", excel_stickers: "excel-sticker-prints", reports: "reports" },
-		component: () => import("./CutPanelStore.vue"),
+		component: landing("cut-panel-store", () => import("./CutPanelStore.vue")),
 	},
 	{
 		key: "accessory-store",
@@ -30,7 +35,7 @@ export const departments = [
 		shortLabel: "AS",
 		path: "/accessory-store",
 		sections: { work_orders: ["work-orders", "delivery-challans", "goods-received-notes"], delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes", purchase_orders: ["purchase-orders", "goods-received-notes"], stock_transfers: "stock-transfers", item_conversions: "item-conversions", excel_stickers: "excel-sticker-prints", reports: "reports" },
-		component: () => import("./AccessoryStore.vue"),
+		component: landing("accessory-store", () => import("./AccessoryStore.vue")),
 	},
 	{
 		key: "sewing",
@@ -38,7 +43,7 @@ export const departments = [
 		shortLabel: "SW",
 		path: "/sewing",
 		sections: { plans: "plans", finishing_plans: "finishing-plans", work_orders: ["work-orders", "delivery-challans", "goods-received-notes"], delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes", stock_transfers: "stock-transfers", reports: "reports", attendance: "attendance" },
-		component: () => import("./Sewing.vue"),
+		component: landing("sewing", () => import("./Sewing.vue")),
 	},
 	{
 		key: "finishing",
@@ -46,7 +51,7 @@ export const departments = [
 		shortLabel: "FN",
 		path: "/finishing",
 		sections: { plans: "plans", sewing_plans: "sewing-plans", reports: "reports", rework_details: "rework-details", dispatches: "dispatches", work_orders: "work-orders", delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes" },
-		component: () => import("./Finishing.vue"),
+		component: landing("finishing", () => import("./Finishing.vue")),
 	},
 	{
 		key: "quality",
@@ -56,7 +61,7 @@ export const departments = [
 		combines: ["planning", "merch", "pd", "accounts"],
 		combinedSections: ["cutting_plans", "lots", "sewing_plans", "finishing_plans", "process_costs", "products", "lotwise_item_profits", "debits"],
 		sections: { lots: "lots", inspections: "inspections", work_orders: "work-orders", delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes", reports: "reports" },
-		component: () => import("./Quality.vue"),
+		component: landing("quality", () => import("./Quality.vue")),
 	},
 	{
 		key: "merch",
@@ -64,7 +69,7 @@ export const departments = [
 		shortLabel: "MR",
 		path: "/merch",
 		sections: { lots: "lots", item_production_details: "item-production-details", production_orders: "production-orders", work_orders: "work-orders", delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes", cutting_plans: "cutting-plans", process_costs: "process-costs", bill_tracking: "bill-tracking", purchase_invoices: "purchase-invoices", suppliers: "suppliers", laysheet_grammage_approvals: "laysheet-grammage-approvals", reports: "reports" },
-		component: () => import("./Merch.vue"),
+		component: landing("merch", () => import("./Merch.vue")),
 	},
 	{
 		key: "purchase",
@@ -72,7 +77,7 @@ export const departments = [
 		shortLabel: "PU",
 		path: "/purchase",
 		sections: { lots: "lots", production_orders: "production-orders", items: "items", item_prices: "item-prices", bill_tracking: "bill-tracking", goods_received_notes: "goods-received-notes", purchase_orders: "purchase-orders", stock_transfers: "stock-transfers", item_conversions: "item-conversions", box_stickers: "box-sticker-prints", excel_stickers: "excel-sticker-prints", reports: "reports" },
-		component: () => import("./Purchase.vue"),
+		component: landing("purchase", () => import("./Purchase.vue")),
 	},
 	{
 		key: "merch-purchase",
@@ -81,7 +86,7 @@ export const departments = [
 		path: "/merch-purchase",
 		combines: ["merch", "purchase"],
 		sections: { lots: "lots", reports: "reports" },
-		component: () => import("./MerchPurchase.vue"),
+		component: landing("merch-purchase", () => import("./MerchPurchase.vue")),
 	},
 	{
 		key: "merch-pd",
@@ -91,7 +96,7 @@ export const departments = [
 		combines: ["merch", "purchase", "pd"],
 		combinedSections: ["lots", "item_production_details", "purchase_orders", "bill_tracking", "lotwise_item_profits"],
 		sections: { lots: "lots" },
-		component: () => import("./MerchPd.vue"),
+		component: landing("merch-pd", () => import("./MerchPd.vue")),
 	},
 	{
 		key: "sales",
@@ -99,7 +104,7 @@ export const departments = [
 		shortLabel: "SA",
 		path: "/sales",
 		sections: { production_orders: "production-orders", item_prices: "item-prices", reports: "reports" },
-		component: () => import("./Sales.vue"),
+		component: landing("sales", () => import("./Sales.vue")),
 	},
 	{
 		key: "planning",
@@ -107,7 +112,7 @@ export const departments = [
 		shortLabel: "PL",
 		path: "/planning",
 		sections: { dashboard: "dashboard", cutting_plans: "cutting-plans", sewing_plans: "sewing-plans", finishing_plans: "finishing-plans", lots: "lots", item_production_details: "item-production-details", process_costs: "process-costs", time_and_action_update: "time-and-action-update", action_masters: "action-masters", action_master_templates: "action-master-templates", production_orders: "production-orders", work_orders: "work-orders", bulk_close: "bulk-close", delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes", dispatches: "dispatches", stock_transfers: "stock-transfers", rework_details: "rework-details", purchase_orders: "purchase-orders", box_stickers: "box-sticker-prints", reports: "reports" },
-		component: () => import("./Planning.vue"),
+		component: landing("planning", () => import("./Planning.vue")),
 	},
 	{
 		key: "pd",
@@ -115,7 +120,7 @@ export const departments = [
 		shortLabel: "PD",
 		path: "/pd",
 		sections: { products: "products", product_releases: "product-releases", lotwise_item_profits: "lotwise-item-profits", lay_sheet_planner: "lay-sheet-planner" },
-		component: () => import("./PD.vue"),
+		component: landing("pd", () => import("./PD.vue")),
 	},
 	{
 		key: "accounts",
@@ -125,7 +130,7 @@ export const departments = [
 		combines: ["merch", "pd"],
 		combinedSections: ["lots", "lotwise_item_profits"],
 		sections: { lots: "lots", debits: "debits", purchase_invoices: "purchase-invoices", bill_tracking: "bill-tracking", reports: "reports" },
-		component: () => import("./Accounts.vue"),
+		component: landing("accounts", () => import("./Accounts.vue")),
 	},
 	{
 		key: "hr",
@@ -133,7 +138,7 @@ export const departments = [
 		shortLabel: "HR",
 		path: "/hr",
 		sections: { bill_tracking: "bill-tracking", reports: "reports" },
-		component: () => import("./HR.vue"),
+		component: landing("hr", () => import("./HR.vue")),
 	},
 ]
 

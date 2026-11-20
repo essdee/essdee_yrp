@@ -40,10 +40,10 @@ test("session user uses full name, image and a name + ID + email tooltip", () =>
 	assert.equal(admin.tooltip, "Administrator\nadmin@example.com")
 })
 
-test("Switch to Desk shows only for System Manager or Administrator", () => {
+test("Layout Builder and Switch to Desk show only for System Manager or Administrator", () => {
 	const labels = (user) => getAccountMenuItems(actions, boot(user)).map((item) => item.label)
-	assert.deepEqual(labels({ name: "Administrator", roles: [] }), ["Change Password", "Switch to Desk", "Log out from all devices"])
-	assert.deepEqual(labels({ name: "sm@example.test", roles: ["System Manager"] }), ["Change Password", "Switch to Desk", "Log out from all devices"])
+	assert.deepEqual(labels({ name: "Administrator", roles: [] }), ["Change Password", "Layout Builder", "Switch to Desk", "Log out from all devices"])
+	assert.deepEqual(labels({ name: "sm@example.test", roles: ["System Manager"] }), ["Change Password", "Layout Builder", "Switch to Desk", "Log out from all devices"])
 	assert.deepEqual(labels({ name: "planner@example.test", roles: ["Production Planner"] }), ["Change Password", "Log out from all devices"])
 	assert.equal(hasSystemManagerRole(boot({})), false)
 })

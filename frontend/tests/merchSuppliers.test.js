@@ -19,7 +19,7 @@ import { getListDoctype, getPermissionRedirect } from "../src/router/listPermiss
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const layouts = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json"))
+const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 const department = (key) => departments.find((item) => item.key === key)
 
 function lockedTo(experienceKey) {

@@ -16,10 +16,9 @@ it). Same resilient entry point either way.
 Design guarantees:
 - **Never crashes the caller.** Every path is wrapped; a build failure logs a
   warning and returns, so it can never break ``bench migrate`` / ``bench build``.
-- **Source-hash gated.** Rebuilds only when the SPA sources or its compiled-in
-  Default UI Layout fixture change (``frontend/src`` — including the
-  Essdee-owned UI engine — ``package.json``, ``yarn.lock``, ``vite.config.js``,
-  ``index.html``, and ``fixtures/yrp_ui_layout.json``), so ordinary migrations
+- **Source-hash gated.** Rebuilds only when the SPA sources change
+  (``frontend/src`` — including the Essdee-owned UI engine — ``package.json``,
+  ``yarn.lock``, ``vite.config.js``, and ``index.html``), so ordinary migrations
   don't pay for a full rebuild. The signature is stored in
   ``public/frontend/.build-hash``.
 - **Installs deps only when missing** (``frontend/node_modules`` absent) using
@@ -43,7 +42,6 @@ _NODE_MODULES = os.path.join(_FRONTEND, "node_modules")
 _OUTPUT = os.path.join(_MODULE_DIR, "public", "frontend")
 _ENTRY_HTML = os.path.join(_OUTPUT, "index.html")
 _HASH_FILE = os.path.join(_OUTPUT, ".build-hash")
-_DEFAULT_LAYOUT_FIXTURE = os.path.join(_MODULE_DIR, "fixtures", "yrp_ui_layout.json")
 
 
 def _log(msg, warning=False):
@@ -124,8 +122,6 @@ def _source_signature():
 		p = os.path.join(_FRONTEND, name)
 		if os.path.isfile(p):
 			files.append(p)
-	if os.path.isfile(_DEFAULT_LAYOUT_FIXTURE):
-		files.append(_DEFAULT_LAYOUT_FIXTURE)
 
 	for tree in (os.path.join(_FRONTEND, "src"),):
 		if os.path.isdir(tree):
