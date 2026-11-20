@@ -1,3 +1,5 @@
+import { collectManualKnittingContract, createFabricEntries } from "../../composables/useFabricDeliverableContext.js"
+
 const QUANTITY_PRECISION = 2
 const QUANTITY_ROUNDING_RULE = roundHalfToEven
 const CALCULATION_PRECISION = 3
@@ -69,6 +71,7 @@ function hydrateRow(source) {
 	row.entries = row.multi_colour
 		? hydrateColourEntries(row)
 		: (row.qty_rows || []).map((entry, index) => hydrateEntry(entry, index, null, entry.prefill))
+	if (row.manual_io) row.manualEntry = createFabricEntries({ rows: [source] })[0]
 	updateLegacyYarn(row)
 	return row
 }
@@ -126,10 +129,48 @@ export function fabricColourError(row) {
 	return missing ? `Select the cloth Colour for ${row.cloth_item}.` : ""
 }
 
+/** Manual knitting: the physical yarn/cloth contract, split back to matrix routes on save. */
+export function fabricContractError(row) {
+	if (!row.manualEntry) return ""
+	const contract = collectManualKnittingContract(row, row.manualEntry)
+	const orphan = contract.orphanDeliverables[0]
+	if (orphan) return `Enter a fabric receivable quantity before sending ${orphan.item}.`
+	const missing = contract.routes.some((route) => route.qty > 0 && !route.manualInputs.some((input) => quantity(input.qty) > 0))
+	return missing ? "Enter at least one yarn deliverable for every fabric receivable." : ""
+}
+
+function routeEntries(row) {
+	if (!row.manualEntry) return row.entries
+	return collectManualKnittingContract(row, row.manualEntry).routes.map((route) => ({
+		...route.qr,
+		colour: route.colour,
+		qty: route.qty,
+		inputs: route.manualInputs,
+	}))
+}
+
+export function fabricContractLists(row) {
+	return [
+		{ title: "Yarn Deliverables", hint: "What you send", items: row.manualEntry.manualDeliverables },
+		{ title: "Fabric Receivables", hint: "What you expect back", items: row.manualEntry.manualReceivables },
+	]
+}
+
+export function fabricEditableState(rows) {
+	return JSON.stringify(rows.map((row) => [row.entries, row.manualEntry?.manualDeliverables, row.manualEntry?.manualReceivables]))
+}
+
 export function canCalculateFabric(context, rows) {
 	if (context.source_process?.unavailable) return false
-	if (rows.some((row) => fabricColourError(row) || row.entries.some((entry) => fabricEntryError(row, entry)))) return false
-	return rows.some((row) => row.entries.some((entry) => quantity(entry.qty) > 0))
+	if (rows.some((row) => fabricColourError(row) || fabricContractError(row))) return false
+	if (rows.some((row) => !row.manualEntry && row.entries.some((entry) => fabricEntryError(row, entry)))) return false
+	return rows.some((row) => routeEntries(row).some((entry) => quantity(entry.qty) > 0))
+}
+
+function buildManualEntry(entry) {
+	const line = { key: entry.key, matrix_key: entry.matrix_key || entry.key, out_attrs: entry.out_attrs, qty: entry.qty, inputs: entry.inputs }
+	if (entry.colour) line.colour = entry.colour
+	return line
 }
 
 function buildEntry(entry, manual) {
@@ -146,7 +187,9 @@ function buildRow(row) {
 		fabric_row: row.fabric_row,
 		colour: row.colour || null,
 		yarn_qty: !row.manual_io && !row.reference_routed && (row.yarns || []).length <= 1 ? row.yarn_qty || null : null,
-		entries: row.entries.filter((entry) => quantity(entry.qty) > 0).map((entry) => buildEntry(entry, row.manual_io)),
+		entries: row.manualEntry
+			? routeEntries(row).filter((entry) => quantity(entry.qty) > 0).map(buildManualEntry)
+			: row.entries.filter((entry) => quantity(entry.qty) > 0).map((entry) => buildEntry(entry, row.manual_io)),
 	}
 }
 
@@ -174,9 +217,8 @@ function fabricSourceHint(entry) {
 export function fabricYarnTotals(row) {
 	if (!row.manual_io) return legacyYarnTotals(row)
 	const items = new Map()
-	for (const entry of row.entries) {
-		for (const input of entry.inputs) items.set(input.item, (items.get(input.item) || 0) + quantity(input.qty))
-	}
+	const inputs = row.manualEntry ? row.manualEntry.manualDeliverables : row.entries.flatMap((entry) => entry.inputs)
+	for (const input of inputs) items.set(input.item, (items.get(input.item) || 0) + quantity(input.qty))
 	return yarnTotals([...items].map(([item, total]) => ({ item, qty: total })))
 }
 
@@ -215,7 +257,7 @@ function sourceDemand(entry) {
 
 function balanceWarnings(row) {
 	const groups = new Map()
-	for (const entry of row.entries) {
+	for (const entry of routeEntries(row)) {
 		const route = entry.reference_item_variant || entry.out_attrs?.Dia || entry.label
 		const routeLabel = entry.reference_item_variant ? fabricEntryLabel(entry) : route
 		addDemand(groups, route, `${row.cloth_item} · ${routeLabel}`, entry.balance, quantity(entry.qty))

@@ -40,5 +40,6 @@ export function recutPieces(groups) {
 
 /** Cloth quantity (Kg) to receive across a fabric row's routes. */
 export function fabricClothTotal(row) {
-	return rounded((row?.entries || []).reduce((total, entry) => total + Number(entry.qty || 0), 0))
+	const rows = row?.manualEntry ? row.manualEntry.manualReceivables : row?.entries
+	return rounded((rows || []).reduce((total, entry) => total + Number(entry.qty || 0), 0))
 }
