@@ -986,9 +986,6 @@ function build_cloth_programs_dialog(frm, cloths, defaults = {}, excess_percenta
 		const profile = c.profile || {};
 		const required_colours = (c.required_colours || []).filter(Boolean);
 		const stored_dyed_colours = new Set(c.dyed_yarn_colours || []);
-		const stored_same_finished_colours = new Set(
-			c.same_finished_colours || []
-		);
 		fields.push({ fieldtype: "Section Break", label: __(frappe.utils.escape_html(`${c.label} — ${c.cloth_item}`)) });
 		fields.push({ fieldtype: "Data", fieldname: `cloth_item_${i}`, hidden: 1, default: c.cloth_item });
 		fields.push({ fieldtype: "Data", fieldname: `production_detail_${i}`, hidden: 1, default: c.production_detail || "" });
@@ -1011,10 +1008,6 @@ function build_cloth_programs_dialog(frm, cloths, defaults = {}, excess_percenta
 			colour_selections[i] = required_colours.map((colour) => ({
 				colour,
 				use_dyed_yarn: stored_dyed_colours.has(colour) ? 1 : 0,
-				same_finished_colour: (
-					!stored_dyed_colours.has(colour)
-					&& stored_same_finished_colours.has(colour)
-				) ? 1 : 0,
 			}));
 			fields.push({
 				fieldname: `colour_selection_${i}`,
@@ -1066,11 +1059,6 @@ function build_cloth_programs_dialog(frm, cloths, defaults = {}, excess_percenta
 					.map((row) => frappe.yrp.attribute_value(row.colour))
 					.filter(Boolean);
 				const dyed_colour_set = new Set(dyed_yarn_colours);
-				const same_finished_colours = colour_rows
-					.filter((row) => Number(row.same_finished_colour || 0))
-					.map((row) => frappe.yrp.attribute_value(row.colour))
-					.filter(Boolean);
-				const same_finished_set = new Set(same_finished_colours);
 				const non_dyed_colour = frappe.yrp.attribute_value(defaults.knitting_output_colour) || "";
 				const fabric_routes = [];
 				required_colours.forEach((colour) => {
@@ -1086,13 +1074,7 @@ function build_cloth_programs_dialog(frm, cloths, defaults = {}, excess_percenta
 								finished_dia: frappe.yrp.attribute_value(route.dia),
 								knitting_output_dia:
 									frappe.yrp.attribute_value(stored_route.knitting_output_dia) || frappe.yrp.attribute_value(route.dia) || null,
-								knitting_output_colour:
-									(
-										dyed_colour_set.has(colour)
-										|| same_finished_set.has(colour)
-									)
-										? colour
-										: non_dyed_colour,
+								knitting_output_colour: dyed_colour_set.has(colour) ? colour : non_dyed_colour,
 								use_dyed_yarn: dyed_colour_set.has(colour) ? 1 : 0,
 							});
 						});
@@ -1102,7 +1084,6 @@ function build_cloth_programs_dialog(frm, cloths, defaults = {}, excess_percenta
 					cloth_item: values[`cloth_item_${i}`],
 					production_detail: values[`production_detail_${i}`] || null,
 					dyed_yarn_colours: dyed_yarn_colours,
-					same_finished_colours: same_finished_colours,
 					fabric_routes: fabric_routes,
 					non_dyed_colour: non_dyed_colour,
 					yarns: recipe,
@@ -1126,9 +1107,9 @@ function build_cloth_programs_dialog(frm, cloths, defaults = {}, excess_percenta
 					|| Math.abs(s.yarns.reduce((sum, row) => sum + Number(row.ratio), 0) - 100) > 0.001;
 				if (invalid_recipe) add_issue(__("Configure unique Yarn Items with positive ratios totaling 100% on the Cloth Item."));
 				const needs_default = s.required_colours.some((colour) =>
-					!s.dyed_yarn_colours.includes(colour) && !s.same_finished_colours.includes(colour));
+					!s.dyed_yarn_colours.includes(colour));
 				if (needs_default && !s.non_dyed_colour) {
-					add_issue(__("Set Default Knitting Yarn Colour in SD YRP IPD Settings for colours without Is Dyed Yarn or Same Finished Colour selected."));
+					add_issue(__("Set Default Knitting Yarn Colour in SD YRP IPD Settings for colours without Is Dyed Yarn selected."));
 				}
 				if (!s.knitting_process) add_issue(__("Select a Knitting Process."));
 				if (!(s.cloth_per_kg_yarn > 0)) add_issue(__("Cloth Kgs / 1 Kg Yarn must be greater than zero."));
@@ -1178,7 +1159,7 @@ function build_cloth_programs_dialog(frm, cloths, defaults = {}, excess_percenta
 function cloth_program_colour_table(cloth_index, rows) {
 	const header_style = [
 		"display:grid",
-		"grid-template-columns:minmax(170px,5fr) minmax(120px,3fr) minmax(180px,4fr)",
+		"grid-template-columns:minmax(170px,5fr) minmax(120px,3fr)",
 		"gap:12px",
 		"align-items:center",
 		"padding:8px 12px",
@@ -1189,7 +1170,7 @@ function cloth_program_colour_table(cloth_index, rows) {
 	].join(";");
 	const row_style = [
 		"display:grid",
-		"grid-template-columns:minmax(170px,5fr) minmax(120px,3fr) minmax(180px,4fr)",
+		"grid-template-columns:minmax(170px,5fr) minmax(120px,3fr)",
 		"gap:12px",
 		"align-items:center",
 		"min-height:48px",
@@ -1203,7 +1184,6 @@ function cloth_program_colour_table(cloth_index, rows) {
 			<div style="${header_style}">
 				<span>${__("Finished Colour")}</span>
 				<span>${__("Is Dyed Yarn")}</span>
-				<span>${__("Same Finished Colour")}</span>
 			</div>
 			${rows.map((row, row_index) => `
 				<div style="${row_style}">
@@ -1212,12 +1192,6 @@ function cloth_program_colour_table(cloth_index, rows) {
 						<input type="checkbox"
 							data-cloth-program-dyed="${cloth_index}:${row_index}"
 							${row.use_dyed_yarn ? "checked" : ""}>
-					</label>
-					<label style="display:flex;align-items:center;gap:7px;margin:0;cursor:pointer">
-						<input type="checkbox"
-							data-cloth-program-same="${cloth_index}:${row_index}"
-							${row.same_finished_colour ? "checked" : ""}
-							${row.use_dyed_yarn ? "disabled" : ""}>
 					</label>
 				</div>
 			`).join("")}
@@ -1229,25 +1203,7 @@ function mount_cloth_program_colour_controls(dialog, selections) {
 		const [cloth_index, row_index] = $(this)
 			.attr("data-cloth-program-dyed")
 			.split(":");
-		const row = selections[cloth_index][Number(row_index)];
-		const checked = $(this).is(":checked");
-		row.use_dyed_yarn = checked ? 1 : 0;
-		if (checked) {
-			row.same_finished_colour = 0;
-		}
-		const $same = dialog.$wrapper.find(
-			`[data-cloth-program-same="${cloth_index}:${row_index}"]`
-		);
-		$same.prop("checked", Boolean(row.same_finished_colour));
-		$same.prop("disabled", checked);
-	});
-
-	dialog.$wrapper.on("change", "[data-cloth-program-same]", function () {
-		const [cloth_index, row_index] = $(this)
-			.attr("data-cloth-program-same")
-			.split(":");
-		const row = selections[cloth_index][Number(row_index)];
-		row.same_finished_colour = $(this).is(":checked") ? 1 : 0;
+		selections[cloth_index][Number(row_index)].use_dyed_yarn = $(this).is(":checked") ? 1 : 0;
 	});
 }
 

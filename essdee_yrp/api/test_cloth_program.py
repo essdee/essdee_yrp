@@ -916,6 +916,7 @@ class TestClothProgram(IntegrationTestCase):
 			)
 
 	def test_colour_level_dyed_yarn_selection_derives_exact_matrix_contract(self):
+		"""Retired Same Finished Colour input is ignored: non-dyed colours knit in the default colour."""
 		greige = _ensure_iav("Colour", "Greige")
 		frappe.db.set_single_value(
 			"SD YRP IPD Settings", "default_knitting_output_colour", ensure_value_master("Colour", greige)
@@ -1010,11 +1011,12 @@ class TestClothProgram(IntegrationTestCase):
 			{
 				(self.red, self.red, 1),
 				(navy, greige, 0),
-				(melange, melange, 0),
+				(melange, greige, 0),
 			},
 		)
 		display = fetch_fabric_program_details(lot)[0]
 		self.assertEqual(display["dyed_yarn_colours"], [self.red])
+		self.assertNotIn("same_finished_colours", display)
 
 		matrix_contracts = set()
 		for matrix_name in frappe.get_all(
@@ -1042,7 +1044,7 @@ class TestClothProgram(IntegrationTestCase):
 			{
 				(self.red, self.red, self.red),
 				(navy, greige, greige),
-				(melange, greige, melange),
+				(melange, greige, greige),
 			},
 		)
 

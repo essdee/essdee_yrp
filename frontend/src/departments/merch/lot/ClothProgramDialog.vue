@@ -52,7 +52,6 @@
           <div class="cp-colour-row cp-colour-head">
             <span>Finished Colour</span>
             <span>Is Dyed Yarn</span>
-            <span>Same Finished Colour</span>
           </div>
           <div
             v-for="colour in e.requiredColours"
@@ -67,15 +66,6 @@
                 @change="setDyedYarnColour(e, colour, $event.target.checked)"
               />
               <span>{{ isDyedYarnColour(e, colour) ? "Yes" : "No" }}</span>
-            </label>
-            <label class="cp-dyed-yarn-toggle">
-              <input
-                type="checkbox"
-                :checked="isSameFinishedColour(e, colour)"
-                :disabled="isDyedYarnColour(e, colour)"
-                @change="setSameFinishedColour(e, colour, $event.target.checked)"
-              />
-              <span>{{ isSameFinishedColour(e, colour) ? "Yes" : "No" }}</span>
             </label>
           </div>
           <small v-if="outputError(e)" class="cp-recipe-error">{{ outputError(e) }}</small>
@@ -219,12 +209,6 @@ function normaliseColourSelection(cloth, defaults = {}) {
     .filter((colour) => requiredColours.includes(colour))
   const nonDyedColour = defaults.knitting_output_colour || ""
   const storedRoutes = cloth.profile?.fabric_routes || []
-  const sameFinishedColours = (cloth.same_finished_colours || [])
-    .filter(
-      (colour) =>
-        requiredColours.includes(colour)
-        && !dyedYarnColours.includes(colour),
-    )
   const requiredRoutes = (cloth.required_routes || [])
     .map((route) => {
       const existing = storedRoutes.find(
@@ -244,7 +228,6 @@ function normaliseColourSelection(cloth, defaults = {}) {
     requiredColours,
     requiredRoutes,
     dyedYarnColours,
-    sameFinishedColours,
     nonDyedColour,
   }
 }
@@ -275,29 +258,10 @@ function setDyedYarnColour(entry, colour, checked) {
   if (checked) selected.add(colour)
   else selected.delete(colour)
   entry.dyedYarnColours = entry.requiredColours.filter((value) => selected.has(value))
-  if (checked) setSameFinishedColour(entry, colour, false)
-}
-
-function isSameFinishedColour(entry, colour) {
-  return entry.sameFinishedColours.includes(colour)
-}
-
-function setSameFinishedColour(entry, colour, checked) {
-  const selected = new Set(entry.sameFinishedColours)
-  if (checked) selected.add(colour)
-  else selected.delete(colour)
-  entry.sameFinishedColours = entry.requiredColours.filter(
-    (value) => selected.has(value),
-  )
 }
 
 function knittingOutputColour(entry, colour) {
-  return (
-    isDyedYarnColour(entry, colour)
-    || isSameFinishedColour(entry, colour)
-  )
-    ? colour
-    : entry.nonDyedColour
+  return isDyedYarnColour(entry, colour) ? colour : entry.nonDyedColour
 }
 
 function validateYarnRows(rows) {
@@ -417,7 +381,6 @@ async function onApply() {
     cloth_item: e.cloth_item,
     production_detail: e.production_detail || null,
     dyed_yarn_colours: [...e.dyedYarnColours],
-    same_finished_colours: [...e.sameFinishedColours],
     fabric_routes: flattenFabricRoutes(e),
     yarns: e.itemYarns.map((row) => ({ ...row })),
     yarn_item: e.itemYarns[0]?.yarn_item || null,
@@ -460,7 +423,7 @@ async function onApply() {
 .cp-item-yarns span.invalid,
 .cp-recipe-error { color: var(--p-red-600, #dc2626); }
 .cp-output-colours { order: 1; overflow: hidden; margin: 14px 0; border: 1px solid var(--p-content-border-color, #e5e7eb); border-radius: 10px; background: var(--p-content-background, #fff); }
-.cp-colour-row { display: grid; grid-template-columns: minmax(160px, 2fr) minmax(120px, 1fr) minmax(160px, 2fr); gap: 12px; align-items: center; min-height: 42px; padding: 8px 12px; }
+.cp-colour-row { display: grid; grid-template-columns: minmax(160px, 2fr) minmax(120px, 1fr); gap: 12px; align-items: center; min-height: 42px; padding: 8px 12px; }
 .cp-colour-row + .cp-colour-row { border-top: 1px solid var(--p-content-border-color, #e5e7eb); }
 .cp-colour-head { min-height: auto; color: var(--esd-muted, inherit); background: var(--p-content-hover-background, #f8fafc); font-size: 0.72rem; font-weight: 700; }
 .cp-dyed-yarn-toggle { display: flex; align-items: center; justify-self: start; gap: 8px; cursor: pointer; }
@@ -477,7 +440,7 @@ async function onApply() {
 .cp-empty { padding: 24px; text-align: center; opacity: 0.7; }
 @media (max-width: 620px) {
   .cp-grid { grid-template-columns: minmax(0, 1fr); }
-  .cp-colour-row { grid-template-columns: minmax(0, 1.2fr) minmax(90px, 0.8fr) minmax(0, 1fr); }
+  .cp-colour-row { grid-template-columns: minmax(0, 1.2fr) minmax(90px, 0.8fr); }
 }
 @media (max-width: 430px) {
   .cp-card { padding: 10px; }
@@ -485,6 +448,6 @@ async function onApply() {
 }
 @container (max-width: 620px) {
   .cp-grid { grid-template-columns: minmax(0, 1fr); }
-  .cp-colour-row { grid-template-columns: minmax(0, 1.2fr) minmax(90px, 0.8fr) minmax(0, 1fr); }
+  .cp-colour-row { grid-template-columns: minmax(0, 1.2fr) minmax(90px, 0.8fr); }
 }
 </style>

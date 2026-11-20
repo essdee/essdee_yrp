@@ -201,16 +201,6 @@ def _normalize_dyed_yarn_colours(selection, required_colours):
 	return _normalize_colour_flags(selection, "dyed_yarn_colours", "Dyed yarn colour", required_colours)
 
 
-def _normalize_same_finished_colours(selection, required_colours):
-	"""Validate colours whose knitting output equals the finished colour."""
-	return _normalize_colour_flags(
-		selection,
-		"same_finished_colours",
-		"Same finished colour",
-		required_colours,
-	)
-
-
 def _derive_colour_yarn_recipes(item_yarns, required_colours, dyed_colours, source_colours=None):
 	"""Expand the Item-master recipe using one yarn type choice per colour.
 
@@ -483,11 +473,9 @@ def _normalize_fabric_routes(selection, required_routes):
 	return normalised
 
 
-def _derive_fabric_routes(selection, required_routes, dyed_colours, same_finished_colours=None):
-	"""Derive checked sources and validate editable unchecked sources."""
+def _derive_fabric_routes(selection, required_routes, dyed_colours):
+	"""Dyed-yarn colours knit in their finished colour; all others knit in the non-dyed colour."""
 	dyed = set(dyed_colours)
-	checkbox_contract = "same_finished_colours" in selection
-	same_finished = set(same_finished_colours or [])
 	non_dyed_colour = _attribute_value(_cloth_program_defaults().get("knitting_output_colour"))
 	raw = selection.get("fabric_routes") or [
 		{
@@ -506,19 +494,7 @@ def _derive_fabric_routes(selection, required_routes, dyed_colours, same_finishe
 		derived.append(
 			{
 				**row,
-				"knitting_output_colour": (
-					final_colour
-					if (final_colour in dyed or (checkbox_contract and final_colour in same_finished))
-					else (
-						non_dyed_colour
-						if checkbox_contract
-						else (
-							_attribute_value(row.get("knitting_output_colour"))
-							or row.get("output_colour")
-							or non_dyed_colour
-						)
-					)
-				),
+				"knitting_output_colour": final_colour if final_colour in dyed else non_dyed_colour,
 				"use_dyed_yarn": 1 if final_colour in dyed else 0,
 			}
 		)
@@ -530,21 +506,6 @@ def _derive_fabric_routes(selection, required_routes, dyed_colours, same_finishe
 			)
 		)
 	return _normalize_fabric_routes({**selection, "fabric_routes": derived}, required_routes)
-
-
-def _source_colours_from_routes(routes):
-	"""Return the single physical knitting source selected per final colour."""
-	source_colours = {}
-	for row in routes:
-		final_colour = _attribute_value(row["finished_colour"])
-		source_colour = _attribute_value(row["knitting_output_colour"])
-		existing = source_colours.get(final_colour)
-		if existing and existing != source_colour:
-			frappe.throw(
-				_("Use one Source Colour for every Dia of Finished Colour {0}.").format(final_colour)
-			)
-		source_colours[final_colour] = source_colour
-	return source_colours
 
 
 def _fabric_route_map(selection):
@@ -1265,34 +1226,10 @@ def build_cloth_programs(lot, selections, modified=None, excess_percentage=0):
 						).format(cloth)
 					)
 				dyed_colours = _normalize_dyed_yarn_colours(selection, required_colours)
-				same_finished_colours = (
-					[
-						colour
-						for colour in _normalize_same_finished_colours(selection, required_colours)
-						if colour not in dyed_colours
-					]
-					if "same_finished_colours" in selection
-					else None
-				)
-				selection["fabric_routes"] = _derive_fabric_routes(
-					selection,
-					list(tuples),
-					dyed_colours,
-					same_finished_colours,
-				)
-				colour_recipes = _derive_colour_yarn_recipes(
-					item_yarns,
-					required_colours,
-					dyed_colours,
-					(
-						None
-						if same_finished_colours is not None
-						else _source_colours_from_routes(selection["fabric_routes"])
-					),
-				)
+				selection.pop("same_finished_colours", None)
+				selection["fabric_routes"] = _derive_fabric_routes(selection, list(tuples), dyed_colours)
+				colour_recipes = _derive_colour_yarn_recipes(item_yarns, required_colours, dyed_colours)
 				selection["dyed_yarn_colours"] = dyed_colours
-				if same_finished_colours is not None:
-					selection["same_finished_colours"] = same_finished_colours
 			else:
 				recipe_selection = selection
 				if item_yarns and not selection.get("colour_yarn_recipes"):
@@ -1764,21 +1701,6 @@ def get_cloth_program_context(lot):
 					]
 				)
 				and all(cint(row.get("use_dyed_yarn")) for row in rows)
-			)
-		]
-		c["same_finished_colours"] = [
-			colour
-			for colour in c["required_colours"]
-			if colour not in c["dyed_yarn_colours"]
-			and (
-				(
-					rows := [
-						row
-						for row in c["profile"].get("fabric_routes", [])
-						if _attribute_value(row["finished_colour"]) == colour
-					]
-				)
-				and all(_attribute_value(row.get("knitting_output_colour")) == colour for row in rows)
 			)
 		]
 	return {

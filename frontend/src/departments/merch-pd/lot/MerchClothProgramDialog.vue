@@ -63,7 +63,6 @@
 								<tr>
 									<th>Finished Colour</th>
 									<th>Is Dyed Yarn</th>
-									<th>Same Finished Colour</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -80,26 +79,6 @@
 											:disabled="acting"
 											@change="
 												setDyed(selection, colour, $event.target.checked)
-											"
-										/>
-									</td>
-									<td>
-										<input
-											type="checkbox"
-											:aria-label="`Same Finished Colour ${colour}`"
-											:checked="
-												selection.same_finished_colours.includes(colour)
-											"
-											:disabled="
-												acting ||
-												selection.dyed_yarn_colours.includes(colour)
-											"
-											@change="
-												setColour(
-													selection.same_finished_colours,
-													colour,
-													$event.target.checked,
-												)
 											"
 										/>
 									</td>
@@ -258,7 +237,6 @@ function setColour(colours, colour, checked) {
 }
 function setDyed(selection, colour, checked) {
 	setColour(selection.dyed_yarn_colours, colour, checked)
-	if (checked) setColour(selection.same_finished_colours, colour, false)
 }
 function build() {
 	attempted.value = true
