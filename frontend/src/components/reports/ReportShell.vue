@@ -307,7 +307,7 @@ async function prepareRenderedRows() {
 	overscroll-behavior: contain;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 900px) {
 	.report-shell__filters {
 		align-items: stretch;
 		flex-direction: column;
@@ -327,6 +327,55 @@ async function prepareRenderedRows() {
 
 	.report-shell__commands :deep(.report-actions__trigger) {
 		flex: 0 0 auto;
+	}
+}
+
+@media (max-width: 640px) {
+	.report-shell__heading {
+		padding-inline: var(--erp-space-3);
+	}
+
+	.report-shell__filters {
+		gap: var(--erp-space-2);
+		padding: var(--erp-space-3);
+	}
+
+	.report-filter-grid {
+		gap: 12px;
+	}
+
+	.report-shell__message {
+		margin-inline: var(--erp-space-3);
+	}
+
+	.report-shell__status {
+		padding: var(--erp-space-3);
+	}
+
+	.report-shell__results {
+		padding: var(--erp-space-3) var(--erp-space-2) var(--erp-space-4);
+	}
+
+	.report-shell__empty {
+		min-height: 180px;
+		margin: var(--erp-space-3);
+	}
+
+	.report-metrics {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.report-metrics :deep(.report-metric) {
+		min-height: 48px;
+		padding: 8px 10px;
+	}
+
+	.report-metrics :deep(.report-metric > div) {
+		min-width: 0;
+	}
+
+	.report-metrics :deep(.report-metric strong) {
+		overflow-wrap: anywhere;
 	}
 }
 

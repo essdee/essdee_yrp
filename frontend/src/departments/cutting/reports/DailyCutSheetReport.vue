@@ -183,4 +183,11 @@ function reset() {
 	color: var(--erp-accent);
 	font-weight: 750;
 }
+
+@media (max-width: 640px) {
+	.cut-sheet-card__header h3,
+	.cut-sheet-card__header span:not(.erp-count-badge) {
+		max-width: 100%;
+	}
+}
 </style>

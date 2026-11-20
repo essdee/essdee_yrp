@@ -317,4 +317,7 @@ watch(() => route.params.productionOrderId, () => { priceVisible.value = false; 
 		flex-basis: 100%;
 	}
 }
+@media (max-width: 640px) {
+	.ppo-activity > div { grid-template-columns: 1fr; gap: 2px; }
+}
 </style>

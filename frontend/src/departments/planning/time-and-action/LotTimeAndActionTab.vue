@@ -103,4 +103,9 @@ watch(() => props.timeAndAction, load, { immediate: true })
 .ta-report__action { min-width: 170px; white-space: normal !important; font-weight: 600; color: var(--erp-text) !important; }
 .ta-report--neg { color: var(--erp-danger) !important; font-weight: 600; }
 .ta-report--pos { color: var(--erp-success-text) !important; font-weight: 600; }
+@media (max-width: 640px) {
+	.ta-report__facts { gap: 6px 16px; }
+	.ta-report__action { min-width: 140px; }
+	.ta-report__actions { width: 100%; }
+}
 </style>

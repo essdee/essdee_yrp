@@ -72,4 +72,10 @@ function value(entry) {
 .product-costing__table-wrap th { color: var(--erp-text-secondary); background: var(--erp-bg); font-size: var(--erp-font-size-min); font-weight: 740; text-transform: uppercase; }
 .product-costing__table-wrap tbody tr:last-child td { border-bottom: 0; }
 .product-costing__table-wrap td a { color: var(--erp-accent-hover); font-weight: 700; text-decoration: none; }
+@media (max-width: 640px) {
+	.pd-media-panel { padding: var(--erp-space-3); }
+	.pd-media-panel__heading { flex-wrap: wrap; }
+	.product-costing__table-wrap th, .product-costing__table-wrap td { padding: 9px 10px; }
+	.product-costing__new { min-height: 40px; }
+}
 </style>

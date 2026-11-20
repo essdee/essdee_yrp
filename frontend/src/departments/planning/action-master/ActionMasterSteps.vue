@@ -88,4 +88,9 @@ async function fillAction(index, { name, row }) {
 .action-master-steps__row-actions { width: 128px; white-space: nowrap; }
 .action-master-steps__empty { color: var(--erp-text-muted); text-align: center; }
 .action-master-steps__add { justify-self: start; }
+@media (max-width: 640px) {
+	.action-master-steps__action, .action-master-steps__dependencies { min-width: 180px; }
+	.action-master-steps__lead { width: 96px; }
+	.action-master-steps__add { justify-self: stretch; }
+}
 </style>

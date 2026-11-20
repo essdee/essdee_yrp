@@ -154,4 +154,5 @@ watch(() => props.name, load, { immediate: true })
 .bulk-lots-empty { display: grid; min-height: 190px; margin-top: var(--erp-space-3); place-content: center; justify-items: center; gap: 7px; color: var(--erp-text-muted); border: 1px dashed var(--erp-border-strong); border-radius: var(--erp-control-radius); }.bulk-lots-empty i { color: var(--erp-accent); font-size: 1.5rem; }.bulk-lots-empty strong { color: var(--erp-text); }
 @media (max-width: 900px) { .bulk-setup-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .bulk-setup-editor__identity > span { display: none; }.bulk-setup-card, .bulk-lots-card { padding: var(--erp-space-3); }.bulk-setup-fields { grid-template-columns: 1fr; }.bulk-lots-table-wrap { -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); } }
+@media (max-width: 640px) { .bulk-setup-card > header, .bulk-lots-card > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

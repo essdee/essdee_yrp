@@ -318,17 +318,20 @@
 	.merch-ipd-frame .ipd-rail { grid-column: 1 / -1; height: auto; overflow: visible; }
 }
 
-@media (max-width: 650px) {
+@media (max-width: 640px) {
+	.ipd-identity { gap: var(--erp-space-2); }
 	.ipd-identity__meta { align-items: flex-start; flex-direction: column; gap: 2px; }
 	.ipd-identity__heading { flex-wrap: wrap; }
 	.ipd-identity h1 { max-width: calc(100vw - 132px); }
-}
-
-@media (max-width: 620px) {
 	.ipd-copy-banner { flex-wrap: wrap; }
 	.ipd-settings .ipd-fields, .ipd-settings .ipd-facts,
 	.ipd-packing-details .ipd-fields, .ipd-packing-details .ipd-facts { grid-template-columns: minmax(0, 1fr); }
-	.ipd-fields { grid-template-columns: 1fr; }
+	.ipd-fields { grid-template-columns: 1fr; gap: 12px; }
+	.ipd-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+	.ipd-tab-section { padding: 10px; }
+	.ipd-tabs__tab { min-height: 44px; padding: 10px 12px; }
+	.ipd-section__actions { justify-content: flex-start; }
+	.ipd-copy-dialog__option { min-height: 44px; flex-wrap: wrap; }
 	.ipd-rail__keys { display: none; }
 }
 

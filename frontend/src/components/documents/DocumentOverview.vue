@@ -172,9 +172,26 @@ function isWide(field) {
 }
 
 @media (max-width: 640px) {
+	.document-overview {
+		gap: var(--erp-space-2);
+	}
+
+	.document-overview__section > header {
+		padding: 8px 12px;
+	}
+
 	.document-overview__facts {
-		grid-template-columns: 1fr;
-		padding: 8px 14px 12px;
+		gap: 0 14px;
+		padding: 2px 12px 6px;
+	}
+
+	.document-overview__facts > div {
+		gap: 1px;
+		padding: 7px 0;
+	}
+
+	.document-overview__facts dd {
+		font-size: var(--erp-font-size-body);
 	}
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-	<Dialog :visible="visible" modal header="Convert to Lot T&A" :closable="!busy" :style="{ width: 'min(640px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="load">
+	<Dialog :visible="visible" modal header="Convert to Lot T&A" :closable="!busy" :breakpoints="{ '640px': '95vw' }" :style="{ width: 'min(640px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="load">
 		<div class="ta-convert">
 			<template v-if="created.length">
 				<Message severity="success" :closable="false">Lot T&A created. {{ timeAndAction }} is frozen.</Message>
@@ -99,4 +99,9 @@ async function convert() {
 .ta-convert__lots legend { padding: 0 4px; color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .ta-convert__lot { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .ta-convert__list { display: grid; gap: 6px; margin: 0; padding-left: 18px; }
+@media (max-width: 640px) {
+	.ta-convert__lots { gap: 2px; padding: 8px 10px; }
+	.ta-convert__lot { min-height: 40px; }
+	.ta-convert__lot span { overflow-wrap: anywhere; }
+}
 </style>

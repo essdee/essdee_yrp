@@ -205,4 +205,5 @@ function confirmRemove() {
 .product-graphics__drop > i { font-size: 1.3rem; }
 .product-graphics__busy { display: inline-flex; align-items: center; gap: 7px; margin: 0; color: var(--erp-text-secondary); font-size: var(--erp-font-size-caption); }
 @media (max-width: 760px) { .product-graphics__grid, .product-graphics__upload { grid-template-columns: 1fr; } .product-graphics__drop { align-items: stretch; flex-direction: column; text-align: center; } }
+@media (max-width: 640px) { .pd-media-panel { padding: var(--erp-space-3); } }
 </style>

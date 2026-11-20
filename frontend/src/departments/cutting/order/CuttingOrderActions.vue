@@ -163,4 +163,5 @@ function toggleMoreActions(event) { moreActionsMenu.value?.toggle(event) }
 .completed-table-wrap th { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); background: var(--erp-surface-muted); }
 .completed-table-wrap th:last-child, .completed-table-wrap td:last-child { border-right: 0; }
 .completed-table-wrap tr:last-child td { border-bottom: 0; }
+@media (max-width: 640px) { .order-action-feedback { top: 60px; width: calc(100vw - 24px); } }
 </style>

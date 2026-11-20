@@ -91,7 +91,7 @@ async function load() {
 .ta-lot-detail__lot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding-top: 12px; color: var(--erp-text-muted); font-size: 13px; }
 .ta-lot-detail__lot .pd-link { font-weight: 700; }
 .ta-lot-detail__empty, .ta-lot-detail__note { margin: 12px 0 0; color: var(--erp-text-muted); font-size: 13px; }
-@media (max-width: 767px) {
+@media (max-width: 640px) {
 	.ta-lot-detail.p-dialog { width: 100vw; max-width: 100vw; max-height: 100dvh; margin: 0; border-radius: 0; }
 }
 </style>

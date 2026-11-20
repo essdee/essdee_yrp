@@ -213,7 +213,7 @@ loadAlternatives()
 .finishing-facts div { display: grid; gap: 1px; }
 .finishing-facts dt { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .finishing-facts dd { margin: 0; color: var(--erp-text); font-size: var(--erp-font-size-table); font-weight: 650; font-variant-numeric: tabular-nums; }
-@media (max-width: 700px) {
+@media (max-width: 640px) {
 	.finishing-tabs__desktop { display: none; }
 	.finishing-tabs__mobile { display: grid; gap: 6px; margin-bottom: 4px; font-size: var(--erp-font-size-caption); font-weight: 650; }
 }

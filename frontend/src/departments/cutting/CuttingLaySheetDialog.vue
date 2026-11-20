@@ -920,4 +920,5 @@ function documentDeleted() {
 	.laysheet-content :deep(.table-scroll), .table-scroll { -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); }
 	.row-actions :deep(.p-button) { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
 }
+@media (max-width: 640px) { .data-block header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

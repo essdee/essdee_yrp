@@ -342,7 +342,7 @@
 					v-for="row in rows"
 					:key="row.name"
 					class="mobile-list-record"
-					:class="{ 'mobile-list-record--clickable': clickable, 'list-row--live-changed': isHighlighted(row.name) }"
+					:class="{ 'mobile-list-record--clickable': clickable, 'mobile-list-record--selectable': showBulkSelection, 'list-row--live-changed': isHighlighted(row.name) }"
 					role="listitem"
 					@click="clickable && openRow(row)"
 				>
@@ -351,18 +351,27 @@
 							<input type="checkbox" :checked="isRowSelected(row)" :aria-label="`Select ${row.name || 'record'}`" @change="toggleMobileSelection(row, $event)" />
 						</label>
 						<div class="mobile-list-record__identity">
-							<span>{{ columnLabel(mobileColumns[0]) }}</span>
-							<slot :name="`cell-${mobileColumns[0]?.fieldname}`" :row="row" :value="row[mobileColumns[0]?.fieldname]">
-								<strong>{{ displayValue(row[mobileColumns[0]?.fieldname], mobileColumns[0], row) }}</strong>
-							</slot>
+							<span class="mobile-list-record__doctype">{{ columnLabel(mobileColumns[0]) }}</span>
+							<div class="mobile-list-record__title">
+								<slot :name="`cell-${mobileColumns[0]?.fieldname}`" :row="row" :value="row[mobileColumns[0]?.fieldname]">
+									<strong>{{ displayValue(row[mobileColumns[0]?.fieldname], mobileColumns[0], row) }}</strong>
+								</slot>
+								<slot v-if="mobileStatusColumn" :name="`cell-${mobileStatusColumn.fieldname}`" :row="row" :value="row[mobileStatusColumn.fieldname]">
+									<DocumentStatusBadge
+										v-if="hasFilterValue(row[mobileStatusColumn.fieldname])"
+										:docstatus="mobileStatusColumn.fieldname === 'docstatus' ? row[mobileStatusColumn.fieldname] : null"
+										:label="mobileStatusColumn.fieldname === 'docstatus' ? '' : String(row[mobileStatusColumn.fieldname])"
+									/>
+								</slot>
+							</div>
 						</div>
 						<span class="mobile-list-record__modified" :title="modifiedTitle(row)">{{ modifiedLabel(row) }}</span>
 						<button v-if="clickable" type="button" class="mobile-list-record__open" :aria-label="`Open ${row.name || 'record'}`" @click.stop="openRow(row)">
 							<i class="pi pi-chevron-right" aria-hidden="true"></i>
 						</button>
 					</header>
-					<div v-if="mobileColumns.length > 1" class="mobile-list-record__facts">
-						<div v-for="column in mobileColumns.slice(1)" :key="column.fieldname">
+					<div v-if="mobileFactColumns.length" class="mobile-list-record__facts">
+						<div v-for="column in mobileFactColumns" :key="column.fieldname">
 							<span>{{ columnLabel(column) }}</span>
 							<slot :name="`cell-${column.fieldname}`" :row="row" :value="row[column.fieldname]">
 								<img
@@ -371,11 +380,6 @@
 									:src="String(row[column.fieldname])"
 									:alt="columnLabel(column)"
 									loading="lazy"
-								/>
-								<DocumentStatusBadge
-									v-else-if="isStatusColumn(column) && hasFilterValue(row[column.fieldname])"
-									:docstatus="column.fieldname === 'docstatus' ? row[column.fieldname] : null"
-									:label="column.fieldname === 'docstatus' ? '' : String(row[column.fieldname])"
 								/>
 								<strong v-else>{{ displayValue(row[column.fieldname], column, row) }}</strong>
 							</slot>
@@ -854,6 +858,8 @@ const mobileColumns = computed(() => {
 	const facts = columns.slice(1).filter((column) => column !== status).slice(0, status ? 2 : 3)
 	return [primary, ...facts, ...(status ? [status] : [])].filter(Boolean)
 })
+const mobileStatusColumn = computed(() => mobileColumns.value.slice(1).find(isStatusColumn))
+const mobileFactColumns = computed(() => mobileColumns.value.slice(1).filter((column) => column !== mobileStatusColumn.value))
 
 const activeCurrencyFields = computed(() =>
 	activeCurrencyReferences(activeColumns.value, currencyFields.value),
@@ -2840,6 +2846,14 @@ defineExpose({ refresh, clearSelection })
 		white-space: nowrap;
 	}
 
+	.mobile-list-record__title {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		min-width: 0;
+		gap: 4px 8px;
+	}
+
 	.mobile-list-record__identity strong {
 		color: var(--erp-accent-ink);
 		font-family: var(--erp-font-family);
@@ -3025,9 +3039,82 @@ defineExpose({ refresh, clearSelection })
 	}
 }
 
-@media (max-width: 540px) {
+@media (max-width: 640px) {
+	.mobile-list-record {
+		gap: 4px;
+		padding: 8px 12px;
+	}
+
+	.mobile-list-record > header {
+		align-items: start;
+		gap: 8px;
+	}
+
+	.mobile-list-record__select,
+	.mobile-list-record__open {
+		width: 36px;
+		height: 40px;
+		margin-block: -9px;
+	}
+
+	.mobile-list-record__select {
+		margin-left: -8px;
+	}
+
+	.mobile-list-record__open {
+		margin-right: -10px;
+	}
+
+	.mobile-list-record__select input {
+		width: 16px;
+		height: 16px;
+	}
+
+	.mobile-list-record__doctype {
+		display: none;
+	}
+
+	.mobile-list-record__identity strong {
+		overflow: visible;
+		font-size: 0.9375rem;
+		line-height: 22px;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	.mobile-list-record__modified {
+		line-height: 22px;
+	}
+
 	.mobile-list-record__facts {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(2, auto);
+		justify-content: start;
+		gap: 2px 12px;
+	}
+
+	.mobile-list-record__facts > div {
+		display: flex;
+		overflow: hidden;
+		align-items: baseline;
+		gap: 5px;
+	}
+
+	.mobile-list-record__facts > div > span:first-child {
+		flex: 0 4 auto;
+		overflow: hidden;
+		min-width: 2ch;
+		font-size: var(--erp-font-size-caption);
+		font-weight: 500;
+		letter-spacing: 0;
+		text-overflow: ellipsis;
+		text-transform: none;
+		white-space: nowrap;
+	}
+
+	.mobile-list-record__facts strong {
+		flex: 0 1 auto;
+		min-width: 0;
+		line-height: 20px;
 	}
 }
 

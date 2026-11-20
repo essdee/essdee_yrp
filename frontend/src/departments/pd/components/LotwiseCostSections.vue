@@ -252,6 +252,6 @@ function addRateOnEnter(event) {
 .lotwise-section__inline-action > :first-child { min-width: min(100%, 320px); flex: 1 1 260px; }
 .lotwise-section__single-field { max-width: 320px; }
 @media (max-width: 1120px) { .lotwise-workspace__layout { grid-template-columns: 1fr; } }
-@media (max-width: 820px) { .lotwise-section__field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .lotwise-section__button-row { align-items: stretch; flex-direction: column; } .lotwise-section__button-row > * { width: 100%; } .lotwise-section { padding: var(--erp-space-3); } .lotwise-section__field-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .lotwise-section__field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .lotwise-section__single-field { max-width: none; } .lotwise-section__inline-action > * { flex: 1 1 100%; } .lotwise-section__button-row { align-items: stretch; flex-direction: column; } .lotwise-section__button-row > * { width: 100%; } .lotwise-section { padding: var(--erp-space-3); } .lotwise-section__field-grid { grid-template-columns: 1fr; } }
 </style>

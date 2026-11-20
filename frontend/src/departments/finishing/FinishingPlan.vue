@@ -291,8 +291,9 @@ watch(finishingPlanId, () => {
 	.finishing-plan__identity { flex-basis: calc(100% - 140px); }
 	.finishing-plan__actions { margin-left: auto; }
 }
-@media (max-width: 700px) {
+@media (max-width: 640px) {
 	.finishing-plan { padding: 10px; }
+	.finishing-plan__title h1 { white-space: normal; overflow-wrap: anywhere; }
 	.finishing-plan__identity { align-items: flex-start; flex-direction: column; gap: 8px; }
 	.finishing-plan__meta { flex-wrap: wrap; gap: 8px 12px; }
 	.finishing-plan__meta > .finishing-plan__fact:nth-child(2) { padding-left: 0; border-left: 0; }

@@ -22,7 +22,7 @@
 				<div class="goods-received-note-header__identity" :class="{ 'goods-received-note-header__identity--embedded': presentation === 'embedded' }">
 					<div v-if="presentation !== 'embedded'" class="goods-received-note-header__title"><h1 :id="headingId">Goods Received Note</h1><DocumentNameCopy :name="record.name" :fallback="duplicateLabel || (loading && name ? 'Loading…' : error && name ? name : 'New document')" /></div>
 					<DocumentStatusBadge v-if="hasWorkspace && presentation !== 'embedded'" :docstatus="record.docstatus" :label="record.status || statusLabel(record.docstatus)" />
-					<div v-if="headerFacts.length" class="goods-received-note-header__facts" role="region" aria-label="Goods Received Note context" tabindex="0">
+					<div v-if="headerFacts.length" class="goods-received-note-header__facts fabric-document-workspace__header-facts" role="region" aria-label="Goods Received Note context" tabindex="0">
 						<div v-for="fact in headerFacts" :key="fact.label"><span>{{ fact.label }}</span><strong :title="String(fact.value)"><DocumentLink :doctype="fact.doctype" :name="fact.name" :label="fact.value" /></strong></div>
 					</div>
 				</div>
@@ -1087,7 +1087,7 @@ function documentDeleted() {
 .goods-received-note-after-matrix__fact span { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 750; letter-spacing: .035em; text-transform: uppercase; }
 .goods-received-note-after-matrix__fact strong { color: var(--erp-text); font-size: var(--erp-font-size-caption); line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .goods-received-note-after-matrix { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .goods-received-note-after-matrix { grid-template-columns: 1fr; } .goods-received-note-after-matrix__wide { grid-column: auto; } }
+@media (max-width: 640px) { .goods-received-note-after-matrix { grid-template-columns: 1fr; } .goods-received-note-after-matrix__wide { grid-column: auto; } }
 .goods-received-note-workspace--page { padding-bottom: var(--erp-space-3); }
 .goods-received-note-header__identity { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .goods-received-note-header__title { display: grid; min-width: 0; gap: 2px; }

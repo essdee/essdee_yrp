@@ -133,4 +133,10 @@ onMounted(load)
 .sales-item-price tbody tr:hover td { background: var(--erp-surface-hover); }
 .sales-item-price :deep(.p-inputnumber) { min-width: 82px; }
 .sales-item-price :deep(.p-inputnumber-input) { height: 32px; padding-inline: 8px; text-align: center; }
+@media (max-width: 640px) {
+	.sales-item-price__filters { grid-template-columns: 1fr; }
+	.sales-item-price__actions :deep(.p-button) { width: 100%; min-height: 40px; }
+	.sales-item-price tbody th { min-width: 140px; }
+	.sales-item-price :deep(.p-inputnumber-input) { height: 40px; font-size: 16px; }
+}
 </style>

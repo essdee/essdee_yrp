@@ -62,6 +62,7 @@ watch(() => confirmation.current.value, (current) => { if (current) confirmation
 watch(changingPassword, (open) => { if (open) passwordDialogLoaded.value = true })
 const menuItems = getAccountMenuItems({
 	changePassword: () => { changingPassword.value = true },
+	logOut: () => confirmation.open("logout"),
 	logOutAllDevices: () => confirmation.open("logout-all"),
 	openLayoutBuilder: () => router.push(LAYOUT_BUILDER_PATH),
 })

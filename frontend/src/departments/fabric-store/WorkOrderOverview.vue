@@ -120,5 +120,5 @@ function formatValue(field) {
 .work-order-overview__facts dd { order: 1; min-width: 0; margin: 0; overflow: hidden; color: var(--erp-text); font-size: var(--erp-font-size-section); font-weight: var(--erp-font-weight-semibold); line-height: 1.35; overflow-wrap: anywhere; text-overflow: ellipsis; white-space: nowrap; }
 .work-order-overview__fact--wide dd { white-space: pre-line; }
 @media (min-width: 1400px) { .work-order-overview { grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); } }
-@media (max-width: 640px) { .work-order-overview__facts { grid-template-columns: 1fr; padding: 8px 14px 12px; } }
+@media (max-width: 640px) { .work-order-overview { gap: var(--erp-space-2); } .work-order-overview__section > header { padding: 8px 12px; } .work-order-overview__facts { gap: 0 14px; padding: 2px 12px 6px; } .work-order-overview__facts > div { gap: 1px; padding: 7px 0; } .work-order-overview__facts dd { font-size: var(--erp-font-size-body); white-space: normal; } }
 </style>

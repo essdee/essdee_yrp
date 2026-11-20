@@ -467,10 +467,12 @@ function groupKey(group, index) { return group.itemGroupKey || `${group.primary_
 	font-weight: 800;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 640px) {
 	.item-matrix__header {
 		align-items: flex-start;
 		flex-direction: column;
+		gap: var(--erp-space-2);
+		padding: 10px 12px;
 	}
 
 	.item-matrix__counts {

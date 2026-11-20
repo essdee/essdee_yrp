@@ -311,4 +311,5 @@ onBeforeUnmount(() => { disposed = true; actionSequence += 1; loadSequence += 1 
 @media (max-width: 1100px) { .bulk-workspace-layout { height: auto; grid-template-columns: 1fr; } }
 @media (max-width: 850px) { .bulk-record-header { align-items: flex-start; flex-direction: column; }.bulk-record-header__actions { flex-wrap: wrap; margin-left: 0; } }
 @media (max-width: 700px) { .bulk-record-identity { align-items: flex-start; flex-direction: column; }.bulk-record-meta { flex-wrap: wrap; }.bulk-header-fact:first-of-type { padding-left: 0; border-left: 0; }.bulk-setup-summary { grid-template-columns: 1fr; }.bulk-setup-summary > div { border-right: 0; border-bottom: 1px solid var(--erp-border); }.bulk-setup-summary > div:last-child { border-bottom: 0; }.generate-form__numbers { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .bulk-record-header { padding: 10px; gap: 10px; }.bulk-record-identity { width: 100%; }.bulk-header-fact { min-width: 0; max-width: 100%; }.bulk-setup-summary > div { padding: 8px 10px; } }
 </style>

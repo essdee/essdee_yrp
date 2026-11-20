@@ -114,4 +114,11 @@ onBeforeUnmount(cancelHide)
 .ta-qty__note { margin: 0; color: var(--erp-text-muted); font-size: 13px; }
 .ta-qty__note--error { color: var(--erp-danger); }
 .ta-qty .ta-qty__stats { margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+@media (max-width: 640px) {
+	.ta-qty-popover { position: fixed !important; inset: auto 8px calc(8px + env(safe-area-inset-bottom)) 8px !important; max-width: none; margin: 0 !important; }
+	.ta-qty-popover::before, .ta-qty-popover::after { display: none; }
+	.ta-qty { min-width: 0; max-height: 65vh; overflow-x: hidden; }
+	.ta-qty > * { min-width: 0; }
+	.ta-qty .ta-qty__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 </style>

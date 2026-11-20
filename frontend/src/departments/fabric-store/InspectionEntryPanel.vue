@@ -170,5 +170,6 @@ function clone(value) { return JSON.parse(JSON.stringify(value || [])) }
 .inspection-entry-panel__existing small { color: var(--erp-text-muted); }
 .inspection-entry-panel__actions { padding: 0 var(--erp-space-3) var(--erp-space-3); }
 @media (max-width: 900px) { .inspection-entry-panel__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inspection-entry-panel__remarks { grid-column: 1 / -1; } }
-@media (max-width: 620px) { .inspection-entry-panel__fields, .inspection-entry-panel__source > header { grid-template-columns: 1fr; } .inspection-entry-panel__remarks { grid-column: auto; } .inspection-entry-panel__actions { align-items: stretch; flex-direction: column; } .inspection-entry-panel__actions > div { display: grid; width: 100%; grid-template-columns: 1fr; } }
+@media (max-width: 1024px), (pointer: coarse) { .inspection-entry-panel__checkbox { width: 20px; height: 20px; } }
+@media (max-width: 640px) { .inspection-entry-panel__fields, .inspection-entry-panel__source > header { grid-template-columns: 1fr; } .inspection-entry-panel__remarks { grid-column: auto; } .inspection-entry-panel__actions { align-items: stretch; flex-direction: column; } .inspection-entry-panel__actions > div { display: grid; width: 100%; grid-template-columns: 1fr; } }
 </style>

@@ -167,7 +167,7 @@ function toggleMenu(event, actions) {
 	box-shadow: var(--erp-shadow-md);
 }
 @media (max-width: 899px) { .document-action-strip__secondary, .document-action-strip__more--desktop { display: none; } .document-action-strip__more--mobile { display: inline-flex; } }
-@media (max-width: 620px) { .document-action-strip { width: 100%; } .document-action-strip--with-reason { flex-wrap: wrap; } .document-action-strip__primary { min-width: 0; flex: 1 1 auto !important; } .document-action-strip__more { flex: 0 0 auto; } .document-action-strip__reason { position: static; width: 100%; max-width: none; flex: 1 0 100%; box-shadow: none; } }
+@media (max-width: 640px) { .document-action-strip { width: 100%; } .document-action-strip--with-reason { flex-wrap: wrap; } .document-action-strip__primary { min-width: 0; flex: 1 1 auto !important; } .document-action-strip__more { flex: 0 0 auto; } .document-action-strip__reason { position: static; width: 100%; max-width: none; flex: 1 0 100%; box-shadow: none; } }
 </style>
 
 <style>

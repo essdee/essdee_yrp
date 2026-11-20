@@ -140,5 +140,5 @@ onBeforeUnmount(releasePreviews)
 .product-graphics-bulk label { display: grid; gap: 6px; color: var(--erp-text); font-size: var(--erp-font-size-caption); font-weight: 680; }
 .product-graphics-bulk__status { display: grid; justify-items: start; gap: 5px; }
 .product-graphics-bulk__status span { max-width: 180px; overflow-wrap: anywhere; color: var(--erp-text-muted); font-size: var(--erp-font-size-min); }
-@media (max-width: 680px) { .product-graphics-bulk { width: min(32rem, 82vw); } .product-graphics-bulk__rows article { grid-template-columns: 80px minmax(0, 1fr); } .product-graphics-bulk__preview { width: 80px; height: 70px; } .product-graphics-bulk__status { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .product-graphics-bulk { width: 100%; } .product-graphics-bulk__rows article { grid-template-columns: 80px minmax(0, 1fr); } .product-graphics-bulk__preview { width: 80px; height: 70px; } .product-graphics-bulk__status { grid-column: 1 / -1; } }
 </style>

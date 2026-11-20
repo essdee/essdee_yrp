@@ -231,4 +231,5 @@ defineExpose({ reopenExpanded })
 	.work-order-activity-section--expanded .activity-card--mobile-overflow { display: grid; }
 	.activity-mobile-toggle { display: flex; width: 100%; min-height: 44px; justify-content: center; border-top: 1px solid var(--erp-border); border-radius: 0; }
 }
+@media (max-width: 640px) { .work-order-activity-section > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

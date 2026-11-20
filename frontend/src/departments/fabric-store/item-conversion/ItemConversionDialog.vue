@@ -279,7 +279,7 @@ function requestVisibility(value) {
 	.item-conversion-arrow i { transform: rotate(90deg); }
 	.item-conversion-arrow span { display: none; }
 }
-@media (max-width: 560px) {
+@media (max-width: 640px) {
 	.item-conversion-header, .item-conversion-totals { grid-template-columns: 1fr; }
 	.item-conversion-footer { align-items: stretch; flex-direction: column; }
 }

@@ -177,4 +177,15 @@ watch(() => [props.kind, props.documentName, amendFrom.value], load, { immediate
 .action-master__actions { display: flex; flex-wrap: wrap; gap: var(--erp-space-2, 8px); }
 .action-master__fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--erp-space-3, 12px); }
 .action-master__loading { display: grid; gap: var(--erp-space-2, 8px); }
+@media (max-width: 640px) {
+	.action-master { gap: var(--erp-space-3, 12px); }
+	.action-master__fields { grid-template-columns: minmax(0, 1fr); }
+	.action-master__actions { width: 100%; }
+	.action-master__actions > * { flex: 1 1 auto; }
+}
+@media (max-width: 640px) {
+	.action-master { gap: var(--erp-space-3, 12px); }
+	.action-master__fields { grid-template-columns: minmax(0, 1fr); }
+	.action-master__actions { width: 100%; }
+}
 </style>

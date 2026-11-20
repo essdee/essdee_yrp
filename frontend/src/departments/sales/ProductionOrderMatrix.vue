@@ -137,5 +137,5 @@ function update(row, field, value) { emit("update", { size: row.size, field, val
 .ppo-matrix__lot-link:hover { background: var(--erp-accent-soft); }
 .ppo-matrix__lot-link:focus-visible { outline: 2px solid var(--erp-accent); outline-offset: 2px; }
 .ppo-matrix__lot tbody tr:last-child > * { border-bottom: 0; }
-@media (max-width: 620px) { .ppo-matrix__header { align-items: flex-start; } .ppo-matrix__header > strong { font-size: 14px; } }
+@media (max-width: 640px) { .ppo-matrix__header { align-items: flex-start; } .ppo-matrix__header > strong { font-size: 14px; } .ppo-matrix tbody th { width: auto; min-width: 110px; } .ppo-matrix__lot-list { padding: 8px; } }
 </style>

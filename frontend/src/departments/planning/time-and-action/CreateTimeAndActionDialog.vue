@@ -1,5 +1,5 @@
 <template>
-	<Dialog :visible="visible" modal header="Create Time and Action" :closable="!busy" :style="{ width: 'min(980px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="reset">
+	<Dialog :visible="visible" modal header="Create Time and Action" :closable="!busy" :breakpoints="{ '640px': '95vw' }" :style="{ width: 'min(980px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="reset">
 		<div class="ta-create">
 			<p class="ta-create__info"><b>{{ againstLabel(against) }}</b> {{ againstId }} · <b>Item</b> {{ item || "" }} · <b>Qty</b> {{ qty || 0 }}</p>
 			<div class="ta-create__fields">
@@ -133,4 +133,9 @@ async function create() {
 .ta-create__index, .ta-create__subtle { color: var(--erp-text-subtle) !important; }
 .ta-create__station { width: 220px; }
 .ta-create__suppliers { width: 260px; }
+@media (max-width: 640px) {
+	.ta-create__fields { grid-template-columns: minmax(0, 1fr); }
+	.ta-create__station { width: 160px; }
+	.ta-create__suppliers { width: 200px; }
+}
 </style>

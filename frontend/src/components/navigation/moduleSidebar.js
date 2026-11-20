@@ -11,3 +11,6 @@ export function getSelectedCardKey(cards, path) {
 	}
 	return selected.key
 }
+
+/** Viewports where the module sidebar is an off-canvas drawer instead of a hover rail. */
+export const DRAWER_MEDIA_QUERY = "(max-width: 900px), (hover: none)"

@@ -235,7 +235,7 @@ function clone(value) { return JSON.parse(JSON.stringify(value || [])) }
 .fabric-stock-footer { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; }
 .fabric-stock-footer > div { display: flex; gap: 8px; }
 @media (max-width: 860px) { .fabric-operation-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) {
+@media (max-width: 640px) {
 	.fabric-operation-fields { grid-template-columns: 1fr; }
 	.fabric-stock-footer { align-items: stretch; flex-direction: column; }
 	.fabric-stock-footer > div { display: grid; grid-template-columns: 1fr; }

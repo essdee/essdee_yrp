@@ -57,4 +57,5 @@ function actionButtons(row) {
 .bulk-workflow-card__actions { display: flex; margin-top: auto; flex-wrap: wrap; gap: 5px; }.bulk-workflow-card__actions :deep(.p-button) { padding: 5px 7px; font-size: var(--erp-font-size-min); white-space: nowrap; }
 .bulk-workflow-empty { display: grid; min-height: 220px; place-content: center; justify-items: center; gap: 6px; color: var(--erp-text-muted); text-align: center; }.bulk-workflow-empty i { color: var(--erp-accent); font-size: 1.5rem; }.bulk-workflow-empty strong { color: var(--erp-text); }
 @media (max-width: 1100px) { .bulk-workflow-rail { overflow: visible; }.bulk-workflow-rail__scroll { overflow-y: visible; } }
+@media (max-width: 640px) { .bulk-workflow-rail__header, .bulk-workflow-card > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>
