@@ -7,6 +7,8 @@ from frappe import _
 from frappe.model.workflow import apply_workflow
 from frappe.utils import now_datetime
 
+from essdee_yrp.merch import laysheet_grammage_telegram
+
 
 class TelegramApprovalPermissionError(frappe.PermissionError):
 	pass
@@ -55,7 +57,8 @@ def _get_action_name(route, action_key):
 
 
 def _apply_field_state_action(doc, route, action_key, action_name):
-	doc.check_permission("write")
+	if doc.doctype not in SELF_AUTHORIZING_DOCTYPES:
+		doc.check_permission("write")
 	_validate_action_roles(route, action_key, action_name)
 	target_field = route.get("target_field")
 	if not target_field or not doc.meta.has_field(target_field):
@@ -175,4 +178,7 @@ def _parse_roles(value):
 FIELD_STATE_ACTION_HANDLERS = {
 	"Purchase Order": _apply_purchase_order_action,
 	"YRP Purchase Invoice": _apply_purchase_invoice_action,
+	laysheet_grammage_telegram.DOCTYPE: laysheet_grammage_telegram.approve_from_telegram,
 }
+# Their handlers run the doctype's own approval check (grammage roles replace write access).
+SELF_AUTHORIZING_DOCTYPES = {laysheet_grammage_telegram.DOCTYPE}

@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 
 import frappe
-from frappe.utils import get_url_to_form, now_datetime
+from frappe.utils import get_fullname, get_url_to_form, now_datetime
 
+from essdee_yrp.merch import laysheet_grammage_telegram
 from essdee_yrp.telegram_approval.client import TelegramAPIError, TelegramClient
 from essdee_yrp.telegram_approval.renderers import render_message
-
 
 SETTINGS_DOCTYPE = "SD YRP Telegram Approval Settings"
 REQUEST_DOCTYPE = "SD YRP Telegram Approval Request"
@@ -163,10 +163,7 @@ def build_approval_keyboard(request_name, route, doc):
 def finish_request_message(request_doc, result_label, frappe_user):
 	if not request_doc.telegram_message_id:
 		return
-	text = (
-		f"{request_doc.message_text}\n\n{result_label} by {frappe_user}\n"
-		f"{now_datetime().strftime('%d-%m-%Y %I:%M %p')}"
-	)
+	text = f"{request_doc.message_text}\n\n{get_result_line(request_doc, result_label, frappe_user)}"
 	try:
 		get_client().edit_message(
 			request_doc.group_chat_id,
@@ -178,6 +175,17 @@ def finish_request_message(request_doc, result_label, frappe_user):
 		frappe.log_error(
 			title=f"Telegram approval message update failed: {request_doc.name}", message=str(exc)
 		)
+
+
+def get_result_line(request_doc, result_label, frappe_user):
+	acted_on = now_datetime()
+	if request_doc.reference_doctype == laysheet_grammage_telegram.DOCTYPE:
+		return f"{request_doc.status} by {get_fullname(frappe_user)} at {acted_on.strftime('%d-%m-%Y %H:%M')}"
+	return f"{result_label} by {frappe_user}\n{acted_on.strftime('%d-%m-%Y %I:%M %p')}"
+
+
+def finish_request(request_name, result_label, frappe_user):
+	finish_request_message(frappe.get_doc(REQUEST_DOCTYPE, request_name), result_label, frappe_user)
 
 
 def expire_request_message(request_name):
@@ -211,6 +219,8 @@ def _expire_stale_requests(doc):
 	for row in rows:
 		if _as_text(doc.get(row.state_field)) == _as_text(row.source_value):
 			continue
+		if _close_approved_outside_telegram(doc, row.name):
+			continue
 		frappe.db.set_value(REQUEST_DOCTYPE, row.name, "status", "Expired")
 		frappe.enqueue(
 			"essdee_yrp.telegram_approval.service.expire_request_message",
@@ -218,6 +228,29 @@ def _expire_stale_requests(doc):
 			enqueue_after_commit=True,
 			request_name=row.name,
 		)
+
+
+def _close_approved_outside_telegram(doc, request_name):
+	if doc.doctype != laysheet_grammage_telegram.DOCTYPE:
+		return False
+	approver = laysheet_grammage_telegram.get_outside_approval(doc)
+	if not approver:
+		return False
+	action = laysheet_grammage_telegram.APPROVE_ACTION
+	frappe.db.set_value(
+		REQUEST_DOCTYPE,
+		request_name,
+		{"status": "Approved", "action_taken": action, "frappe_user": approver, "acted_on": now_datetime()},
+	)
+	frappe.enqueue(
+		"essdee_yrp.telegram_approval.service.finish_request",
+		queue="short",
+		enqueue_after_commit=True,
+		request_name=request_name,
+		result_label=action,
+		frappe_user=approver,
+	)
+	return True
 
 
 def _as_text(value):

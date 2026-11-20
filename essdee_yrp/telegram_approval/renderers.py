@@ -3,8 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import frappe
-from frappe.utils import flt, format_date, fmt_money
+from frappe.utils import flt, fmt_money, format_date
 
+from essdee_yrp.merch import laysheet_grammage_telegram
 
 MAX_MESSAGE_LENGTH = 3900
 MessageContextProvider = Callable[[object], dict]
@@ -113,4 +114,5 @@ def _truncate_message(message):
 MESSAGE_CONTEXT_PROVIDERS: dict[str, MessageContextProvider] = {
 	"Purchase Order": get_purchase_order_context,
 	"YRP Purchase Invoice": get_purchase_invoice_context,
+	laysheet_grammage_telegram.DOCTYPE: laysheet_grammage_telegram.get_message_context,
 }
