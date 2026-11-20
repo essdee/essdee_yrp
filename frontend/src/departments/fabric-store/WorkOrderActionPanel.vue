@@ -33,8 +33,21 @@
 				<div v-for="row in fabricRows" :key="row.fabric_row" class="work-order-fabric-row">
 					<header><div><strong>{{ row.cloth_item || row.treated_item }}</strong><span>{{ row.kind }}</span></div><span>{{ row.production_detail }}</span></header>
 					<div v-if="row.needs_colour" class="work-order-action-panel__field"><label>Cloth colour</label><Select v-model="row.colour" :aria-label="`Cloth colour for ${row.cloth_item || row.treated_item || 'fabric row'}`" :options="row.colour_options || []" show-clear fluid /><small v-if="fabricColourError(row)" class="work-order-fabric-row__error" role="alert">{{ fabricColourError(row) }}</small></div>
-					<p v-if="row.manual_io" class="work-order-action-panel__copy">Enter the yarn quantities to deliver and the cloth quantity expected back for each knitting route.</p>
-					<div class="work-order-fabric-row__routes">
+					<template v-if="row.manualEntry">
+						<p class="work-order-action-panel__copy">Left: yarn you deliver. Right: fabric you expect back. Each IPD-valid physical variant appears once.</p>
+						<div class="work-order-fabric-contract">
+							<section v-for="list in fabricContractLists(row)" :key="list.title" class="work-order-fabric-contract__list" :aria-label="list.title">
+								<header><strong>{{ list.title }}</strong><span>{{ list.hint }}</span></header>
+								<label v-for="item in list.items" :key="item.key" class="work-order-fabric-contract__item">
+									<span><strong>{{ item.item }}</strong><small>{{ attributeText(item.attrs) }}</small></span>
+									<InputNumber v-model="item.qty" :aria-label="`${list.title}: ${item.item} ${attributeText(item.attrs)}`" :min="0" :max-fraction-digits="3" fluid />
+									<small>{{ item.uom || 'Kg' }}</small>
+								</label>
+							</section>
+						</div>
+						<small v-if="fabricContractError(row)" class="work-order-fabric-row__error" role="alert">{{ fabricContractError(row) }}</small>
+					</template>
+					<div v-else class="work-order-fabric-row__routes">
 						<section v-for="entry in row.entries" :key="entry.input_key" class="work-order-fabric-row__route">
 							<strong>{{ fabricEntryLabel(entry) }}</strong>
 							<small v-if="sourcePreview(entry)">{{ sourcePreview(entry) }}</small>
@@ -175,7 +188,7 @@ import LinkField from "../../components/common/LinkField.vue"
 import { vEntryTable } from "../../components/common/childGrid/entryTable.js"
 import DocumentErrorDialog from "../../components/documents/DocumentErrorDialog.vue"
 import {
-	buildFabricPayload, canCalculateFabric, fabricColourError, fabricEntryError, fabricEntryLabel,
+	buildFabricPayload, canCalculateFabric, fabricColourError, fabricContractError, fabricContractLists, fabricEditableState, fabricEntryError, fabricEntryLabel,
 	fabricPlanningHint, fabricSourceProcess, fabricUnavailableMessage, fabricWarnings, fabricYarnTotals,
 	hydrateFabricRows, setFabricClothQuantity,
 } from "./fabricCalculate.js"
@@ -214,7 +227,7 @@ const baselineFabricEntries = ref("")
 const discardVisible = ref(false)
 const recutQuantity = computed(() => recutPieces(recutGroups.value))
 const garmentGrandTotal = computed(() => garmentPrimaryValues.value.reduce((total, value) => total + garmentColumnTotal(value), 0))
-const dirty = computed(() => Boolean(baselinePayload.value && (JSON.stringify(buildPayload()) !== baselinePayload.value || JSON.stringify(fabricRows.value.map((row) => row.entries)) !== baselineFabricEntries.value)))
+const dirty = computed(() => Boolean(baselinePayload.value && (JSON.stringify(buildPayload()) !== baselinePayload.value || fabricEditableState(fabricRows.value) !== baselineFabricEntries.value)))
 
 const titles = {
 	calculate_garment: "Calculate Work Order Items", calculate_fabric: "Calculate Fabric Deliverables",
@@ -258,7 +271,7 @@ function resetDraft() {
 	fabricContext.value = clone(props.editor.calculation_contexts?.fabric || {})
 	draft.source_process = fabricSourceProcess(fabricContext.value)
 	fabricRows.value = hydrateFabricRows(fabricContext.value)
-	baselineFabricEntries.value = JSON.stringify(fabricRows.value.map((row) => row.entries))
+	baselineFabricEntries.value = fabricEditableState(fabricRows.value)
 	closeContext.value = {}; reworkRows.value = []; recutGroups.value = []; recutCanSubmit.value = false; changeItemContext.value = {}; changeItemPreview.value = {}; error.value = garment.error || fabricContext.value.error || ""
 }
 async function attachDebitDocument(file) {
@@ -405,6 +418,14 @@ watch(() => props.visible, (value, previous) => { if (value && !previous) initia
 .work-order-fabric-row__route { display: grid; gap: var(--erp-space-2); padding: var(--erp-space-3); border: 1px solid var(--erp-border); border-radius: var(--erp-control-radius); background: var(--erp-surface); }
 .work-order-fabric-row__hint, .work-order-fabric-row__quantities small { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); }
 .work-order-fabric-row__error { color: var(--erp-danger); }
+.work-order-fabric-contract { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--erp-space-3); align-items: start; }
+.work-order-fabric-contract__list { display: grid; gap: var(--erp-space-2); padding: var(--erp-space-3); border: 1px solid var(--erp-border); border-radius: var(--erp-control-radius); background: var(--erp-surface); }
+.work-order-fabric-contract__list > header { display: flex; justify-content: space-between; gap: 8px; }
+.work-order-fabric-contract__list > header span, .work-order-fabric-contract__item small { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); }
+.work-order-fabric-contract__item { display: grid; grid-template-columns: minmax(0, 1fr) 9rem auto; gap: var(--erp-space-2); align-items: center; }
+.work-order-fabric-contract__item > span { display: grid; gap: 2px; min-width: 0; }
+.work-order-fabric-contract__item :deep(.p-inputnumber), .work-order-fabric-contract__item :deep(.p-inputnumber-input) { width: 100%; }
+.work-order-fabric-contract__item :deep(.p-inputnumber-input) { height: 32px; padding: 5px 8px; text-align: right; }
 .work-order-fabric-row__yarns { display: flex; gap: 8px 14px; color: var(--erp-text-muted); font-size: var(--erp-font-size-min); flex-wrap: wrap; }
 .work-order-action-panel__debits { display: grid; gap: var(--erp-space-2); }
 .work-order-action-panel__debits h3 { margin: 0; font-size: var(--erp-font-size-section); }
@@ -417,7 +438,7 @@ watch(() => props.visible, (value, previous) => { if (value && !previous) initia
 .work-order-change-items label > span { display: grid; gap: 2px; }
 .work-order-change-items small { color: var(--erp-text-muted); }
 .work-order-action-panel__copy { margin: 0; color: var(--erp-text-muted); line-height: 1.55; }
-@media (max-width: 700px) { .work-order-action-panel__fields, .work-order-fabric-row__quantities { grid-template-columns: 1fr; } .work-order-action-panel__wide { grid-column: auto; } }
+@media (max-width: 700px) { .work-order-action-panel__fields, .work-order-fabric-row__quantities, .work-order-fabric-contract { grid-template-columns: 1fr; } .work-order-action-panel__wide { grid-column: auto; } }
 @media (max-width: 1024px), (pointer: coarse) {
 	.work-order-garment-calculation__toolbar :deep(.p-button), .work-order-action-panel__existing :deep(.p-button), .work-order-action-panel__check :deep(.p-button) { min-height: 44px; }
 	.work-order-action-panel__body :deep(.p-inputnumber-input) { height: 44px; min-height: 44px; }
