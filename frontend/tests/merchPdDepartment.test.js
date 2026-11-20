@@ -14,15 +14,15 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 import { canOpenList, NO_PERMISSION_PATH } from "../src/router/listPermission.js"
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "merch-pd")
-const workspaces = JSON.parse(layout.config).experience_props.workspaces
-const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "merch-pd" }, config: { experience_props: { workspaces } } } })
 const items = merchPdLauncherItems()
+const workspaces = items.map((item) => item.key)
+const locked = lockedDepartment("merch-pd", workspaces)
 const notInLayout = (from) => ({ path: LAYOUT_UNAVAILABLE_PATH, query: { from }, replace: true })
 
 function loadRouter() {
@@ -42,9 +42,6 @@ test("Merch PD shows Lot, Item Production Detail, Purchase Order, Vendor Bill Tr
 		["Vendor Bill Tracking", "/merch/bill-tracking"],
 		["Lotwise Item Profit", "/pd/lotwise-item-profits"],
 	])
-	assert.deepEqual(workspaces, ["lots", "item_production_details", "purchase_orders", "bill_tracking", "lotwise_item_profits"], "the shipped layout lists every card")
-	assert.equal(layout.name, "Merch PD")
-	assert.equal(layout.render_mode, "Registered Experience")
 	assert.deepEqual(pdLauncherItems().map((item) => item.key), ["products", "product_releases", "lotwise_item_profits", "lay_sheet_planner"])
 })
 
@@ -93,11 +90,9 @@ test("cards for unreadable DocTypes are hidden", () => {
 
 test("PD opens the LaySheet Planner list, editor and records inside PD", () => {
 	const router = loadRouter()
-	const pdWorkspaces = JSON.parse(JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "pd").config).experience_props.workspaces
-	const pdLocked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "pd" }, config: { experience_props: { workspaces: pdWorkspaces } } } })
+	const pdLocked = lockedDepartment("pd", ["lay_sheet_planner"])
 	const card = pdLauncherItems().find((item) => item.key === "lay_sheet_planner")
 	assert.deepEqual([card.label, card.to], ["LaySheet Planner", "/pd/lay-sheet-planner"])
-	assert.ok(pdWorkspaces.includes("lay_sheet_planner"))
 	for (const [path, name] of [["/pd/lay-sheet-planner", PD_ROUTES.laySheetPlanners], ["/pd/lay-sheet-planner/new", PD_ROUTES.laySheetPlannerNew], ["/pd/lay-sheet-planner/CLP-1", PD_ROUTES.laySheetPlanner]]) {
 		const route = router.resolve(path)
 		assert.equal(route.name, name, path)

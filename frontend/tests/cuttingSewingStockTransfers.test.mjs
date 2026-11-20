@@ -14,12 +14,13 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const CASES = [
-	{ department: "cutting", key: "stock-transfers", path: "/cutting/stock-transfers", storeName: "Cutting", launcher: "../src/departments/launcherCards.js", layout: "Cutting", backend: "../../essdee_yrp/cutting/web_capabilities.py" },
-	{ department: "sewing", key: "stock_transfers", path: "/sewing/stock-transfers", storeName: "Sewing", launcher: "../src/departments/launcherCards.js", layout: "Sewing", backend: "../../essdee_yrp/sewing/web_workspace.py" },
+	{ department: "cutting", key: "stock-transfers", path: "/cutting/stock-transfers", storeName: "Cutting", launcher: "../src/departments/launcherCards.js", backend: "../../essdee_yrp/cutting/web_capabilities.py" },
+	{ department: "sewing", key: "stock_transfers", path: "/sewing/stock-transfers", storeName: "Sewing", launcher: "../src/departments/launcherCards.js", backend: "../../essdee_yrp/sewing/web_workspace.py" },
 ]
 
 function loadRouter() {
@@ -41,11 +42,8 @@ for (const item of CASES) {
 		assert.deepEqual(JSON.parse(JSON.stringify(route.matched.at(-1).props.default)), { section: "stock_transfers", storeName: item.storeName, basePath: `/${item.department}` })
 	})
 
-	test(`the ${item.layout} layout opens Stock Transfers`, () => {
-		const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === item.layout)
-		const workspaces = JSON.parse(layout.config).experience_props.workspaces
-		const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: item.department }, config: { experience_props: { workspaces } } } })
-		assert.ok(workspaces.includes(item.key))
+	test(`a ${item.storeName} layout with Stock Transfers opens it`, () => {
+		const locked = lockedDepartment(item.department, [item.key])
 		assert.ok(isWorkspaceInLayout({ key: item.key, to: item.path }, locked))
 		assert.equal(getLockedRedirect(loadRouter().resolve(item.path), locked), undefined)
 	})

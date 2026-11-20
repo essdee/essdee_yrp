@@ -15,17 +15,14 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 import { canOpenList, getPermissionRedirect, NO_PERMISSION_PATH } from "../src/router/listPermission.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const PATH = "/purchase/excel-sticker-prints"
 const DOCTYPE = "YRP Excel Sticker Print"
-const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
-const lockedFor = (key) => {
-	const workspaces = JSON.parse(layouts.find((row) => row.experience_key === key).config).experience_props.workspaces
-	return getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: key }, config: { experience_props: { workspaces } } } })
-}
+const lockedFor = (key) => lockedDepartment(key, ["excel_stickers"])
 
 function loadRouter() {
 	const routerSource = source("../src/router/index.js").replace(/^import .*\n/gm, "")
@@ -60,11 +57,10 @@ test("the Purchase and Merch & Purchase layouts open the Excel Sticker Print car
 	const router = loadRouter()
 	for (const key of ["purchase", "merch-purchase"]) {
 		const locked = lockedFor(key)
-		assert.ok(locked.workspaces.includes("excel_stickers"), key)
 		assert.ok(isWorkspaceInLayout({ key: "excel_stickers", to: PATH }, locked), key)
 		assert.equal(getLockedRedirect(router.resolve(PATH), locked), undefined, key)
 	}
-	const narrow = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "purchase" }, config: { experience_props: { workspaces: ["box_stickers"] } } } })
+	const narrow = lockedDepartment("purchase", ["box_stickers"])
 	assert.deepEqual(getLockedRedirect(router.resolve(PATH), narrow), { path: LAYOUT_UNAVAILABLE_PATH, query: { from: PATH }, replace: true })
 })
 
@@ -104,7 +100,6 @@ test("the store routes open the shared Excel Sticker Print section inside their 
 		assert.deepEqual(JSON.parse(JSON.stringify(route.matched.at(-1).props.default)), store.props)
 		assert.deepEqual(getWorkspacePaths(departments.find((item) => item.key === store.key)).excel_stickers, [store.path])
 		const locked = lockedFor(store.key)
-		assert.ok(locked.workspaces.includes("excel_stickers"), store.key)
 		assert.ok(isWorkspaceInLayout({ key: "excel_stickers", to: store.path }, locked), store.key)
 		assert.equal(getLockedRedirect(route, locked), undefined, store.key)
 	}

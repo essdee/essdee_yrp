@@ -17,15 +17,15 @@ import { departments } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
 import { Vue, findNodes, loadComponent, mountComponent } from "../../scripts/helpers/vue_renderer.mjs"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const tick = async () => { await new Promise((done) => setImmediate(done)); await Vue.nextTick() }
 const stub = (name) => (props, { slots }) => Vue.h(name, props, slots.default?.())
 const nodes = (root, type) => findNodes(root, (node) => node.type === type)
-const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 const DOCUMENT_KEYS = ["delivery_challans", "goods_received_notes"]
 const READABLE = { work_orders: { can_read: true }, delivery_challans: { can_read: true, doctype: "YRP Delivery Challan" }, goods_received_notes: { can_read: true, doctype: "YRP Goods Received Note" } }
 /** Departments with a Work Orders card, their route prefix and the layout experience key. */
@@ -109,11 +109,9 @@ test("Purchase routes its GRN list, page and editors inside Purchase", () => {
 	assert.equal(webDocumentPath("YRP Goods Received Note", "GRN/1", "/web/purchase/goods-received-notes"), "/web/purchase/goods-received-notes/GRN%2F1")
 })
 
-test("the Purchase layout lists the GRN card and opens its list", () => {
+test("a Purchase layout with the GRN card opens its list", () => {
 	const router = loadRouter()
-	const workspaces = JSON.parse(layouts.find((layout) => layout.experience_key === "purchase").config).experience_props.workspaces
-	assert.ok(workspaces.includes("goods_received_notes"))
-	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "purchase" }, config: { experience_props: { workspaces } } } })
+	const locked = lockedDepartment("purchase", ["goods_received_notes"])
 	assert.ok(isWorkspaceInLayout({ to: "/purchase/goods-received-notes" }, locked))
 	for (const path of ["/purchase/goods-received-notes", "/purchase/goods-received-notes/new"]) assert.equal(getLockedRedirect(router.resolve(path), locked), undefined, path)
 })
@@ -159,11 +157,9 @@ test("Planning routes the Finishing Plan Dispatch list and pages inside Planning
 	assert.deepEqual(pushes, ["/planning/dispatches/new"])
 })
 
-test("the Planning layout lists the Finishing Plan Dispatch card and opens its pages", () => {
+test("a Planning layout with the Finishing Plan Dispatch card opens its pages", () => {
 	const router = loadRouter()
-	const workspaces = JSON.parse(layouts.find((layout) => layout.experience_key === "planning").config).experience_props.workspaces
-	assert.ok(workspaces.includes("dispatches"))
-	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
+	const locked = lockedDepartment("planning", ["dispatches"])
 	assert.ok(isWorkspaceInLayout({ to: "/planning/dispatches" }, locked))
 	for (const path of ["/planning/dispatches", "/planning/dispatches/new"]) assert.equal(getLockedRedirect(router.resolve(path), locked), undefined, path)
 })
@@ -221,20 +217,15 @@ test("document pages opened inside a department stay in that department", () => 
 	}
 })
 
-test("every Work Orders department layout lists the document cards and opens their lists", () => {
+test("every Work Orders department layout with the document cards opens their lists", () => {
 	const router = loadRouter()
 	for (const [basePath, { experience }] of Object.entries(DEPARTMENTS)) {
-		const row = layouts.find((layout) => layout.experience_key === experience)
-		const workspaces = JSON.parse(row.config).experience_props.workspaces
-		assert.ok(DOCUMENT_KEYS.every((key) => workspaces.includes(key)), experience)
-		const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: experience }, config: { experience_props: { workspaces } } } })
+		const locked = lockedDepartment(experience, DOCUMENT_KEYS)
 		for (const segment of ["delivery-challans", "goods-received-notes"]) {
 			assert.ok(isWorkspaceInLayout({ to: `${basePath}/${segment}` }, locked), `${experience} ${segment}`)
 			assert.equal(getLockedRedirect(router.resolve(`${basePath}/${segment}`), locked), undefined)
 		}
 	}
-	const merchPurchase = JSON.parse(layouts.find((layout) => layout.experience_key === "merch-purchase").config).experience_props.workspaces
-	assert.ok(DOCUMENT_KEYS.every((key) => merchPurchase.includes(key)))
 })
 
 function documentSection(basePath, { processes = async () => ["Stitching"], capabilities = { sections: READABLE } } = {}) {

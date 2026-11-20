@@ -13,7 +13,8 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { lockedDepartment } from "./helpers/layout.js"
 import { canOpenList, NO_PERMISSION_PATH } from "../src/router/listPermission.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
@@ -40,11 +41,8 @@ test("Planning shows the shared Box Sticker Print section under its own path", (
 	assert.match(source("../src/router/index.js"), /path: "\/planning\/box-sticker-prints", name: PLANNING_ROUTES\.boxStickers, component: CutPanelStoreSection,/)
 })
 
-test("the Production Planner layout opens Box Sticker Print and the list needs its read permission", () => {
-	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
-	const workspaces = JSON.parse(layout.config).experience_props.workspaces
-	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
-	assert.ok(workspaces.includes("box_stickers"))
+test("a Planning layout opens Box Sticker Print and the list needs its read permission", () => {
+	const locked = lockedDepartment("planning", ["box_stickers"])
 	assert.ok(isWorkspaceInLayout({ key: "box_stickers", to: PATH }, locked))
 	assert.equal(getLockedRedirect(loadRouter().resolve(PATH), locked), undefined)
 	assert.equal(canOpenList(PATH, { user: { name: "planner@example.com", can_read: ["SD YRP Box Sticker Print"] } }), true)

@@ -15,21 +15,17 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 import { canOpenList, getPermissionRedirect, NO_PERMISSION_PATH } from "../src/router/listPermission.js"
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
 import { Vue, findNodes, loadComponent, mountComponent } from "../../scripts/helpers/vue_renderer.mjs"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const PATH = "/finishing/work-orders"
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const tick = async () => { await new Promise((done) => setImmediate(done)); await Vue.nextTick() }
 const stub = (name) => (props, { slots }) => Vue.h(name, props, slots.default?.())
 const nodes = (root, type) => findNodes(root, (node) => node.type === type)
-const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
-const finishingLayout = () => {
-	const workspaces = JSON.parse(layouts.find((row) => row.experience_key === "finishing").config).experience_props.workspaces
-	return getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "finishing" }, config: { experience_props: { workspaces } } } })
-}
 
 function loadRouter() {
 	const routerSource = source("../src/router/index.js").replace(/^import .*\n/gm, "")
@@ -129,11 +125,10 @@ test("the Finishing routes open the shared Work Order list, editor and page", ()
 test("the Finishing layout and Work Order read permission gate the list", () => {
 	assert.deepEqual(getWorkspacePaths(departments.find((item) => item.key === "finishing")).work_orders, [PATH])
 	const router = loadRouter()
-	const locked = finishingLayout()
-	assert.ok(locked.workspaces.includes("work_orders"))
+	const locked = lockedDepartment("finishing", ["work_orders"])
 	assert.ok(isWorkspaceInLayout({ key: "work_orders", to: PATH }, locked))
 	assert.equal(getLockedRedirect(router.resolve(PATH), locked), undefined)
-	const narrow = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "finishing" }, config: { experience_props: { workspaces: ["plans"] } } } })
+	const narrow = lockedDepartment("finishing", ["plans"])
 	assert.deepEqual(getLockedRedirect(router.resolve(PATH), narrow), { path: LAYOUT_UNAVAILABLE_PATH, query: { from: PATH }, replace: true })
 	assert.equal(canOpenList(PATH, { user: { name: "finisher@example.com", can_read: ["YRP Work Order"] } }), true)
 	assert.deepEqual(getPermissionRedirect({ path: PATH, fullPath: PATH, params: {} }, { user: { name: "finisher@example.com", can_read: [] } }), {

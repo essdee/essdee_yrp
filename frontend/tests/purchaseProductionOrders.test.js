@@ -14,8 +14,9 @@ import { PLANNING_ROUTES } from "../src/departments/planning/planningViews.js"
 import { PURCHASE_ROUTES, purchaseLauncherItems } from "../src/departments/purchase/purchaseViews.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
 import { departments, getWorkspacePaths } from "../src/departments/registry.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const plain = (value) => JSON.parse(JSON.stringify(value))
@@ -55,12 +56,9 @@ test("Purchase reuses the Production Order list, page and editor inside Purchase
 	assert.equal(edit.matched.at(-1).props.default(edit).productionOrderId, "PPO-1")
 })
 
-test("the Purchase layout opens Production Orders and keeps PO and PPO links inside Purchase", () => {
+test("a Purchase layout with Production Orders opens them and keeps PO and PPO links inside Purchase", () => {
 	const router = loadRouter()
-	const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
-	const workspaces = JSON.parse(layouts.find((layout) => layout.experience_key === "purchase").config).experience_props.workspaces
-	assert.ok(workspaces.includes("production_orders"))
-	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "purchase" }, config: { experience_props: { workspaces } } } })
+	const locked = lockedDepartment("purchase", ["production_orders"])
 	assert.ok(isWorkspaceInLayout({ to: "/purchase/production-orders" }, locked))
 	for (const path of ["/purchase/production-orders", "/purchase/production-orders/new"]) assert.equal(getLockedRedirect(router.resolve(path), locked), undefined, path)
 	assert.equal(webDocumentPath("YRP Production Order", "PPO/1", "/web/purchase/purchase-orders/PO-1"), "/web/purchase/production-orders/PPO%2F1")

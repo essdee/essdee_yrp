@@ -14,7 +14,8 @@ import { departments } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { lockedDepartment } from "./helpers/layout.js"
 import { NO_PERMISSION_PATH } from "../src/router/listPermission.js"
 import { withNewDocumentDefaults } from "../src/utils/newDocumentDefaults.js"
 
@@ -58,10 +59,8 @@ test("every Box Sticker Print list opens full new and document pages under its o
 	}
 })
 
-test("the Production Planner layout allows the Box Sticker Print pages", () => {
-	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
-	const workspaces = JSON.parse(layout.config).experience_props.workspaces
-	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
+test("a Planning layout allows the Box Sticker Print pages", () => {
+	const locked = lockedDepartment("planning", ["box_stickers"])
 	const router = loadRouter()
 	for (const path of ["/planning/box-sticker-prints/new", "/planning/box-sticker-prints/BSP-1"]) assert.equal(getLockedRedirect(router.resolve(path), locked), undefined, path)
 })

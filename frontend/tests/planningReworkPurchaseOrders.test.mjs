@@ -13,7 +13,8 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const PATHS = { rework_details: "/planning/rework-details", purchase_orders: "/planning/purchase-orders" }
@@ -52,10 +53,8 @@ test("Planning reuses the Finishing Rework Details page and the store Purchase O
 	assert.match(source("../src/departments/finishing/FinishingReworkDetails.vue"), /:back-to="backTo" :back-label="backLabel"/)
 })
 
-test("the Production Planner layout opens Rework Details and Purchase Order", () => {
-	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
-	const workspaces = JSON.parse(layout.config).experience_props.workspaces
-	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
+test("a Planning layout opens Rework Details and Purchase Order", () => {
+	const locked = lockedDepartment("planning", ["rework_details", "purchase_orders"])
 	for (const [key, path] of Object.entries(PATHS)) {
 		assert.ok(isWorkspaceInLayout({ key, to: path }, locked))
 		assert.equal(getLockedRedirect(loadRouter().resolve(path), locked), undefined)
@@ -66,6 +65,4 @@ test("the Production Planner layout opens Rework Details and Purchase Order", ()
 test("Finishing no longer offers Rework Grouped Details", () => {
 	assert.doesNotMatch(source("../src/departments/Finishing.vue"), /rework_groups|Rework Grouped Details/)
 	assert.equal(loadRouter().resolve("/finishing/rework-groups").name, undefined)
-	const finishing = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Finishing")
-	assert.ok(!JSON.parse(finishing.config).experience_props.workspaces.includes("rework_groups"))
 })

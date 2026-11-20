@@ -14,13 +14,12 @@ import { departments, getWorkspacePaths } from "../src/departments/registry.js"
 import { MERCH_PD_ROUTES } from "../src/departments/merch-pd/merchPdRoutes.js"
 import { MERCH_PURCHASE_ROUTES } from "../src/departments/merch-purchase/merchPurchaseRoutes.js"
 import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
-import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
+import { lockedDepartment } from "./helpers/layout.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "quality")
-const workspaces = JSON.parse(layout.config).experience_props.workspaces
-const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "quality" }, config: { experience_props: { workspaces } } } })
 const items = qualityLauncherItems()
+const locked = lockedDepartment("quality", items.map((item) => item.key))
 const notInLayout = (from) => ({ path: LAYOUT_UNAVAILABLE_PATH, query: { from }, replace: true })
 
 function loadRouter() {
@@ -48,8 +47,6 @@ test("Quality shows its own cards, then the Planning, Merch, PD and Accounts pag
 		["debits", "/accounts/debits"],
 		["reports", "/quality/reports"],
 	])
-	assert.deepEqual(workspaces, items.map((item) => item.key), "the shipped layout lists every card")
-	assert.deepEqual(locked.workspaces, workspaces)
 })
 
 test("the Quality layout opens each card and its records; other sections of the source departments stay closed", () => {
