@@ -4,7 +4,6 @@ export function clothSelection(cloth, defaults = {}) {
 		...cloth,
 		profile,
 		dyed_yarn_colours: [...(cloth.dyed_yarn_colours || [])],
-		same_finished_colours: [...(cloth.same_finished_colours || [])],
 		cloth_per_kg_yarn: getProfileValue(profile, defaults, "cloth_per_kg_yarn", 1),
 		knitting_process: getProfileValue(profile, defaults, "knitting_process", ""),
 		dyeing_process: getProfileValue(profile, defaults, "dyeing_process", ""),
@@ -31,10 +30,7 @@ export function fabricRoutes(selection) {
 					finished_colour: colour,
 					finished_dia: route.dia,
 					knitting_output_dia: stored?.knitting_output_dia || route.dia || null,
-					knitting_output_colour:
-						dyed || selection.same_finished_colours.includes(colour)
-							? colour
-							: selection.non_dyed_colour,
+					knitting_output_colour: dyed ? colour : selection.non_dyed_colour,
 					use_dyed_yarn: dyed ? 1 : 0,
 				}
 			}),
@@ -49,7 +45,6 @@ export function buildSelection(selection) {
 		cloth_item: selection.cloth_item,
 		production_detail: selection.production_detail || null,
 		dyed_yarn_colours: selection.dyed_yarn_colours,
-		same_finished_colours: selection.same_finished_colours,
 		fabric_routes: fabricRoutes(selection),
 		non_dyed_colour: selection.non_dyed_colour,
 		yarns: selection.item_yarns || [],

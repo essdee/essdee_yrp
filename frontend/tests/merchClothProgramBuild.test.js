@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { buildBlockMessage, contextExcessPercentage } from "../src/departments/merch/lot/clothProgram.js"
+import { buildBlockMessage, buildSelection, clothSelection, contextExcessPercentage } from "../src/departments/merch/lot/clothProgram.js"
 
 const ready = {
 	cloth_item: "Cotton Rib",
@@ -9,7 +9,6 @@ const ready = {
 	knitting_process: "Knitting",
 	required_colours: [],
 	dyed_yarn_colours: [],
-	same_finished_colours: [],
 	profile: {},
 }
 
@@ -31,4 +30,26 @@ test("the stored excess from context prefills Build Cloth Program", () => {
 	assert.equal(contextExcessPercentage({ excess_percentage: 0 }, 5), 0)
 	assert.equal(contextExcessPercentage({}, 5), 5)
 	assert.equal(contextExcessPercentage(null), 0)
+})
+
+test("Build payload offers only dyed or non-dyed yarn per colour", () => {
+	const cloth = {
+		...ready,
+		required_colours: ["Red", "Anthra Melange"],
+		required_routes: [
+			{ colour: "Red", dia: "30" },
+			{ colour: "Anthra Melange", dia: "30" },
+		],
+		dyed_yarn_colours: ["Red"],
+		same_finished_colours: ["Anthra Melange"],
+	}
+	const payload = buildSelection(clothSelection(cloth, { knitting_output_colour: "Greige" }))
+	assert.equal("same_finished_colours" in payload, false)
+	assert.deepEqual(
+		payload.fabric_routes.map((row) => [row.finished_colour, row.knitting_output_colour, row.use_dyed_yarn]),
+		[
+			["Red", "Red", 1],
+			["Anthra Melange", "Greige", 0],
+		],
+	)
 })
