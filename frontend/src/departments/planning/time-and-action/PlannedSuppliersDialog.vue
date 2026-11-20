@@ -1,5 +1,5 @@
 <template>
-	<Dialog :visible="visible" modal :header="`Planned Suppliers · ${action}`" class="erp-dialog--sm" :closable="!busy" @update:visible="emit('update:visible', $event)" @show="suppliers = [...initial]; error = ''">
+	<Dialog :visible="visible" modal :header="`Planned Suppliers · ${action}`" :breakpoints="{ '640px': '95vw' }" class="erp-dialog--sm" :closable="!busy" @update:visible="emit('update:visible', $event)" @show="suppliers = [...initial]; error = ''">
 		<div class="ta-planned">
 			<p>For information only: where this action is planned. Quantities and dates do not change.</p>
 			<LinkMultiSelectField v-model="suppliers" doctype="Supplier" label="Planned Suppliers" input-id="ta-planned-suppliers" placeholder="None" display="chip" />

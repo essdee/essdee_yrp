@@ -151,4 +151,5 @@ function send() {
 .supplier-notification-panel__preview small { display: block; margin-top: 6px; color: #52665a; }
 .supplier-notification-panel > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 0 var(--erp-space-3) var(--erp-space-3); }
 @media (max-width: 800px) { .supplier-notification-panel__recipient, .supplier-notification-panel__variable { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .supplier-notification-panel > header, .supplier-notification-panel__variables > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

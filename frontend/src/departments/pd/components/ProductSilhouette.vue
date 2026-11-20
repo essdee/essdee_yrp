@@ -162,4 +162,5 @@ async function runUpload(fieldname, type, event, upload) {
 .product-silhouette__preview img { width: 100%; height: 250px; object-fit: contain; background: white; }
 .product-silhouette__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 720px) { .product-silhouette--set { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .pd-media-panel { padding: var(--erp-space-3); } }
 </style>

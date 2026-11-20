@@ -30,7 +30,7 @@
 		<SplitTimeAndActionDialog v-if="data" v-model:visible="splitVisible" :time-and-action="name" />
 		<LotDetailDialog v-if="data" v-model:visible="lotDetailVisible" :against="data.against" :against-id="data.against_id" />
 		<PlannedSuppliersDialog v-model:visible="suppliersVisible" :action="suppliersAction" :initial="plannedSupplierValues(chips[suppliersAction])" :on-save="(suppliers) => editor.savePlannedSuppliers(suppliersAction, suppliers)" />
-		<Dialog v-model:visible="reviseVisible" modal :header="`Revise Dates of ${name}`" class="erp-dialog--sm">
+		<Dialog v-model:visible="reviseVisible" modal :header="`Revise Dates of ${name}`" :breakpoints="{ '640px': '95vw' }" class="erp-dialog--sm">
 			<div class="ta-editor__revise">
 				<p>{{ getReviseMessage(data) }}</p>
 				<Message v-if="unsavedCount" severity="warn" :closable="false">Save or discard your unsaved changes before revising.</Message>
@@ -187,8 +187,19 @@ editor.load()
 .ta-change-list { margin: 12px 0 0; padding: 0; list-style: none; border: 1px solid var(--erp-border); border-radius: 7px; }
 .ta-change-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--erp-border-subtle); }
 .ta-change-list li:last-child { border-bottom: 0; }
-@media (max-width: 767px) {
+@media (max-width: 900px) {
 	.ta-editor { padding: 12px; }
-	.ta-editor__savebar { position: static; box-shadow: none; }
+	.ta-editor__savebar { bottom: 0; }
+}
+@media (max-width: 640px) {
+	.ta-editor { gap: 10px; padding: 0; background: none; border: 0; }
+	.ta-editor__savebar { gap: 6px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-radius: var(--erp-radius-md) var(--erp-radius-md) 0 0; }
+	.ta-editor__status { gap: 4px 10px; }
+	.ta-editor__counts, .ta-impact, .ta-editor__pending { font-size: 12px; }
+	.ta-impact:not(.ta-impact--none) { padding: 3px 8px; }
+	.ta-editor__save { flex-wrap: nowrap; width: 100%; gap: 8px; margin-left: 0; }
+	.ta-editor__pending { flex: 1 1 auto; min-width: 0; }
+	.ta-editor__save > :deep(.p-button) { flex: none; min-height: 40px; }
+	.ta-change-list li { flex-wrap: wrap; gap: 2px 12px; }
 }
 </style>

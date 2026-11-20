@@ -76,4 +76,8 @@ watch(() => props.documents, () => {
 .profit-loss__body a { overflow: hidden; color: var(--erp-accent-dark); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .profit-loss__body small, .profit-loss__body p { margin: 0; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
 .profit-loss__form { display: grid; gap: 12px; }
+@media (max-width: 640px) {
+	.profit-loss__toolbar { flex-wrap: wrap; }
+	.profit-loss__item { align-items: flex-start; }
+}
 </style>

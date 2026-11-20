@@ -127,7 +127,11 @@ const metrics = [
 	}
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
+	.lotwise-totals header {
+		padding: 10px 12px 9px;
+	}
+
 	.lotwise-totals__items {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}

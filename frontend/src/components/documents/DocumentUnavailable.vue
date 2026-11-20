@@ -61,5 +61,5 @@ function goBack() {
 .document-unavailable h1 { margin: 0; color: var(--erp-text); font-size: clamp(24px, 4vw, 34px); letter-spacing: -.035em; }
 .document-unavailable strong { overflow: hidden; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); text-overflow: ellipsis; white-space: nowrap; }
 .document-unavailable p { max-width: 52ch; margin: 8px 0 0; color: var(--erp-text-muted); line-height: 1.55; }
-@media (max-width: 620px) { .document-unavailable { align-items: flex-start; flex-direction: column; margin-top: var(--erp-space-3); } }
+@media (max-width: 640px) { .document-unavailable { align-items: flex-start; flex-direction: column; margin-top: var(--erp-space-3); } }
 </style>

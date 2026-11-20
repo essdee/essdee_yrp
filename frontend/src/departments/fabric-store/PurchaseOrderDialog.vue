@@ -162,4 +162,5 @@ function formatField(field) {
 .purchase-order-footer > div { display: flex; align-items: center; justify-content: flex-end; gap: var(--erp-space-2); }
 @media (max-width: 900px) { .purchase-order-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .purchase-order-detail-grid > div { min-height: 50px; padding: 7px 9px; } .purchase-order-footer { align-items: stretch; flex-direction: column; } .purchase-order-footer > div { flex-wrap: wrap; } }
+@media (max-width: 640px) { .purchase-order-status-row { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

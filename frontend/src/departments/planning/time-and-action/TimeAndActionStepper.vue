@@ -41,4 +41,8 @@ const STEP_ICONS = { done: "pi pi-check", blocked: "pi pi-lock", error: "pi pi-e
 .ta-step--due .ta-step__state { color: var(--erp-attention-text); }
 .ta-step--blocked { background: var(--erp-surface-muted); opacity: .8; }
 .ta-step--blocked .ta-step__name { color: var(--erp-text-muted); }
+@media (max-width: 640px) {
+	.ta-steps { gap: 6px; scroll-snap-type: x proximity; }
+	.ta-step { flex-basis: 128px; min-width: 128px; padding: 6px 8px; scroll-snap-align: start; }
+}
 </style>

@@ -26,7 +26,7 @@ const open = ref(typeof window === "undefined" || !window.matchMedia?.("(max-wid
 	display: none;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 900px) {
 	.report-more-filters {
 		display: block;
 		grid-column: 1 / -1;

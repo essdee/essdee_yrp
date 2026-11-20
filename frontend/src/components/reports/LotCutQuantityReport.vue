@@ -241,7 +241,7 @@ useReportQueryPrefill(linkedLot, ["lot"], () => { selectedLots.value = [...linke
 .report-capture-print .lot-cut-quantity-report__plan-header a,
 .report-capture-print .lot-cut-quantity-report__plan-header strong { color: #000000; }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
 	.lot-cut-quantity-report__lot-header,
 	.lot-cut-quantity-report__plan-header { align-items: flex-start; flex-direction: column; }
 	.lot-cut-quantity-report__lot-header p { text-align: left; }

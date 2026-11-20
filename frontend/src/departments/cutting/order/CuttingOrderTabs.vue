@@ -159,4 +159,5 @@ const CompletionTable = defineComponent({
 .cutting-order-tabs :deep(.empty-state i) { color: var(--erp-accent); font-size: 1.1rem; }
 .cutting-order-tabs :deep(.loading-state) { display: grid; gap: 10px; }
 @media (max-width: 780px) { .cutting-order-tabs :deep(.table-scroll) { -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%); } }
+@media (max-width: 640px) { .cutting-order-tabs :deep(.data-section__header) { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

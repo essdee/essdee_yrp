@@ -144,5 +144,5 @@ watch(() => props.name, () => {
 .finishing-ocr__group { vertical-align: middle !important; white-space: normal !important; min-width: 120px; }
 .finishing-ocr__subtotal > * { background: #e6e8eb !important; font-weight: 700; }
 @media (max-width: 1100px) { .finishing-ocr__part { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 700px) { .finishing-ocr__switch { flex-wrap: nowrap; overflow-x: auto; } .finishing-ocr__switch-button { min-height: 44px; white-space: nowrap; } }
+@media (max-width: 640px) { .finishing-ocr__switch { flex-wrap: nowrap; overflow-x: auto; } .finishing-ocr__switch-button { min-height: 44px; white-space: nowrap; } }
 </style>

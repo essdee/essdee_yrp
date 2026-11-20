@@ -304,7 +304,7 @@ function groupKey(group, index) { return `${group.primary_attribute || "quantity
 	font-size: 1.2rem;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 640px) {
 	.selection-matrix__scroll {
 		-webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
 		mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 18px), transparent 100%);
@@ -319,6 +319,15 @@ function groupKey(group, index) { return `${group.primary_attribute || "quantity
 		grid-auto-flow: column;
 		justify-content: start;
 		gap: 5px;
+	}
+
+	.selection-matrix__cell {
+		min-height: 40px;
+	}
+
+	.selection-matrix__cell input {
+		width: 16px;
+		height: 16px;
 	}
 }
 </style>

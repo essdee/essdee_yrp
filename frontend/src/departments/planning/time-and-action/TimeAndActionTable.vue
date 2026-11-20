@@ -6,32 +6,33 @@
 			<tbody>
 				<template v-for="row in rows" :key="row.action">
 					<tr :class="rowClass(row)">
-						<td>
+						<td class="ta-acts__main">
 							<div class="ta-acts__name" :title="row.process_name ? undefined : row.action"><span class="ta-acts__idx">#{{ row.index + 1 }}</span> <ActionQuantities v-if="row.process_name" :time-and-action="timeAndAction" :action="row.action" :process="row.process_name">{{ row.action }}</ActionQuantities><template v-else>{{ row.action }}</template><span class="ta-sr"> ({{ STATUS_LABELS[row.status] }})</span></div>
+							<span class="ta-acts__status" :class="`ta-acts__status--${row.status}`" aria-hidden="true">{{ STATUS_LABELS[row.status] }}</span>
 							<div class="ta-acts__sub">
 								<span class="ta-acts__meta">{{ row.department }} · {{ row.lead_time }}d lead<template v-if="row.work_station"> · <i class="pi pi-wrench" aria-hidden="true" /> {{ row.work_station }}</template></span>
 								<SupplierChips v-if="chips[row.action]?.length || canEditSuppliers" :chips="chips[row.action]" :action="row.action" :editable="canEditSuppliers" @edit="emit('edit-suppliers', row.action)" />
 							</div>
 							<div v-if="row.status === 'blocked'" class="ta-acts__waiting" :title="`Waiting for ${row.blockedBy.join(', ')}`"><i class="pi pi-lock" aria-hidden="true" /> Waiting for {{ row.blockedBy.join(", ") }}</div>
 						</td>
-						<td class="ta-acts__planned">
+						<td class="ta-acts__planned" data-label="Planned / Freeze">
 							<div>P: {{ formatDisplayDate(row.planned_start_date, "") }}</div>
 							<div class="ta-acts__freeze">F: {{ formatDisplayDate(row.date, "") }}</div>
 						</td>
-						<td class="ta-acts__rescheduled" :class="{ 'is-shifted': row.rescheduled_date !== row.date }">
+						<td class="ta-acts__rescheduled" data-label="Rescheduled" :class="{ 'is-shifted': row.rescheduled_date !== row.date }">
 							<span v-if="row.oldRescheduledDate" class="ta-acts__moved"><s>{{ formatDisplayDate(row.oldRescheduledDate, "") }}</s><b :class="{ 'is-earlier': row.rescheduled_date < row.oldRescheduledDate }">{{ formatDisplayDate(row.rescheduled_date, "") }}</b></span>
 							<template v-else>{{ formatDisplayDate(row.rescheduled_date, "") }}</template>
 						</td>
-						<td class="ta-acts__actual">
+						<td class="ta-acts__actual" data-label="Actual Date">
 							<DateField :model-value="row.inputValue" :aria-label="`Actual Date of ${row.action}`" :disabled="!row.editable" :invalid="Boolean(row.error)" :show-on-focus="false" @update:model-value="(value) => emit('actual', row, value)" />
 							<span v-if="row.auto_actual_date && !row.edited" class="ta-acts__auto" title="Set automatically from the linked documents">auto</span>
 						</td>
-						<td>
+						<td class="ta-acts__reason" data-label="Reason">
 							<InputText v-if="row.editable" :model-value="row.reason || ''" size="small" fluid :invalid="row.needsReason" :placeholder="row.late ? 'Why late? Required' : 'Remarks (optional)'" :aria-label="`Reason for ${row.action}`" @update:model-value="(value) => emit('reason', row, value)" />
 							<span v-else-if="row.reason">{{ row.reason }}</span>
 							<span v-else class="ta-subtle">—</span>
 						</td>
-						<td class="ta-acts__right">
+						<td class="ta-acts__right ta-acts__delaycell" data-label="Delay">
 							<span v-if="delay(row)" class="ta-acts__delay" :class="`ta-acts__delay--${delay(row).tone}`">{{ delay(row).text }}</span>
 							<span v-else class="ta-subtle">—</span>
 						</td>
@@ -123,4 +124,33 @@ const delay = (row) => (row.error ? null : getDelay(row))
 .ta-acts__error div { display: flex; align-items: center; gap: 7px; color: var(--erp-danger); font-size: 13px; font-weight: 500; }
 .ta-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ta-subtle { color: var(--erp-text-subtle); }
+.ta-acts__status { display: none; }
+@media (max-width: 640px) {
+	.ta-table { max-height: none; overflow: visible; border: 0; border-radius: 0; }
+	.ta-acts, .ta-acts > tbody { display: block; min-width: 0; }
+	.ta-acts > colgroup, .ta-acts > thead { display: none; }
+	.ta-table .ta-acts.erp-data-table > tbody > tr { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-areas: "main main" "planned rescheduled" "actual delay" "reason reason"; gap: 8px 12px; margin-bottom: 8px; padding: 10px 12px; background: var(--ta-row-bg, var(--erp-surface)); border: 1px solid var(--erp-border); border-radius: var(--erp-radius-md); box-shadow: var(--ta-row-mark, 0 0 #0000); }
+	.ta-table .ta-acts.erp-data-table > tbody > tr > td, .ta-table .ta-acts.erp-data-table > tbody > tr > td:first-child { display: block; min-width: 0; padding: 0; background: none; border: 0; box-shadow: none; }
+	.ta-table .ta-acts.erp-data-table > tbody > tr.has-error { margin-bottom: 0; border-bottom: 0; border-radius: var(--erp-radius-md) var(--erp-radius-md) 0 0; }
+	.ta-table .ta-acts.erp-data-table > tbody > tr.ta-acts__error { display: block; margin: 0 0 8px; padding: 0 12px 10px; border-top: 0; border-radius: 0 0 var(--erp-radius-md) var(--erp-radius-md); }
+	.ta-table .ta-acts.erp-data-table > tbody > tr.ta-acts__error > td { padding: 0; }
+	.ta-acts td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+	.ta-table .ta-acts.erp-data-table > tbody > tr > td.ta-acts__main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 8px; grid-area: main; }
+	.ta-acts__name { flex: 1 1 0; min-width: 0; font-size: 15px; }
+	.ta-acts__sub, .ta-acts__waiting { flex-basis: 100%; }
+	.ta-acts__waiting { white-space: normal; }
+	.ta-acts__status { display: inline-block; flex: none; padding: 2px 8px; color: var(--erp-text-secondary); font-size: var(--erp-font-size-min); font-weight: 700; white-space: nowrap; background: var(--erp-surface-muted); border-radius: 999px; }
+	.ta-acts__status--done { color: var(--erp-success-text); background: var(--erp-success-soft); }
+	.ta-acts__status--overdue, .ta-acts__status--error { color: var(--erp-danger); background: var(--erp-danger-soft); }
+	.ta-acts__status--due { color: var(--erp-attention-text); background: var(--erp-attention-soft); }
+	.ta-acts td.ta-acts__planned { grid-area: planned; }
+	.ta-acts td.ta-acts__rescheduled { grid-area: rescheduled; }
+	.ta-acts td.ta-acts__actual { grid-area: actual; }
+	.ta-acts td.ta-acts__delaycell { grid-area: delay; align-self: start; text-align: left; }
+	.ta-acts td.ta-acts__reason { grid-area: reason; }
+	.ta-acts__sub :deep(.p-button) { width: 40px; height: 40px; }
+	.ta-acts__actual :deep(.p-datepicker-input) { height: 40px; font-size: 16px; }
+	.ta-acts__actual :deep(.p-datepicker-dropdown) { width: 40px; height: 40px; }
+	.ta-acts :deep(.p-inputtext.p-inputtext-sm) { height: 40px; font-size: 16px; }
+}
 </style>

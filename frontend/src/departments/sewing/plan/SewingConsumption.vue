@@ -121,5 +121,5 @@ p { margin: 5px 0 0; font-size: var(--erp-font-size-caption); color: var(--erp-t
 .sewing-consumption__context { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-block: 10px 6px; color: var(--erp-text); font-size: 14px; overflow-wrap: anywhere; }
 .sewing-consumption__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-block: 8px 14px; }
 small { color: var(--erp-text-muted); font-size: 11px; }
-@media (max-width: 600px) { .sewing-consumption__toolbar { align-items: stretch; flex-direction: column; } .sewing-consumption__toolbar > .p-button { align-self: flex-start; } }
+@media (max-width: 640px) { .sewing-consumption__toolbar { align-items: stretch; flex-direction: column; } .sewing-consumption__toolbar > .p-button { align-self: flex-start; } }
 </style>

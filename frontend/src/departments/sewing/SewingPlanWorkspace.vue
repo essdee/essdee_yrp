@@ -129,7 +129,7 @@ function createClosedGrn(payload) {
 .sewing-plan-workspace :deep(.p-tabpanels) { background: transparent; padding: 8px 0 0; }
 .sewing-plan-workspace :deep(.p-tab) { min-height: 42px; padding: 9px 14px; font-size: 0.86rem; white-space: nowrap; }
 .sewing-plan-workspace__mobile { display: none; }
-@media (max-width: 700px) {
+@media (max-width: 640px) {
 	.sewing-plan-workspace__desktop { display: none; }
 	.sewing-plan-workspace__mobile { display: grid; gap: 6px; font-size: var(--erp-font-size-caption); font-weight: 650; }
 }

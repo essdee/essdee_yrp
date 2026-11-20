@@ -232,5 +232,9 @@ onBeforeUnmount(cancelSearch)
 .product-colours__row strong { color: var(--erp-text); font-size: var(--erp-font-size-caption); }
 .product-colours__row span { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); }
 .product-colours__empty { margin: 0; }
-@media (max-width: 620px) { .product-colours__quick-add > div { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+	.product-colours { padding: var(--erp-space-3); }
+	.product-colours__quick-add > div { grid-template-columns: 1fr; }
+	.product-colours__row { gap: 8px; padding: 8px; }
+}
 </style>

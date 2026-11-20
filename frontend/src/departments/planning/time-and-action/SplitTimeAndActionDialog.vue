@@ -1,5 +1,5 @@
 <template>
-	<Dialog :visible="visible" modal header="Split T&A" :closable="!busy" :style="{ width: 'min(640px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="load">
+	<Dialog :visible="visible" modal header="Split T&A" :closable="!busy" :breakpoints="{ '640px': '95vw' }" :style="{ width: 'min(640px, calc(100vw - 32px))' }" @update:visible="emit('update:visible', $event)" @show="load">
 		<div class="ta-split">
 			<template v-if="created.length">
 				<Message severity="success" :closable="false">Lot T&A created.</Message>
@@ -166,4 +166,8 @@ async function split() {
 .ta-split__table th, .ta-split__table td { padding: 6px 8px; border-bottom: 1px solid var(--erp-border, #e5e7eb); text-align: left; }
 .ta-split__table th:first-child, .ta-split__table td:first-child { width: 40px; }
 .ta-split__note { color: var(--erp-text-muted, #6b7280); }
+@media (max-width: 640px) {
+	.ta-split__table td { padding-block: 10px; }
+	.ta-split__table label { display: block; overflow-wrap: anywhere; }
+}
 </style>

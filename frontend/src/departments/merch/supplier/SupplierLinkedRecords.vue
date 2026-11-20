@@ -100,4 +100,10 @@ watch(() => props.supplier, () => { loading.value = true; load() }, { immediate:
 .supplier-linked__badges { display: flex; flex-wrap: wrap; gap: 4px; }
 .supplier-linked__line { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); overflow-wrap: anywhere; }
 .supplier-linked__empty { margin: 0; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
+@media (max-width: 640px) {
+	.supplier-linked { gap: var(--erp-space-4, 16px); padding: 12px; }
+	.supplier-linked__header { flex-wrap: wrap; }
+	.supplier-linked__grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+	.supplier-linked__card { padding: 10px 12px; }
+}
 </style>

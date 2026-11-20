@@ -65,4 +65,5 @@ onBeforeUnmount(() => { mounted = false; beginRequest() })
 .scr-title { color: var(--erp-text-muted); font-weight: var(--erp-font-weight-bold); }
 h2 { margin: 0; color: var(--erp-text); font-size: 15px; overflow-wrap: anywhere; }
 p { margin: 0; color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); overflow-wrap: anywhere; }
+@media (max-width: 640px) { .scr-heading { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

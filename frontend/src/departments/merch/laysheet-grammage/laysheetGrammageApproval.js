@@ -42,6 +42,14 @@ export function formatPieceWeight(value) {
 	return Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 3 })
 }
 
+/** Actual minus REQD piece weight, signed, with its tone for the phone card. */
+export function grammageDifference(row) {
+	const difference = Number(row?.piece_weight || 0) - Number(row?.required_pcs_weight || 0)
+	const rounded = Math.round(difference * 1000) / 1000
+	const tone = rounded > 0 ? "over" : rounded < 0 ? "under" : "equal"
+	return { text: `${rounded > 0 ? "+" : rounded < 0 ? "−" : ""}${formatPieceWeight(Math.abs(rounded))}`, tone }
+}
+
 /** Rows left after approval, and the result to show when any LaySheet failed. */
 export function applyApprovalResult(rows, { approved = [], failed = [] }) {
 	const done = new Set(approved)

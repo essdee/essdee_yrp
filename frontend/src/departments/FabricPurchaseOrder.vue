@@ -576,7 +576,7 @@ watch(documentId, () => loadWorkspace(false), { immediate: true })
 .purchase-order-rejection { display: grid; gap: var(--erp-space-3); }
 @media (max-width: 1100px) { .purchase-order-page__identity { align-items: flex-start; flex-wrap: wrap; }  }
 @media (max-width: 900px) { .purchase-order-related, .purchase-order-page__totals { grid-column: 1 / -1; } }
-@media (max-width: 650px) { .fabric-purchase-order-frame { margin-bottom: 0; padding: 0; } .purchase-order-page__identity { width: 100%; }
+@media (max-width: 640px) { .fabric-purchase-order-frame { margin-bottom: 0; padding: 0; } .purchase-order-page__identity { width: 100%; }
 	.fabric-purchase-order-frame :deep(.fabric-document-workspace__header) {
 		align-items: flex-start;
 	}
@@ -591,5 +591,4 @@ watch(documentId, () => loadWorkspace(false), { immediate: true })
 	}     .purchase-order-lots__add { grid-template-columns: 1fr; }
 }
 :global(.fabric-action-dialog .p-dialog-content) { min-height: 0; }
-@media (max-width: 620px) { :global(.fabric-action-dialog) { width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; margin: 0; border-radius: 0; } :global(.fabric-action-dialog .p-dialog-content) { flex: 1; overflow-y: auto; } }
 </style>

@@ -132,3 +132,17 @@ test("the header shows Log out and a ⋮ account menu with both items", () => {
 	assert.match(menu, /<DocumentConfirmationDialog/)
 	assert.match(menu, /<ChangePasswordDialog/)
 })
+
+test("phones reach Log out from the ⋮ menu because the header hides its button", async () => {
+	const { getAccountMenuItems } = await import("../src/components/navigation/accountMenu.js")
+	const opened = []
+	const items = getAccountMenuItems({ changePassword() {}, logOut: () => opened.push("logout"), logOutAllDevices() {} }, { user: { name: "u@example.test", roles: [] } })
+	const logout = items.find((item) => item.label === "Log out")
+	assert.equal(logout.class, "app-account-menu__item--phone")
+	logout.command()
+	assert.deepEqual(opened, ["logout"])
+	const css = source("../src/styles/main.css")
+	const phone = css.slice(css.indexOf("@media (max-width: 640px) {\n\t.app-topbar {"))
+	assert.match(phone, /\.app-topbar \.app-logout \{\n\t\tdisplay: none;/)
+	assert.match(phone, /\.app-account-menu \.app-account-menu__item--phone \{\n\t\tdisplay: block;/)
+})

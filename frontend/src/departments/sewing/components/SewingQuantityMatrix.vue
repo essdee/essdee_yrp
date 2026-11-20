@@ -79,4 +79,5 @@ tfoot th, tfoot td { background: color-mix(in srgb, var(--erp-accent) 8%, var(--
 .sewing-quantity-matrix__part { min-width: 90px; vertical-align: middle; }
 .sewing-quantity-matrix__part-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--erp-accent-soft); color: var(--erp-text); font-weight: 700; font-size: 12px; white-space: nowrap; }
 td strong { display: block; text-align: right; font-variant-numeric: tabular-nums; color: var(--erp-text); }
+@media (max-width: 640px) { input { min-height: 40px; font-size: 16px; } th, td { padding: 8px; } }
 </style>

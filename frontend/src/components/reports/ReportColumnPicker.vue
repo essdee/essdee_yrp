@@ -532,6 +532,28 @@ function matchesSearch(field, search) {
 		height: 22rem;
 	}
 }
+
+@media (max-width: 640px) {
+	.report-column-editor {
+		min-height: 0;
+		gap: var(--erp-space-2);
+	}
+
+	.report-column-picker,
+	.report-column-order {
+		padding: var(--erp-space-2);
+	}
+
+	.report-column-picker > header,
+	.report-column-order > header {
+		flex-wrap: wrap;
+	}
+
+	.report-column-picker__list,
+	.report-column-order__list {
+		height: 16rem;
+	}
+}
 @media (pointer: coarse) {
 	.report-column-option {
 		min-height: 44px;

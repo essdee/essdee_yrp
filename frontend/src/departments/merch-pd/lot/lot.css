@@ -704,7 +704,7 @@
 	}
 }
 
-@media (max-width: 650px) {
+@media (max-width: 640px) {
 	.purchase-lot-frame {
 		margin-bottom: 0;
 		padding: 0;
@@ -738,7 +738,7 @@
 	}
 }
 
-@media (max-width: 620px) {
+@media (max-width: 640px) {
 	.lot-documents-rail {
 		grid-template-columns: 1fr;
 	}
@@ -796,7 +796,7 @@
 .lot-order-composer .p-button { justify-self: start; }
 .lot-table .p-inputnumber { width: 100%; min-width: 90px; }
 .lot-table .p-inputnumber-input { width: 100%; min-width: 0; text-align: right; }
-@media (max-width: 620px) { .lot-composer-attributes, .lot-composer-values { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .lot-composer-attributes, .lot-composer-values { grid-template-columns: 1fr; } }
 
 @media (max-width: 899px) {
  .purchase-lot-frame .lot-editor-actions .document-action-strip__secondary--1 { display: inline-flex; }
@@ -840,3 +840,21 @@
 .lot-facts dd { overflow: hidden; margin: 0; color: var(--erp-text); font-size: var(--erp-font-size-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 /* No rowspan: equal cell counts per row keep v-entry-table's up/down arrows in the same size column. */
 .lot-order-quantities tbody tr:not(:last-child) .lot-order-quantities__lead { border-bottom-color: transparent; }
+
+@media (max-width: 640px) {
+	.lot-tabs .p-tab { min-height: 44px; padding-inline: 10px; }
+	.lot-section > header { flex-wrap: wrap; gap: 6px 10px; padding: 9px 10px; }
+	.lot-section__body, .lot-collapsible__body { gap: var(--erp-space-2); padding: var(--erp-space-2); }
+	.lot-collapsible > header { padding-right: 10px; }
+	.lot-collapsible__toggle { min-height: 44px; padding: 8px 10px; }
+	.lot-group__header { padding: 7px 8px; }
+	.lot-table-wrap { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+	.lot-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.lot-edit-fact { padding: 6px 8px; }
+	.lot-facts dd, .lot-edit-fact strong { white-space: normal; overflow-wrap: anywhere; }
+	.lot-documents-rail { padding: 0; }
+	.lot-documents-card, .lot-documents-card:hover { padding: 10px 32px 10px 10px; }
+	.lot-document-detail-grid strong { white-space: normal; overflow-wrap: anywhere; }
+	.lot-order-composer .p-button { justify-self: stretch; }
+	:is(.purchase-lot-frame, .lot-document-dialog, .merch-cloth-dialog, .cloth-program-dialog) :is(input.p-inputtext, textarea.p-inputtext) { font-size: 16px; }
+}

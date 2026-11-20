@@ -137,7 +137,7 @@
 	}
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
 	.pd-product-workspace__header {
 		align-items: stretch;
 		flex-direction: column;
@@ -154,6 +154,17 @@
 	.pd-product-workspace__edit-actions > * {
 		min-width: 0;
 		flex: 1 1 auto;
+	}
+}
+
+@media (max-width: 640px) {
+	.pd-product-workspace__title-row h1 {
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	.pd-product-tabs .p-tabpanels {
+		padding-top: var(--erp-space-2);
 	}
 
 	.pd-fields {

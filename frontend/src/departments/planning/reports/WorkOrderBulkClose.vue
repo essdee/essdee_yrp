@@ -29,7 +29,7 @@
 				</table>
 			</div>
 		</ReportShell>
-		<Dialog v-model:visible="detailsVisible" modal :header="`Pending Items — ${detailName}`" class="erp-dialog--xl">
+		<Dialog v-model:visible="detailsVisible" modal :header="`Pending Items — ${detailName}`" :breakpoints="{ '640px': '95vw' }" class="erp-dialog--xl">
 			<Skeleton v-if="detailsLoading" height="12rem" />
 			<WorkspaceLoadError v-else-if="detailsError" :message="detailsError" @retry="viewDetails(detailName)" />
 			<div v-else-if="details" class="bulk-close-details">
@@ -48,7 +48,7 @@
 				</section>
 			</div>
 		</Dialog>
-		<Dialog v-model:visible="closeVisible" modal header="Close Selected Work Orders" class="erp-dialog--sm" :closable="!busy" :dismissable-mask="false">
+		<Dialog v-model:visible="closeVisible" modal header="Close Selected Work Orders" :breakpoints="{ '640px': '95vw' }" class="erp-dialog--sm" :closable="!busy" :dismissable-mask="false">
 			<div class="bulk-close-details">
 				<p>{{ closeNames.join(', ') }}</p>
 				<label class="common-field"><span class="erp-field-label">Close Reason</span><Select v-model="closeValues.close_reason" :options="CLOSE_REASONS" aria-label="Close Reason" :disabled="busy" fluid /></label>
@@ -60,7 +60,7 @@
 		</Dialog>
 		<DocumentConfirmationDialog v-model:visible="confirmVisible" title="Confirm Work Order close" :message="`Close ${closeNames.join(', ')} now? Leftover stock is written off; no Close Request is created.`" confirm-label="Close Selected" cancel-label="Keep reviewing" :busy="busy" @confirm="confirmClose" />
 		<DocumentErrorDialog :message="actionError" @dismiss="actionError = ''" />
-		<Dialog v-model:visible="outcomeVisible" modal header="Bulk Close Result" class="erp-dialog--md">
+		<Dialog v-model:visible="outcomeVisible" modal header="Bulk Close Result" :breakpoints="{ '640px': '95vw' }" class="erp-dialog--md">
 			<div v-if="outcome" class="bulk-close-details" role="alert">
 				<p>{{ outcome.summary }}</p>
 				<p><strong>{{ outcome.failedLabel }}</strong></p>
@@ -243,4 +243,9 @@ onBeforeUnmount(() => { ++listRequest; ++detailRequest })
 .bulk-close-failures { display: grid; gap: var(--erp-space-2); max-height: 50vh; margin: 0; padding-left: var(--erp-space-4); overflow-y: auto; overflow-wrap: anywhere; }
 .finishing-table td.bulk-close-actions { white-space: nowrap; }
 input[type="checkbox"] { accent-color: var(--erp-accent); }
+@media (max-width: 640px) {
+	.bulk-close-scroll { max-height: 65vh; }
+	input[type="checkbox"] { width: 20px; height: 20px; }
+	.finishing-table td.bulk-close-actions :deep(.p-button) { min-height: 40px; }
+}
 </style>

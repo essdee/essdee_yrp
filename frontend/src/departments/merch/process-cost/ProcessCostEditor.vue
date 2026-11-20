@@ -268,5 +268,11 @@ watch(() => [props.processCostId, route.query.lot, route.query.duplicate_from], 
 .process-cost-editor__value { min-height: 38px; display: flex; align-items: center; overflow-wrap: anywhere; }
 .process-cost-editor__error { color: var(--erp-danger); }
 .process-cost-editor__fact { color: var(--erp-text-muted); font-size: var(--erp-font-size-caption); }
-@media (max-width: 650px) { .process-cost-editor__fields { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+	.process-cost-editor__fields { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+	.process-cost-editor__header { margin-bottom: 12px; }
+	.process-cost-editor__header h1 { min-width: 0; }
+	.process-cost-editor__card { padding: 12px; }
+	.process-cost-editor__card h2 { margin-bottom: 12px; }
+}
 </style>

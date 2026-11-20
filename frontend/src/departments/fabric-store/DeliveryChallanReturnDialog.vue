@@ -138,7 +138,7 @@ function clone(value) { return JSON.parse(JSON.stringify(value || [])) }
 .dc-return-available { color: var(--erp-accent-dark); font-weight: 800; }
 .dc-return-empty { display: grid; min-height: 140px; place-items: center; align-content: center; gap: 7px; color: var(--erp-text-muted); }
 .dc-return-footer { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--erp-space-3); }
-@media (max-width: 560px) { .dc-return-context { grid-template-columns: 1fr; } .dc-return-footer { align-items: stretch; flex-direction: column; } }
+@media (max-width: 640px) { .dc-return-context { grid-template-columns: 1fr; } .dc-return-footer { align-items: stretch; flex-direction: column; } }
 @media (max-width: 1024px), (pointer: coarse) { .dc-return-table :deep(.p-inputnumber-input) { height: 44px; min-height: 44px; } }
 .dc-return-footer-total th, .dc-return-footer-total td { color: var(--erp-text); font-weight: 800; text-align: left; background: var(--erp-surface-muted); border-top: 1px solid var(--erp-border-strong); }
 .dc-return-footer-total td.erp-number { text-align: right; font-variant-numeric: tabular-nums; }

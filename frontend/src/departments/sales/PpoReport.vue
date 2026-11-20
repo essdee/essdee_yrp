@@ -318,8 +318,15 @@ useReportQueryPrefill(filters, ["items"], generate)
 .ppo-report__summary-status > td { padding: 11px 12px; color: var(--erp-text-muted); background: #f8fbfa; text-align: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-@media (max-width: 800px) {
+@media (max-width: 900px) {
 	.ppo-report__toolbar { align-items: stretch; flex-direction: column; }
 	.ppo-report__controls { justify-content: flex-start; }
+}
+@media (max-width: 640px) {
+	.ppo-report__column-toggle { min-height: 40px; }
+	.ppo-report__matrix-wrap { max-height: 70dvh; }
+	.ppo-report__matrix th, .ppo-report__matrix td { padding: 7px 8px; }
+	.ppo-report__item { min-width: 150px !important; }
+	.ppo-report__transfer, .ppo-report__comments { min-width: 160px !important; }
 }
 </style>

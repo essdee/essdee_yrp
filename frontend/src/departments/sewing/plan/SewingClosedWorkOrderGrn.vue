@@ -109,5 +109,5 @@ p { margin: 5px 0 0; }
 .sewing-closed-grn__context { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-block: 16px 6px; font-size: var(--erp-font-size-caption); overflow-wrap: anywhere; }
 .sewing-closed-grn__actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: flex-end; padding-block: 6px 14px; }
 .p-message { margin-bottom: 12px; }
-@media (max-width: 600px) { .sewing-closed-grn__toolbar { align-items: stretch; flex-direction: column; } .sewing-closed-grn__toolbar > .p-button { align-self: flex-start; } }
+@media (max-width: 640px) { .sewing-closed-grn__toolbar { align-items: stretch; flex-direction: column; } .sewing-closed-grn__toolbar > .p-button { align-self: flex-start; } }
 </style>

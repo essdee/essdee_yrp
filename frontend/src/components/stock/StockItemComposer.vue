@@ -1077,11 +1077,55 @@ function clone(value) { return value === undefined ? {} : JSON.parse(JSON.string
 	}
 }
 
-@media (max-width: 620px) {
+@media (max-width: 640px) {
 	.stock-composer__fields,
 	.stock-composer__attribute-grid,
 	.stock-composer__item-strip {
 		grid-template-columns: 1fr;
+	}
+
+	.stock-composer__fields {
+		padding: 10px;
+	}
+
+	.stock-composer__attributes {
+		padding: 0 10px 10px;
+	}
+
+	.stock-composer__item-strip > div {
+		border-right: 0;
+		border-bottom: 1px solid var(--erp-border);
+	}
+
+	.stock-composer__item-strip > div:last-child {
+		border-bottom: 0;
+	}
+
+	.stock-composer__item-strip strong {
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	.stock-composer input[type="number"],
+	.stock-composer__remarks textarea {
+		font-size: 16px;
+	}
+
+	.stock-composer input[type="number"] {
+		height: 40px;
+	}
+
+	.stock-composer__actions button {
+		width: 40px;
+		height: 40px;
+	}
+
+	.stock-composer__tables {
+		padding: 8px;
+	}
+
+	.stock-composer__empty {
+		padding: 20px 14px;
 	}
 
 	.stock-composer__builder-footer,

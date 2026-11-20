@@ -43,5 +43,5 @@ const emit = defineEmits(["save"])
 .lotwise-workspace__identity span { overflow: hidden; color: var(--erp-text-muted); font-size: var(--erp-font-size-min); font-weight: 720; letter-spacing: 0.04em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .lotwise-workspace__identity h1 { margin: 0; overflow: hidden; color: var(--erp-text); font-size: var(--erp-font-size-title); font-weight: 780; letter-spacing: -0.025em; text-overflow: ellipsis; white-space: nowrap; }
 .lotwise-workspace__header-actions { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
-@media (max-width: 620px) { .lotwise-workspace__header { align-items: stretch; flex-direction: column; padding: var(--erp-space-3); } .lotwise-workspace__header-actions { align-items: stretch; flex-direction: column; } .lotwise-workspace__header-actions > * { width: 100%; } }
+@media (max-width: 640px) { .lotwise-workspace__header { align-items: stretch; flex-direction: column; padding: var(--erp-space-3); } .lotwise-workspace__header-actions { align-items: stretch; flex-direction: column; } .lotwise-workspace__header-actions > * { width: 100%; } }
 </style>

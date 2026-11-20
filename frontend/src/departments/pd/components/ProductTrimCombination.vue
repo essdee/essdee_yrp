@@ -264,6 +264,7 @@ async function handleCreated(name) {
 .product-trim-combination__result-caption strong, .product-trim-combination__result-caption small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .product-trim-combination__result-caption strong { font-size: var(--erp-font-size-caption); }
 .product-trim-combination__result-caption small { color: var(--erp-text-muted); font-size: var(--erp-font-size-min); }
-@media (max-width: 880px) { .product-trim-combination__grid { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .product-trim-card__colour-grid, .product-trim-combination__results { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .product-trim-combination__grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .product-trim-card__colour-grid, .product-trim-combination__results { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .pd-media-panel { padding: var(--erp-space-3); } }
 </style>

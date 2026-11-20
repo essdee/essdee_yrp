@@ -54,4 +54,5 @@ defineEmits(["select"])
 	.planner-plan-workspace__result { min-height: auto; overflow: visible; }
 	.planner-plan-workspace__strategies { min-height: 0; max-height: none; overflow-y: visible; border-right: 0; border-bottom: 1px solid var(--erp-border); }
 }
+@media (max-width: 640px) { .planner-plan-workspace__strategies > header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

@@ -117,6 +117,7 @@ h3 { margin: 0; color: var(--erp-text); font-size: 15px; font-weight: 720; lette
 .sewing-pending__quantities { justify-content: flex-end; font-variant-numeric: tabular-nums; }
 .sewing-pending__meta--strong { color: var(--erp-text); font-weight: 700; }
 .sewing-pending__row :deep(.sewing-report-matrix) { border-top-left-radius: 0; border-top-right-radius: 0; }
+@media (max-width: 640px) { .sewing-pending__summary { gap: var(--erp-space-2); } .sewing-pending__card { padding: var(--erp-space-2) var(--erp-space-3); } .sewing-pending__card strong { font-size: 1.1rem; } }
 @media (max-width: 900px) { .sewing-pending__filters { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .sewing-pending__toolbar { align-items: stretch; flex-direction: column; } .sewing-pending__toolbar > .p-button { align-self: flex-start; } .sewing-pending__filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sewing-pending__row-heading { align-items: flex-start; flex-wrap: wrap; } .sewing-pending__quantities { justify-content: flex-start; } }
 </style>

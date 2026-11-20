@@ -39,4 +39,8 @@ const requestLabel = computed(() => ({ status: "Status change", quantity_ratio: 
 .ppo-pending table { width: 100%; border-collapse: collapse; font-size: var(--erp-font-size-caption); }
 .ppo-pending th, .ppo-pending td { padding: 8px; text-align: left; border: 1px solid var(--erp-border); }
 .ppo-pending th { color: var(--erp-text); background: var(--erp-surface-soft); }
+@media (max-width: 640px) {
+	.ppo-pending dl { grid-template-columns: 1fr; gap: 2px; }
+	.ppo-pending dd { margin-bottom: 6px; }
+}
 </style>

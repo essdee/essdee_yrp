@@ -141,4 +141,5 @@ function clone(value) { return JSON.parse(JSON.stringify(value || [])) }
 .grn-calculate-panel footer { padding: 0 var(--erp-space-3) var(--erp-space-3); justify-content: flex-end; }
 @media (max-width: 620px) { .grn-calculate-panel__toolbar { align-items: stretch; flex-direction: column; } .grn-calculate-panel__selection-actions { justify-content: flex-start; } }
 @media (max-width: 1024px), (pointer: coarse) { .grn-calculate-panel :deep(.p-button) { min-width: 44px; min-height: 44px; } .grn-calculate-panel__quantity :deep(.p-inputnumber-input) { height: 44px; min-height: 44px; } }
+@media (max-width: 640px) { .grn-calculate-panel__header { flex-wrap: wrap; gap: 6px 10px; } }
 </style>

@@ -152,8 +152,8 @@ function documentChanged() { listView.value?.refresh?.(true) }
 	.stock-operation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 640px) {
 	.stock-operation-grid { gap: 7px; }
-	.stock-operation-card { min-height: 44px; padding: 0 9px; font-size: 0.72rem; line-height: 1.15; }
+	.stock-operation-card { min-height: 44px; padding: 0 9px; font-size: var(--erp-font-size-caption); line-height: 1.15; }
 }
 </style>

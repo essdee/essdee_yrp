@@ -725,4 +725,5 @@ const RecutTable = defineComponent({
 	}
 
 }
+@media (max-width: 640px) { .cutting-tabs :deep(.section-heading) { flex-wrap: wrap; gap: 6px 10px; padding: 8px 10px; } .cutting-tabs :deep(.section-body) { padding: 8px; } }
 </style>

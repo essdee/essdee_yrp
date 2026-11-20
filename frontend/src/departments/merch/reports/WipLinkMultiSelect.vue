@@ -109,4 +109,8 @@ function move(index) {
 .wip-links__all li { display: flex; align-items: center; gap: 5px; padding: 4px 0; border-bottom: 1px solid var(--erp-border); }
 .wip-links__full-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .wip-links__all :deep(.p-button) { flex-shrink: 0; }
+@media (max-width: 640px) {
+	.wip-links__chip button, .wip-links__measure-control { flex-basis: 36px; width: 36px; min-height: 36px; }
+	.wip-links__summary button { min-height: 36px; }
+}
 </style>
