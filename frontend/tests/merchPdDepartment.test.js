@@ -19,7 +19,7 @@ import { canOpenList, NO_PERMISSION_PATH } from "../src/router/listPermission.js
 import { webDocumentPath } from "../src/router/webDocumentRoutes.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const layout = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.experience_key === "merch-pd")
+const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "merch-pd")
 const workspaces = JSON.parse(layout.config).experience_props.workspaces
 const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "merch-pd" }, config: { experience_props: { workspaces } } } })
 const items = merchPdLauncherItems()
@@ -93,7 +93,7 @@ test("cards for unreadable DocTypes are hidden", () => {
 
 test("PD opens the LaySheet Planner list, editor and records inside PD", () => {
 	const router = loadRouter()
-	const pdWorkspaces = JSON.parse(JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.experience_key === "pd").config).experience_props.workspaces
+	const pdWorkspaces = JSON.parse(JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "pd").config).experience_props.workspaces
 	const pdLocked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "pd" }, config: { experience_props: { workspaces: pdWorkspaces } } } })
 	const card = pdLauncherItems().find((item) => item.key === "lay_sheet_planner")
 	assert.deepEqual([card.label, card.to], ["LaySheet Planner", "/pd/lay-sheet-planner"])

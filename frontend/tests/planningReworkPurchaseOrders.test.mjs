@@ -53,7 +53,7 @@ test("Planning reuses the Finishing Rework Details page and the store Purchase O
 })
 
 test("the Production Planner layout opens Rework Details and Purchase Order", () => {
-	const layout = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
+	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
 	const workspaces = JSON.parse(layout.config).experience_props.workspaces
 	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
 	for (const [key, path] of Object.entries(PATHS)) {
@@ -66,6 +66,6 @@ test("the Production Planner layout opens Rework Details and Purchase Order", ()
 test("Finishing no longer offers Rework Grouped Details", () => {
 	assert.doesNotMatch(source("../src/departments/Finishing.vue"), /rework_groups|Rework Grouped Details/)
 	assert.equal(loadRouter().resolve("/finishing/rework-groups").name, undefined)
-	const finishing = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.name === "Finishing")
+	const finishing = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Finishing")
 	assert.ok(!JSON.parse(finishing.config).experience_props.workspaces.includes("rework_groups"))
 })

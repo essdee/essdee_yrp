@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router"
 
 import { departments } from "../departments/registry.js"
-import { getLockedRedirect, LAYOUT_UNAVAILABLE_PATH } from "./departmentLock.js"
+import { getLockedRedirect, getWorkspaceHomeRedirect, LAYOUT_UNAVAILABLE_PATH } from "./departmentLock.js"
+import { getBuilderRedirect } from "../departments/workspace/builderAccess.js"
 import { getPermissionRedirect, NO_PERMISSION_PATH } from "./listPermission.js"
 import { isChunkLoadError, reloadChunkTarget } from "./chunkReload.js"
 import { PD_ROUTES } from "../departments/pd/pdRoutes.js"
@@ -14,6 +15,8 @@ import { MERCH_PURCHASE_ROUTES } from "../departments/merch-purchase/merchPurcha
 import { QUALITY_ROUTES } from "../departments/quality/qualityRoutes.js"
 
 const AdministratorPage = () => import("../components/AdministratorPage.vue")
+const ConfiguredWorkspace = () => import("../departments/workspace/ConfiguredWorkspace.vue")
+const LayoutBuilder = () => import("../departments/workspace/LayoutBuilder.vue")
 const DocumentUnavailable = () => import("../components/documents/DocumentUnavailable.vue")
 const CuttingPlan = () => import("../departments/CuttingPlan.vue")
 const CuttingPlanEditorPage = () => import("../departments/CuttingPlanEditorPage.vue")
@@ -177,6 +180,8 @@ const routes = [
 		name: "administrator",
 		component: AdministratorPage,
 	},
+	{ path: "/workspace", name: "workspace", component: ConfiguredWorkspace, beforeEnter: () => getWorkspaceHomeRedirect() },
+	{ path: "/layout-builder", name: "layout-builder", component: LayoutBuilder, beforeEnter: () => getBuilderRedirect() },
 	...departments.map((department) => ({
 		path: department.path,
 		name: department.key,

@@ -37,7 +37,7 @@ test("Planning shows an Action Master card after Time and Action Update, gated b
 })
 
 test("Planning UI layout lists the Action Master workspace", () => {
-	const layouts = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json"))
+	const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 	const planning = layouts.find((layout) => layout.experience_key === "planning")
 	assert.ok(JSON.parse(planning.config).experience_props.workspaces.includes("action_masters"))
 })
@@ -114,7 +114,7 @@ test("Planning shows an Action Master Template card after Action Master, also in
 	const keys = PLANNING_WORKSPACES.map((item) => item.key)
 	assert.equal(keys.indexOf("action_master_templates"), keys.indexOf("action_masters") + 1)
 	assert.deepEqual(visiblePlanningWorkspaces({ action_master_templates: { can_read: true } }).map((item) => item.to), ["/planning/action-master-templates"])
-	const planning = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((layout) => layout.experience_key === "planning")
+	const planning = JSON.parse(source("./data/yrp_ui_layout.json")).find((layout) => layout.experience_key === "planning")
 	assert.ok(JSON.parse(planning.config).experience_props.workspaces.includes("action_master_templates"))
 })
 

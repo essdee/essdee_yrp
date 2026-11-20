@@ -21,7 +21,7 @@ import { canOpenList, getPermissionRedirect, NO_PERMISSION_PATH } from "../src/r
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
 const PATH = "/purchase/excel-sticker-prints"
 const DOCTYPE = "YRP Excel Sticker Print"
-const layouts = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json"))
+const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 const lockedFor = (key) => {
 	const workspaces = JSON.parse(layouts.find((row) => row.experience_key === key).config).experience_props.workspaces
 	return getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: key }, config: { experience_props: { workspaces } } } })

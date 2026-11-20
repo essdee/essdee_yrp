@@ -31,7 +31,7 @@ test("Merch and Merch & Purchase show one LaySheet Grammage Approval card, gated
 })
 
 test("the Merch and Merch & Purchase layouts open the card", () => {
-	const layouts = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json"))
+	const layouts = JSON.parse(source("./data/yrp_ui_layout.json"))
 	for (const experienceKey of ["merch", "merch-purchase"]) {
 		const workspaces = JSON.parse(layouts.find((layout) => layout.experience_key === experienceKey).config).experience_props.workspaces
 		assert.ok(workspaces.includes(KEY), experienceKey)

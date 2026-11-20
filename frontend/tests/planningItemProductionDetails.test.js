@@ -57,7 +57,7 @@ test("Planning IPD list, new, view and edit routes reuse the Merch IPD pages wit
 })
 
 test("the Production Planner layout opens Item Production Detail and the list needs IPD read", () => {
-	const layout = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
+	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
 	const workspaces = JSON.parse(layout.config).experience_props.workspaces
 	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
 	assert.ok(workspaces.includes("item_production_details"))

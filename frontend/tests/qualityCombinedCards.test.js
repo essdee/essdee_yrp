@@ -17,7 +17,7 @@ import { QUALITY_ROUTES } from "../src/departments/quality/qualityRoutes.js"
 import { getLockedDepartment, getLockedRedirect, isWorkspaceInLayout, LAYOUT_UNAVAILABLE_PATH } from "../src/router/departmentLock.js"
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8")
-const layout = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.experience_key === "quality")
+const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.experience_key === "quality")
 const workspaces = JSON.parse(layout.config).experience_props.workspaces
 const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "quality" }, config: { experience_props: { workspaces } } } })
 const items = qualityLauncherItems()

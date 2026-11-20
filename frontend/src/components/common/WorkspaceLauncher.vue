@@ -30,21 +30,26 @@
 				<Skeleton height="124px" border-radius="14px" />
 			</div>
 		</div>
-		<div v-else-if="visibleItems.length" class="workspace-launcher__grid">
-			<RouterLink
-				v-for="item in shownItems"
-				:key="item.key"
-				class="workspace-launcher__card erp-card"
-				:to="item.to"
-			>
-				<span class="workspace-launcher__icon"><i :class="item.icon" aria-hidden="true" /></span>
-				<span class="workspace-launcher__body">
-					<strong>{{ item.label }}</strong>
-					<small>{{ item.description }}</small>
-				</span>
-				<i class="pi pi-arrow-right workspace-launcher__arrow" aria-hidden="true" />
-			</RouterLink>
-		</div>
+		<template v-else-if="shownSections.length">
+			<section v-for="(section, index) in shownSections" :key="index" class="workspace-launcher__section" :aria-label="section.label || undefined">
+				<h2 v-if="section.label" class="workspace-launcher__section-title">{{ section.label }}</h2>
+				<div class="workspace-launcher__grid">
+					<RouterLink
+						v-for="item in section.items"
+						:key="item.key"
+						class="workspace-launcher__card erp-card"
+						:to="item.to"
+					>
+						<span class="workspace-launcher__icon"><i :class="item.icon" aria-hidden="true" /></span>
+						<span class="workspace-launcher__body">
+							<strong>{{ item.label }}</strong>
+							<small>{{ item.description }}</small>
+						</span>
+						<i class="pi pi-arrow-right workspace-launcher__arrow" aria-hidden="true" />
+					</RouterLink>
+				</div>
+			</section>
+		</template>
 		<div v-else class="workspace-launcher__empty erp-card">
 			<i class="pi pi-lock" aria-hidden="true" />
 			<strong>{{ emptyText }}</strong>
@@ -73,12 +78,18 @@ const props = defineProps({
 	eyebrow: { type: String, default: "Department workspace" },
 	reports: { type: Array, default: () => [] },
 	reportQueryKey: { type: String, default: "report" },
+	/** Titled card groups `[{ label, items }]` drawn instead of `items`. */
+	sections: { type: Array, default: () => [] },
 })
 const selectedCardKey = ref("")
 const reportCards = inject(workspaceCardsSinkKey, null)
 
-const visibleItems = computed(() => props.items.filter((item) => isWorkspaceInLayout(item) && canOpenList(item.to)))
-const shownItems = computed(() => visibleWorkspaceCards(visibleItems.value, selectedCardKey.value))
+const isVisible = (item) => isWorkspaceInLayout(item) && canOpenList(item.to)
+const visibleItems = computed(() => props.items.filter(isVisible))
+const shownSections = computed(() => {
+	if (props.sections.length) return props.sections.map((section) => ({ label: section.label, items: section.items.filter(isVisible) })).filter((section) => section.items.length)
+	return visibleItems.value.length ? [{ label: "", items: visibleWorkspaceCards(visibleItems.value, selectedCardKey.value) }] : []
+})
 const reportsCard = computed(() => visibleItems.value.find((item) => item.key === "reports"))
 const searchReports = computed(() => reportsCard.value ? props.reports : [])
 if (reportCards) watchEffect(() => reportCards(props.loading ? [] : visibleItems.value))
@@ -121,6 +132,17 @@ const headingId = computed(() => `${props.title.toLowerCase().replace(/[^a-z0-9]
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: var(--erp-density-gap);
+}
+
+.workspace-launcher__section + .workspace-launcher__section {
+	margin-top: var(--erp-space-5);
+}
+
+.workspace-launcher__section-title {
+	margin: 0 0 var(--erp-space-3);
+	color: var(--erp-text);
+	font-size: var(--erp-font-size-section);
+	font-weight: var(--erp-font-weight-semibold);
 }
 
 .workspace-launcher__skeleton {

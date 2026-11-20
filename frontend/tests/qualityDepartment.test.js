@@ -47,7 +47,7 @@ test("Quality registry follows Finishing and automatically feeds the landing car
 		sections: { lots: "lots", inspections: "inspections", work_orders: "work-orders", delivery_challans: "delivery-challans", goods_received_notes: "goods-received-notes", reports: "reports" },
 	})
 	assert.match(read("components/AdministratorPage.vue"), /v-for="department in visibleDepartments"/)
-	assert.match(String(departments[index].component), /Quality.vue/)
+	assert.match(read("departments/registry.js"), /component: landing\("quality", \(\) => import\("\.\/Quality\.vue"\)\)/)
 })
 
 test("actual router resolves the Quality launcher, list, create, edit and view", () => {

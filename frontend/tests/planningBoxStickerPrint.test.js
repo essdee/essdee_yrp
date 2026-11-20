@@ -41,7 +41,7 @@ test("Planning shows the shared Box Sticker Print section under its own path", (
 })
 
 test("the Production Planner layout opens Box Sticker Print and the list needs its read permission", () => {
-	const layout = JSON.parse(source("../../essdee_yrp/fixtures/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
+	const layout = JSON.parse(source("./data/yrp_ui_layout.json")).find((row) => row.name === "Production Planner")
 	const workspaces = JSON.parse(layout.config).experience_props.workspaces
 	const locked = getLockedDepartment({ ui_config: { meta: { render_mode: "Registered Experience", experience_key: "planning" }, config: { experience_props: { workspaces } } } })
 	assert.ok(workspaces.includes("box_stickers"))

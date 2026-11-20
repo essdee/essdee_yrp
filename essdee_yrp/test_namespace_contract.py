@@ -5,17 +5,18 @@ from __future__ import annotations
 import ast
 import json
 import re
-import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from essdee_yrp import hooks, web_build
+from essdee_yrp import hooks
 from essdee_yrp.patches import prefix_owned_doctypes_and_reports
+from essdee_yrp.web_workspace_layout import WORKSPACE_EXPERIENCE
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 YRP_PACKAGE_ROOT = PACKAGE_ROOT.parents[1] / "yrp" / "yrp"
+LAYOUT_SNAPSHOT = PACKAGE_ROOT.parent / "frontend" / "tests" / "data" / "yrp_ui_layout.json"
 OWNED_MODULES = {"Essdee YRP"}
 YRP_MODULES = {"YRP", "YRP Stock"}
 PREFIX = "SD YRP "
@@ -233,11 +234,6 @@ class TestNamespaceContract(unittest.TestCase):
 			{row["name"] for row in property_setters},
 		)
 
-		layouts = _load_json(PACKAGE_ROOT / "fixtures" / "yrp_ui_layout.json")
-		layout_doctypes = {row["doctype"] for row in layouts}
-		self.assertEqual(layout_doctypes, {"YRP UI Layout"})
-		self.assertEqual(_fixture_definition("YRP UI Layout")["dt"], "YRP UI Layout")
-
 	def test_embedded_layout_configs_use_namespaced_doctype_identities(self):
 		final_names = {name for _path, _data, name in _owned_metadata("DocType")}
 		final_names.update(name for _path, _data, name in _metadata(YRP_PACKAGE_ROOT, YRP_MODULES, "DocType"))
@@ -246,7 +242,7 @@ class TestNamespaceContract(unittest.TestCase):
 			for name in final_names
 		}
 
-		layouts = _load_json(PACKAGE_ROOT / "fixtures" / "yrp_ui_layout.json")
+		layouts = _load_json(LAYOUT_SNAPSHOT)
 		for row in layouts:
 			config = json.loads(row["config"])
 			for identity in _layout_identity_values(config):
@@ -257,15 +253,16 @@ class TestNamespaceContract(unittest.TestCase):
 		departments = PACKAGE_ROOT.parent / "frontend" / "src" / "departments"
 		registry = (departments / "registry.js").read_text()
 		department_keys = set(re.findall(r'^\t\tkey: "([a-z-]+)"', registry, re.MULTILINE))
-		self.assertLessEqual(set(hooks.yrp_registered_experiences), department_keys)
+		department_experiences = set(hooks.yrp_registered_experiences) - {WORKSPACE_EXPERIENCE}
+		self.assertLessEqual(department_experiences, department_keys)
 		sources = [*departments.rglob("*.js"), *departments.rglob("*.vue")]
 		launcher_sources = "".join(path.read_text() for path in sources)
 		launcher_keys = set(re.findall(r'key: "([a-z_-]+)"', launcher_sources))
 
-		layouts = _load_json(PACKAGE_ROOT / "fixtures" / "yrp_ui_layout.json")
+		layouts = _load_json(LAYOUT_SNAPSHOT)
 		experiences = [row for row in layouts if row["render_mode"] == "Registered Experience"]
 		experience_keys = [row["experience_key"] for row in experiences]
-		self.assertCountEqual(experience_keys, set(hooks.yrp_registered_experiences))
+		self.assertCountEqual(experience_keys, department_experiences)
 		self.assertEqual(
 			next(row["name"] for row in experiences if row["experience_key"] == "planning"),
 			"Production Planner",
@@ -277,16 +274,6 @@ class TestNamespaceContract(unittest.TestCase):
 				self.assertTrue(props["workspaces"])
 				self.assertEqual(len(props["workspaces"]), len(set(props["workspaces"])))
 				self.assertLessEqual(set(props["workspaces"]), launcher_keys)
-
-	def test_layout_fixture_changes_invalidate_the_web_build_signature(self):
-		with tempfile.TemporaryDirectory() as directory:
-			fixture = Path(directory) / "ui_layout.json"
-			fixture.write_text('[{"name": "First"}]')
-			with patch.object(web_build, "_DEFAULT_LAYOUT_FIXTURE", str(fixture)):
-				before = web_build._source_signature()
-				fixture.write_text('[{"name": "Second"}]')
-				after = web_build._source_signature()
-		self.assertNotEqual(before, after)
 
 
 if __name__ == "__main__":
