@@ -36,6 +36,10 @@ export function getLotWorkspace(name) {
 	return callMethod(`${LOT_METHOD}.get_lot_workspace`, { name })
 }
 
+export function unlinkLotProductionOrder(lot, expectedModified) {
+	return callMethod("essdee_yrp.merch.lot_ppo.unlink_lot_production_order", { lot, expected_modified: expectedModified })
+}
+
 export function getLotFlowContext(lot) {
 	return callRead(`${LOT_METHOD}.get_lot_flow_context`, { lot })
 }

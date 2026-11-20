@@ -8,6 +8,7 @@ from essdee_yrp.api import cloth_program
 from essdee_yrp.cloth_program_access import has_cloth_program_role
 from essdee_yrp.essdee_yrp.doctype.sd_yrp_lot import sd_yrp_lot
 from essdee_yrp.garment_bom_matrix import is_on_demand_garment_ipd
+from essdee_yrp.merch import lot_ppo
 from essdee_yrp.merch.lot_process_data import LotFlowData
 from essdee_yrp.purchase import lot_editor, lot_workspace
 from essdee_yrp.web_common import action, assert_expected_modified, parse_mapping, permission_flags
@@ -23,6 +24,7 @@ COMMAND_LABELS = {
 	"change_ppo": "Change PPO",
 	"update_bom_additional_items": "Edit BOM Additional Items",
 }
+COMMANDS = (*COMMAND_LABELS, "unlink_ppo")
 BOX_LABELS = {"qty": "Qty", "ratio": "Ratio", "mrp": "MRP"}
 
 
@@ -98,6 +100,11 @@ def get_lot_capabilities(doc):
 			**action(visible and not blocks[command], _(label), blocks[command]),
 			"visible": visible,
 		}
+	capabilities["unlink_ppo"] = (
+		lot_ppo.get_unlink_ppo_capability(doc)
+		if can_write
+		else {**action(False, _("Unlink PPO"), _("Write permission required.")), "visible": False}
+	)
 	return capabilities
 
 
@@ -302,6 +309,8 @@ def run_lot_command(doc, command, payload, expected_modified):
 		return sd_yrp_lot.update_order_details(doc.name)
 	if command == "change_ppo":
 		return change_ppo(doc, payload.get("production_order"))
+	if command == "unlink_ppo":
+		return lot_ppo.unlink_ppo(doc)
 	return update_bom_additional_items(doc, payload.get("rows"))
 
 
@@ -321,7 +330,7 @@ def execute_merch_lot_command(name: str, command: str, payload=None, expected_mo
 	doc.check_permission("write")
 	assert_expected_modified(doc, expected_modified)
 	capability = get_lot_capabilities(doc).get(command)
-	if command not in COMMAND_LABELS or not capability or not capability["allowed"]:
+	if command not in COMMANDS or not capability or not capability["allowed"]:
 		frappe.throw(_("This Lot action is not permitted."), frappe.PermissionError)
 	run_lot_command(doc, command, parse_mapping(payload or {}, _("Lot command")), expected_modified)
 	return get_merch_lot_workspace(name)

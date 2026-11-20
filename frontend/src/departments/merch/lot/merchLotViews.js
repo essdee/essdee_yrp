@@ -3,6 +3,7 @@ const ACTION_ICONS = {
 	build_cloth_programs: "pi pi-sitemap",
 	calculate_bom: "pi pi-calculator",
 	change_ppo: "pi pi-link",
+	unlink_ppo: "pi pi-times-circle",
 }
 const COMMAND_SUCCESS = {
 	build_cloth_programs: "Cloth Program built",
@@ -10,6 +11,7 @@ const COMMAND_SUCCESS = {
 	calculate_bom: "BOM calculated",
 	calculate_order_items: "Order Items calculated",
 	change_ppo: "PPO changed",
+	unlink_ppo: "PPO unlinked",
 	update_bom_additional_items: "BOM Additional Items updated",
 }
 export function merchLotCommandSuccess(command, lot) {
@@ -45,13 +47,11 @@ export function merchLotActions(workspace, execute, acting = "") {
 		"build_cloth_programs",
 		"calculate_bom",
 		"change_ppo",
+		"unlink_ppo",
 		"calculate_order_items",
 		"recalculate_cloth_program",
 	]
-		.filter(
-			(key) =>
-				workspace.capabilities?.[key]?.visible ?? workspace.capabilities?.[key]?.allowed,
-		)
+		.filter((key) => workspace.capabilities?.[key]?.allowed && workspace.capabilities[key].visible !== false)
 		.map((key) => {
 			const capability = workspace.capabilities[key]
 			return {
@@ -60,8 +60,7 @@ export function merchLotActions(workspace, execute, acting = "") {
 				icon: ACTION_ICONS[key] || "pi pi-refresh",
 				primary: key === "edit",
 				menuOnly: ["calculate_order_items", "recalculate_cloth_program"].includes(key),
-				disabled: Boolean(acting) || !capability.allowed,
-				disabledReason: capability.reason,
+				disabled: Boolean(acting),
 				loading: acting === key,
 				command: () => execute(key),
 			}

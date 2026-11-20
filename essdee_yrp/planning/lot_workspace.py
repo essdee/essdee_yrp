@@ -3,7 +3,7 @@ from frappe import _
 from yrp.attribute_read_context import attribute_read_scope
 
 from essdee_yrp.fabric_program import fetch_fabric_program_details
-from essdee_yrp.merch import lot_process_flow
+from essdee_yrp.merch import lot_ppo, lot_process_flow
 from essdee_yrp.merch import lot_workspace as merch_lot_workspace
 from essdee_yrp.merch.lot_process_data import LotFlowData
 from essdee_yrp.purchase import lot_documents, lot_editor
@@ -42,11 +42,14 @@ def _require_existing(name):
 @frappe.whitelist()
 def get_lot_workspace(name: str):
 	flow = LotFlowData(name)
+	payload = purchase_lot_workspace.get_lot_workspace(name)
+	can_write = payload.get("permissions", {}).get("can_write")
 	return {
-		**purchase_lot_workspace.get_lot_workspace(name),
+		**payload,
 		"header": merch_lot_workspace.get_record_facts(flow.doc, purchase_lot_workspace.HEADER_FIELDS),
 		"order_pieces": flow.order_pieces(),
 		"plan_access": get_plan_access(),
+		"unlink_ppo": lot_ppo.get_unlink_ppo_capability(flow.doc) if can_write else {"visible": False},
 	}
 
 

@@ -50,6 +50,7 @@ def _cloth_attributes(doc, consumption_context):
 		attributes = [
 			consumption_context["panel_attribute"],
 			consumption_context["packing_attribute"],
+			consumption_context.get("set_item_attribute"),
 		]
 	return _unique(attributes)
 
@@ -60,8 +61,14 @@ def get_cloth_matrix_context(doc):
 	panel_attribute = consumption_context["panel_attribute"]
 	packing_attribute = consumption_context["packing_attribute"]
 	primary_attribute = consumption_context["primary_attribute"]
+	set_item_attribute = consumption_context.get("set_item_attribute")
+	if set_item_attribute not in attributes or panel_attribute not in attributes:
+		# Without the panel the Set Item part is a real row dimension.
+		set_item_attribute = None
 	other_attributes = [
-		attribute for attribute in attributes if attribute not in {panel_attribute, packing_attribute}
+		attribute
+		for attribute in attributes
+		if attribute not in {panel_attribute, packing_attribute, set_item_attribute}
 	]
 	attribute_values = {}
 	for attribute in other_attributes:
@@ -81,6 +88,7 @@ def get_cloth_matrix_context(doc):
 		"panel_attribute": panel_attribute,
 		"packing_attribute": packing_attribute,
 		"other_attributes": other_attributes,
+		"set_item_attribute": set_item_attribute,
 		"attribute_values": attribute_values,
 		"cloth_options": cloth_options,
 		"uses_panel": panel_attribute in attributes,
@@ -279,6 +287,8 @@ def expand_panel_wise_cloth_mapping_matrix(matrix, context):
 					item = {attribute: row_values.get(attribute) for attribute in context["other_attributes"]}
 					if context["uses_panel"]:
 						item[context["panel_attribute"]] = panel
+					if context.get("set_item_attribute"):
+						item[context["set_item_attribute"]] = context["consumption"]["panel_part"][panel]
 					if context["uses_packing"]:
 						item[context["packing_attribute"]] = packing
 					item["Cloth"] = cloth

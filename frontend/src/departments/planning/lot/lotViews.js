@@ -293,3 +293,13 @@ export function conversionView(rows = [], { search = "", process = "", includeUn
 		routes: rows.length,
 	}
 }
+
+export function unlinkPpoAction(workspace, open, acting = "") {
+	const capability = workspace.unlink_ppo
+	if (!capability?.visible || !capability.allowed) return []
+	return [{
+		key: "unlink_ppo", label: capability.label, icon: "pi pi-times-circle",
+		disabled: Boolean(acting),
+		loading: acting === "unlink_ppo", command: open,
+	}]
+}

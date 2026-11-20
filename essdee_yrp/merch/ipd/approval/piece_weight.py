@@ -151,9 +151,12 @@ def matrix_groups(matrix):
 			}
 			for row in group.get("rows") or []
 		]
+		label = group.get("panel_value") or "All panels"
+		part = group.get("part")
 		groups.append(
 			{
-				"label": group.get("panel_value") or "All panels",
+				"label": f"{part} · {label}" if part else label,
+				"part": part,
 				"panels": group.get("panel_values") or [],
 				"rows": rows,
 			}
@@ -185,7 +188,20 @@ def weight_groups(values, panel_wise, panel_attribute, packing_attribute):
 
 
 def get_weight_span(groups):
-	"""Smallest and largest whole-piece weight: panel weights summed per row and column."""
+	"""Smallest and largest whole-piece weight; Set Item matrices report one span per part."""
+	parts = list(dict.fromkeys(group.get("part") for group in groups if group.get("part")))
+	if not parts:
+		return get_total_span(groups)
+	return {
+		"parts": [
+			{"part": part, **(get_total_span([g for g in groups if g.get("part") == part]) or {})}
+			for part in parts
+		]
+	}
+
+
+def get_total_span(groups):
+	"""Panel weights summed per row and column."""
 	totals = {}
 	for group in groups:
 		for row in group["rows"]:

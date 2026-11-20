@@ -7,23 +7,26 @@
 					Consumption per piece
 					<small>{{ progress.complete }} / {{ progress.total }} complete</small>
 				</h3>
-				<div class="ipd-panel-tabs" role="tablist" aria-label="Panel groups">
-					<Button
-						v-for="panel in panels"
-						:key="panel.group_id"
-						role="tab"
-						:aria-selected="panel.group_id === current?.group_id"
-						:label="panel.panel_value"
-						size="small"
-						:outlined="panel.group_id !== current?.group_id"
-						:severity="panel.group_id === current?.group_id ? undefined : 'secondary'"
-						@click="active = panel.group_id"
-					/>
-				</div>
-				<div v-if="!editor.readonly && singletons.length > 1" class="ipd-inline-add">
-					<IpdChoiceChips label="Group panels cut as one" :choices="singletons" :selected="selectedPanels" @toggle="togglePanel" />
-					<Button label="Group selected" icon="pi pi-link" size="small" outlined :disabled="selectedPanels.length < 2" @click="group" />
-				</div>
+				<template v-for="section in partSections" :key="section.part || 'all'">
+					<h4 v-if="section.part" class="ipd-subhead">{{ section.part }}</h4>
+					<div class="ipd-panel-tabs" role="tablist" :aria-label="section.part ? `${section.part} panel groups` : 'Panel groups'">
+						<Button
+							v-for="panel in section.panels"
+							:key="panel.group_id"
+							role="tab"
+							:aria-selected="panel.group_id === current?.group_id"
+							:label="panel.panel_value"
+							size="small"
+							:outlined="panel.group_id !== current?.group_id"
+							:severity="panel.group_id === current?.group_id ? undefined : 'secondary'"
+							@click="active = panel.group_id"
+						/>
+					</div>
+					<div v-if="!editor.readonly && singletonsOf(section).length > 1" class="ipd-inline-add">
+						<IpdChoiceChips :label="section.part ? `Group ${section.part} panels cut as one` : 'Group panels cut as one'" :choices="singletonsOf(section)" :selected="selectedPanels" @toggle="togglePanel" />
+						<Button label="Group selected" icon="pi pi-link" size="small" outlined :disabled="!canGroup(section)" @click="group" />
+					</div>
+				</template>
 				<EntryGrid
 					v-if="current"
 					ref="consumptionGrid" validation-field="panel_wise_consumption_matrix_json"
@@ -88,6 +91,7 @@ import {
 	panelGroupGrid,
 	panelProgress,
 	panelValuesFor,
+	panelsByPart,
 	toggleChoice,
 	ungroupPanel,
 } from "./garmentGrids.js"
@@ -111,7 +115,10 @@ const clothMatrix = computed(() => editor.draft.panel_wise_cloth_mapping_json ||
 const panels = computed(() => matrix.value?.panels || [])
 const clothPanels = computed(() => clothMatrix.value?.panels || [])
 const current = computed(() => panels.value.find((panel) => panel.group_id === active.value) || panels.value[0] || null)
+const partSections = computed(() => panelsByPart(panels.value))
 const singletons = computed(() => panels.value.filter((panel) => panelValuesFor(panel).length === 1).map((panel) => panelValuesFor(panel)[0]))
+const singletonsOf = (section) => section.panels.filter((panel) => panelValuesFor(panel).length === 1).map((panel) => panelValuesFor(panel)[0])
+const canGroup = (section) => selectedPanels.value.length > 1 && selectedPanels.value.every((panel) => singletonsOf(section).includes(panel))
 const diaOptions = computed(() => editor.grids?.panel_wise_consumption?.dia_values || [])
 const grid = computed(() => panelGroupGrid(matrix.value, current.value, { diaOptions: diaOptions.value }))
 const errors = computed(() => panelGroupErrors(editor.gridErrors("panel_wise_consumption_matrix_json"), current.value))
@@ -127,7 +134,10 @@ function updateCloth(groupId, model) {
 	editor.setValue("panel_wise_cloth_mapping_json", panelClothFromModel(clothMatrix.value, groupId, model))
 }
 function togglePanel(panel, on) {
-	selectedPanels.value = toggleChoice(singletons.value, selectedPanels.value, panel, on)
+	// Grouping stays within one part, so picking a panel of another part starts a new selection.
+	const section = partSections.value.find((entry) => singletonsOf(entry).includes(panel))
+	const sameSection = section ? selectedPanels.value.filter((value) => singletonsOf(section).includes(value)) : selectedPanels.value
+	selectedPanels.value = toggleChoice(singletons.value, sameSection, panel, on)
 }
 function restructure(build) {
 	groupError.value = ""

@@ -100,6 +100,20 @@ class TestMarkerPieceWeight(TestCase):
 			get_marker_piece_weight(ipd, ["Sleeve", "Leg"], machine_ratios(["Sleeve", "Leg"], M=1)), 0.325
 		)
 
+	def test_set_item_panel_matrix_rows_use_panel_weights(self):
+		items = [
+			{"Size": "M", "Panel": panel, "Colour": "Navy", "Part": part, "Dia": "26 Dia", "Weight": weight}
+			for panel, part, weight in [
+				("Front", "Top", 0.1),
+				("Sleeve", "Top", 0.02),
+				("Leg", "Bottom", 0.05),
+			]
+		]
+		ipd = make_ipd(["Size", "Panel", "Colour", "Part"], items, is_set_item=1)
+		panels = ["Front", "Sleeve"]
+		self.assertAlmostEqual(get_marker_piece_weight(ipd, panels, machine_ratios(panels, M=1)), 0.14)
+		self.assertAlmostEqual(get_marker_piece_weight(ipd, ["Leg"], machine_ratios(["Leg"], M=1)), 0.1)
+
 	def test_part_weight_full_selection_keeps_stored_weight(self):
 		ipd = make_ipd(["Part"], [{"Part": "Top", "Weight": 0.262}], is_set_item=1)
 		ipd.stiching_item_details = [

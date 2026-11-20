@@ -1,7 +1,7 @@
 from contextlib import ExitStack
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import frappe
 
@@ -175,7 +175,7 @@ class TestLotWorkspace(TestCase):
 			patch.object(planning_workspace.merch_lot_workspace, "get_record_facts", return_value=payload["header"]) as facts,
 		):
 			flow.return_value.order_pieces.return_value = {"total": 0}
-			self.assertEqual(planning_workspace.get_lot_workspace("LOT-1"), {**payload, "order_pieces": {"total": 0}})
+			self.assertEqual(planning_workspace.get_lot_workspace("LOT-1"), {**payload, "order_pieces": {"total": 0}, "plan_access": ANY, "unlink_ppo": {"visible": False}})
 			facts.assert_called_once_with(flow.return_value.doc, workspace.HEADER_FIELDS)
 		get_workspace.assert_called_once_with("LOT-1")
 
