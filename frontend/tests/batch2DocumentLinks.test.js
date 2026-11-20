@@ -130,7 +130,7 @@ function ipdFields(readonly) {
   { fieldname: 'stitching_process', label: 'Process' }, { fieldname: 'primary_item_attribute', label: 'Attribute' },
   { fieldname: 'pack_in_stage', label: 'Stage' }, { fieldname: 'data', label: 'Data', fieldtype: 'Data' },
  ]
- const editor = { readonly, context: { link_names: { fields: { pack_in_stage: { value: 'IAV/1', name: 'IAV/1' } } } }, draft: { copied_from: 'IPD/1', approved_by: 'U', stitching_process: 'Stitching', primary_item_attribute: 'Size', pack_in_stage: 'IAV/1', data: 'Plain' }, fields: Object.fromEntries(fields.slice(0, 5).map((field, index) => [field.fieldname, { fieldtype: 'Link', options: ['YRP Item Production Detail','User','YRP Process','Item Attribute','YRP Item Attribute Value'][index] }])), registerFocus: () => () => {} }
+ const editor = { readonly, canEdit: () => !readonly, context: { link_names: { fields: { pack_in_stage: { value: 'IAV/1', name: 'IAV/1' } } } }, draft: { copied_from: 'IPD/1', approved_by: 'U', stitching_process: 'Stitching', primary_item_attribute: 'Size', pack_in_stage: 'IAV/1', data: 'Plain' }, fields: Object.fromEntries(fields.slice(0, 5).map((field, index) => [field.fieldname, { fieldtype: 'Link', options: ['YRP Item Production Detail','User','YRP Process','Item Attribute','YRP Item Attribute Value'][index] }])), registerFocus: () => () => {} }
  const child = component('departments/merch/ipd/sections/IpdFields', { '../useIpdEditor.js': { IPD_EDITOR_KEY: ipdKey }, '../ipdEditor.js': { stableStringify: JSON.stringify } })
  return mountComponent({ setup() { Vue.provide(ipdKey, editor); return () => Vue.h(child, { fields }) } })
 }
@@ -240,7 +240,7 @@ test('B7 Item Price header, attribute and tiers retain labels and raw targets', 
 }))
 
 test('B5 IpdFields uses actual meta for Select presentations and normalized stage labels', () => readable(() => {
- const editor = { readonly: true, draft: { pack_in_stage: 'Cut' }, fields: { pack_in_stage: { fieldtype: 'Link', options: 'YRP Item Attribute Value' } }, context: { link_names: { fields: { pack_in_stage: { value: 'Cut', name: 'IAV/1' } } } }, registerFocus: () => () => {} }
+ const editor = { readonly: true, canEdit: () => false, draft: { pack_in_stage: 'Cut' }, fields: { pack_in_stage: { fieldtype: 'Link', options: 'YRP Item Attribute Value' } }, context: { link_names: { fields: { pack_in_stage: { value: 'Cut', name: 'IAV/1' } } } }, registerFocus: () => () => {} }
  const child = component('departments/merch/ipd/sections/IpdFields', { '../useIpdEditor.js': { IPD_EDITOR_KEY: ipdKey }, '../ipdEditor.js': { stableStringify: JSON.stringify } })
  const root = mountComponent({ setup() { Vue.provide(ipdKey, editor); return () => Vue.h(child, { fields: [{ fieldname: 'pack_in_stage', label: 'Stage', fieldtype: 'Select', options: ['Cut'] }] }) } })
  assert.deepEqual(links(root), [['Cut', '/desk/yrp-item-attribute-value/IAV%2F1']])

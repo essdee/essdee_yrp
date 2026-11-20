@@ -138,7 +138,7 @@ const sides = [
 	{ field: "item_attributes", title: "Item Attributes", options: "item_attribute_options" },
 	{ field: "bom_item_attributes", title: "BOM Item Attributes", options: "bom_attribute_options" },
 ]
-const readOnly = computed(() => props.readonly || editor.readonly || Boolean(detail.value?.is_shared))
+const readOnly = computed(() => props.readonly || !editor.canEditMappings || Boolean(detail.value?.is_shared))
 const columns = computed(() => detail.value?.columns || { item: [], bom: [], same: [], all_same: false })
 const tablesChanged = computed(() => JSON.stringify(tables.value) !== generatedTables.value)
 const output = computed(() => mappingOutput(rows.value, columns.value))

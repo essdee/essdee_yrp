@@ -334,11 +334,14 @@ class TestIpdWorkspace(IntegrationTestCase):
 				workspace.save_ipd_attribute_values(
 					EDITABLE, "Colour", entry["values"], entry["mapping_modified"]
 				)
+
+	def test_attribute_values_stay_editable_on_approved_ipd(self):
 		approved = colour_context(APPROVED)
-		with self.assertRaisesRegex(frappe.ValidationError, "Approved IPDs are read only"):
+		with rolled_back("approved_values"):
 			workspace.save_ipd_attribute_values(
 				APPROVED, "Colour", approved["values"], approved["mapping_modified"]
 			)
+			self.assertEqual(frappe.db.get_value(DOCTYPE, APPROVED, "approval_status"), "Approved")
 
 	def test_bom_mapping_wrapper(self):
 		payload = workspace.get_ipd_editor(EDITABLE)

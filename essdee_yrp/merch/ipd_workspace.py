@@ -82,8 +82,8 @@ def save_ipd(
 		if doc.approval_status == "Approved" and set(values) - set(APPROVED_EDIT_FIELDS):
 			frappe.throw(
 				_(
-					"Approved IPDs are read only except for new IPD Processes rows and Embellishment panels. Revert approval to edit."
-				)
+					"Approved IPDs are read only except for new IPD Processes rows, Embellishment panels, packing and combination details. Revert approval to edit: {0}."
+				).format(", ".join(sorted(set(values) - set(APPROVED_EDIT_FIELDS))))
 			)
 	apply_patch(doc, values)
 	detached = [] if name else detach_bom_mappings(doc)

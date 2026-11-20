@@ -33,8 +33,9 @@ ITEM_JSON = (
 
 
 def assert_editable(doc):
+	"""Attribute mappings stay editable on Approved garment IPDs for users with IPD write."""
 	doc.check_permission("write")
-	if doc.approval_status == "Approved":
+	if doc.approval_status == "Approved" and doc.is_cloth_item:
 		frappe.throw(_("Approved IPDs are read only. Revert approval to edit."))
 
 

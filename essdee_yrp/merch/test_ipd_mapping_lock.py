@@ -8,13 +8,13 @@ from yrp.yrp.doctype.yrp_item.yrp_item import (
 from essdee_yrp.ipd_validations import is_mapping_shared
 from essdee_yrp.merch.ipd.fields import DOCTYPE
 from essdee_yrp.merch.ipd.mapping_lock import DEPENDENT_MAPPING, ITEM_MAPPING, get_linked_ipds
-from essdee_yrp.merch.ipd_test_support import make_user, rolled_back, unapprove
+from essdee_yrp.merch.ipd_test_support import make_user, rolled_back
 
 MERCH_USER = "ipd-mapping-lock@example.com"
 
 
 class TestIpdMappingLock(UnitTestCase):
-	"""Mappings linked from an IPD follow its approval and write permission."""
+	"""Mappings linked from an IPD follow its write permission, not its approval."""
 
 	def setUp(self):
 		super().setUp()
@@ -27,27 +27,15 @@ class TestIpdMappingLock(UnitTestCase):
 		self.assertIn(self.name, get_linked_ipds(frappe.get_doc(ITEM_MAPPING, self.mapping)))
 		self.assertIn(self.name, get_linked_ipds(frappe.get_doc(DEPENDENT_MAPPING, self.dependent)))
 
-	def test_approved_ipd_rejects_item_mapping_save(self):
-		with rolled_back("ipd_mapping_lock"):
-			with self.assertRaisesRegex(frappe.ValidationError, "is approved. Revert the approval"):
-				frappe.get_doc(ITEM_MAPPING, self.mapping).save()
-
-	def test_approved_ipd_rejects_dependent_mapping_endpoint(self):
+	def test_approved_ipd_allows_mapping_saves_for_writers(self):
 		detail = get_dependent_attribute_details(self.dependent)
 		with rolled_back("ipd_mapping_lock"):
-			with self.assertRaisesRegex(frappe.ValidationError, "is approved. Revert the approval"):
-				update_dependent_attribute_details(self.dependent, frappe.as_json(detail))
-
-	def test_draft_ipd_allows_mapping_saves(self):
-		detail = get_dependent_attribute_details(self.dependent)
-		with rolled_back("ipd_mapping_lock"):
-			unapprove(self.name)
 			frappe.get_doc(ITEM_MAPPING, self.mapping).save()
 			update_dependent_attribute_details(self.dependent, frappe.as_json(detail))
+			self.assertEqual(frappe.db.get_value(DOCTYPE, self.name, "approval_status"), "Approved")
 
 	def test_user_without_ipd_write_cannot_save_mapping(self):
 		with rolled_back("ipd_mapping_lock"):
-			unapprove(self.name)
 			make_user(MERCH_USER, ["Merch User"])
 			mapping = frappe.get_doc(ITEM_MAPPING, self.mapping)
 			frappe.set_user(MERCH_USER)
@@ -62,10 +50,10 @@ class TestIpdMappingLock(UnitTestCase):
 			finally:
 				frappe.set_user("Administrator")
 
-	def test_onload_reports_the_approval_lock(self):
+	def test_onload_has_no_lock_for_writers_on_approved_ipd(self):
 		mapping = frappe.get_doc(DEPENDENT_MAPPING, self.dependent)
 		mapping.run_method("onload")
-		self.assertIn("is approved", mapping.get_onload().get("ipd_mapping_lock"))
+		self.assertEqual(mapping.get_onload().get("ipd_mapping_lock"), "")
 
 
 def owned_mapping():

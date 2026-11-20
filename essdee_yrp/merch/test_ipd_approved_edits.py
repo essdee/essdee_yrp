@@ -17,6 +17,13 @@ def unused_process(doc):
 	return frappe.get_all("YRP Process", filters={"name": ["not in", list(used)]}, pluck="name", limit=1)[0]
 
 
+def toggled_mapping(values):
+	"""Flip "Based on Other Attribute Mapping"; Size Wise Packing needs no assortment."""
+	if values.get("based_on_other_attribute_mapping"):
+		return {"based_on_other_attribute_mapping": 0}
+	return {"based_on_other_attribute_mapping": 1, "packing_mode": "Size Wise Packing"}
+
+
 def modified(name):
 	return str(frappe.db.get_value(DOCTYPE, name, "modified"))
 
@@ -118,3 +125,44 @@ class TestApprovedIpdEdits(IntegrationTestCase):
 		rows = workspace.get_ipd_editor(APPROVED)["values"]["ipd_processes"]
 		with self.assertRaisesRegex(frappe.ValidationError, LOCKED):
 			workspace.save_ipd({"ipd_processes": rows[:-1]}, APPROVED, modified(APPROVED))
+
+	def test_packing_and_combination_changes_keep_the_ipd_approved(self):
+		with rolled_back("approved_packing"):
+			doc = self.approved_doc()
+			doc.update(toggled_mapping(doc))
+			doc.packing_combo = (doc.packing_combo or 0) + 1
+			doc.save()
+			saved = frappe.get_doc(DOCTYPE, APPROVED)
+			self.assertEqual(saved.packing_combo, doc.packing_combo)
+			self.assertEqual(saved.based_on_other_attribute_mapping, doc.based_on_other_attribute_mapping)
+			self.assertEqual(saved.approval_status, "Approved")
+
+	def test_web_editor_saves_packing_and_combination_fields(self):
+		frappe.set_user(WRITER)
+		payload = workspace.get_ipd_editor(APPROVED)
+		self.assertIn("packing_combo", payload["capabilities"]["approved_edits"]["fields"])
+		values = payload["values"]
+		with rolled_back("approved_web_packing"):
+			result = workspace.save_ipd(
+				{
+					**toggled_mapping(values),
+					"auto_calculate": 0 if values["auto_calculate"] else 1,
+					"stiching_item_detail": values["stiching_item_detail"],
+				},
+				APPROVED,
+				modified(APPROVED),
+			)
+			self.assertEqual(
+				result["values"]["based_on_other_attribute_mapping"],
+				0 if values["based_on_other_attribute_mapping"] else 1,
+			)
+			self.assertEqual(result["record"]["approval_status"], "Approved")
+
+	def test_web_editor_refuses_combination_edits_without_write(self):
+		reader = "_test_ipd_reader@example.com"
+		make_user(reader, ["Merch User"])
+		if frappe.has_permission(DOCTYPE, "write", user=reader):
+			self.skipTest("Merch User can write IPDs on this site")
+		frappe.set_user(reader)
+		with self.assertRaises(frappe.PermissionError):
+			workspace.save_ipd({"packing_combo": 3}, APPROVED, modified(APPROVED))

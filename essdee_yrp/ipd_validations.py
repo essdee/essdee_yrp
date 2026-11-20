@@ -98,7 +98,7 @@ def allow_generated_cloth_ipd_insert():
 
 
 def validate_approved_immutability(doc):
-	"""Approved IPDs accept only new process rows and embellishment panel changes."""
+	"""Approved IPDs accept new process rows, embellishment panels, packing and combination changes."""
 	if doc.is_new() or frappe.flags.in_patch:
 		return
 	allowed_names = frappe.flags.get("generated_cloth_ipd_updates") or set()
@@ -109,6 +109,8 @@ def validate_approved_immutability(doc):
 	before = doc.get_doc_before_save()
 	if before is None or is_cloth_ipd(doc):
 		throw_approved_lock(doc)
+	# Expand the virtual set/stitching grids so their changes count as combination edits.
+	save_combination_detail_fields(doc)
 	locked, allowed = get_approved_edit_changes(doc, before)
 	if locked or not allowed:
 		throw_approved_lock(doc, locked)
@@ -118,7 +120,7 @@ def throw_approved_lock(doc, locked=None):
 	message = _("Item Production Detail {0} is Approved. Revert Approval before editing it.").format(doc.name)
 	if locked:
 		message += " " + _(
-			"Only new IPD Processes rows and Embellishment panels can change while it is Approved. Changed: {0}."
+			"Only new IPD Processes rows, Embellishment panels, packing and combination details can change while it is Approved. Changed: {0}."
 		).format(", ".join(_(label) for label in locked))
 	frappe.throw(message)
 

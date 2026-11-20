@@ -2,6 +2,7 @@
 
 from frappe import _
 
+from essdee_yrp.ipd_approved_edits import APPROVED_EDIT_FIELDS
 from essdee_yrp.merch.ipd.fields import DOCTYPE
 from essdee_yrp.web_common import action, permission_flags
 
@@ -17,6 +18,11 @@ def get_permissions(doc) -> dict:
 
 def is_approved(doc) -> bool:
 	return not doc.is_new() and doc.get("approval_status") == "Approved"
+
+
+def can_edit_approved(doc, permissions) -> bool:
+	"""Approved garment IPDs keep processes, panels, packing, combinations and mappings editable."""
+	return permissions["can_write"] and is_approved(doc) and not doc.get("is_cloth_item")
 
 
 def edit_reason(approved, can_write):
@@ -37,11 +43,14 @@ def get_capabilities(doc, permissions) -> dict:
 		"save": action(
 			editable, _("Create IPD") if doc.is_new() else _("Save"), edit_reason(approved, can_write)
 		),
-		"approved_edits": action(
-			can_write and approved and not doc.get("is_cloth_item"),
-			_("Add processes / panels"),
-			_("Editing needs write permission.") if approved else _("Only Approved IPDs use this."),
-		),
+		"approved_edits": {
+			**action(
+				can_edit_approved(doc, permissions),
+				_("Edit packing / combinations"),
+				_("Editing needs write permission.") if approved else _("Only Approved IPDs use this."),
+			),
+			"fields": list(APPROVED_EDIT_FIELDS),
+		},
 		"run_checks": action(
 			permissions["can_read"] and not approved,
 			_("Run checks"),

@@ -28,7 +28,7 @@
 					<article v-for="entry in mapped" :key="entry.key" class="ipd-chip-card">
 						<header>
 							<h3>{{ entry.item }} Mapping</h3>
-							<Button v-if="entry.canEdit" :label="editor.readonly ? 'View' : 'Edit'" size="small" text @click="openMapping(entry)" />
+							<Button v-if="entry.canEdit" :label="editor.canEditMappings ? 'Edit' : 'View'" size="small" text @click="openMapping(entry)" />
 						</header>
 						<p v-for="(line, index) in entry.lines" :key="index" class="erp-help-text bom-mapping-line">{{ line }}</p>
 						<small v-if="entry.total > entry.lines.length" class="erp-help-text">+{{ entry.total - entry.lines.length }} more</small>
@@ -46,19 +46,19 @@
 					:rows="accessoryNames.rows"
 					:columns="accessoryNames.columns"
 					:model-value="accessoryNames.model"
-					:readonly="editor.readonly"
+					:readonly="!editor.canEdit('accessory_clothtype_json')"
 					:toolbar="[]"
 					:fill-shortcuts="false"
-					:removable-rows="!editor.readonly"
+					:removable-rows="editor.canEdit('accessory_clothtype_json')"
 					@update:model-value="updateAccessoryParts"
 					@remove-row="removeAccessory"
 				/>
-				<div v-if="!editor.readonly" class="ipd-inline-add">
+				<div v-if="editor.canEdit('accessory_clothtype_json')" class="ipd-inline-add">
 					<InputText v-model="newAccessory" placeholder="Accessory name" aria-label="Accessory name" @keydown.enter.prevent="addAccessory" />
 					<Select v-if="isSet" v-model="newPart" :options="setParts" :placeholder="draft.set_item_attribute || 'Part'" :aria-label="draft.set_item_attribute || 'Part'" />
 					<Button label="Add accessory" icon="pi pi-plus" size="small" outlined :disabled="!canAddAccessory" @click="addAccessory" />
 				</div>
-				<IpdChoiceChips v-if="accessoryNames.rows.length" label="Accessory attributes" :choices="accessoryChoices" :selected="draft.accessory_attributes || []" :readonly="editor.readonly" @toggle="toggleAccessoryAttribute" />
+				<IpdChoiceChips v-if="accessoryNames.rows.length" label="Accessory attributes" :choices="accessoryChoices" :selected="draft.accessory_attributes || []" :readonly="!editor.canEdit('accessory_attributes')" @toggle="toggleAccessoryAttribute" />
 				<IpdGridNotice grid-key="cloth_accessory" :empty="!clothAccessory.rows.length" section="accessories" field="cloth_accessory_json" :detail="clothAccessoryValidation.summary" />
 				<EntryGrid
 					v-if="clothAccessory.rows.length"
@@ -68,7 +68,7 @@
 					:rows="clothAccessory.rows"
 					:columns="clothAccessory.columns"
 					:model-value="clothAccessory.model"
-					:readonly="editor.readonly"
+					:readonly="!editor.canEdit('cloth_accessory_json')"
 					:errors="clothAccessoryValidation.errors"
 					:toolbar="[]"
 					:fill-shortcuts="false"
@@ -86,7 +86,7 @@
 					:rows="stitchingAccessory.rows"
 					:columns="stitchingAccessory.columns"
 					:model-value="stitchingAccessory.model"
-					:readonly="editor.readonly"
+					:readonly="!editor.canEdit('stiching_accessory_json')"
 					:errors="stitchingAccessoryValidation.errors"
 					:toolbar="[]"
 					:fill-shortcuts="false"
@@ -94,7 +94,7 @@
 				/>
 			</template>
 		</div>
-		<BomMappingDialog v-model:visible="mappingVisible" :bom-row="mappingRow" :item-name="mappingItem" :readonly="editor.readonly" />
+		<BomMappingDialog v-model:visible="mappingVisible" :bom-row="mappingRow" :item-name="mappingItem" :readonly="!editor.canEditMappings" />
 	</IpdSection>
 </template>
 
@@ -164,7 +164,7 @@ const bomColumns = computed(() => [
 const mapped = computed(() => (draft.value.item_bom || []).filter((row) => Number(row.based_on_attribute_mapping)).map((row, index) => {
 	const detail = row.name ? editor.context?.bom_mappings?.[row.name] : null
 	const note = !detail ? "Save the IPD to create this mapping" : detail.is_shared ? "Shared with another document" : ""
-	return { key: row.name || `new:${index}`, name: row.name, item: row.item || "New row", ...mappingCardLines(detail), canEdit: Boolean(detail) && (!detail.is_shared || editor.readonly), note }
+	return { key: row.name || `new:${index}`, name: row.name, item: row.item || "New row", ...mappingCardLines(detail), canEdit: Boolean(detail) && (!detail.is_shared || !editor.canEditMappings), note }
 }))
 const accessoryNames = computed(() => {
 	const entries = Object.entries(draft.value.accessory_clothtype_json || {})

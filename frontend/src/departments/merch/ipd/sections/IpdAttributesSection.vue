@@ -59,7 +59,7 @@ function focusAttribute(rowKey) {
 }
 
 function access(row, entry, roles) {
-	if (editor.readonly) return { editable: false, note: "", emptyText: "No values." }
+	if (!editor.canEditMappings) return { editable: false, note: "", emptyText: "No values." }
 	if (!entry || !row.mapping) return { editable: false, note: "", emptyText: "Save the IPD to start this value list." }
 	if (entry.numeric) return { editable: false, note: "Numeric values come from the attribute itself.", emptyText: "No values." }
 	if (entry.is_shared) return { editable: false, note: "This list is shared with another document. Edit it there.", emptyText: "No values." }
