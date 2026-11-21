@@ -15,6 +15,7 @@ from essdee_yrp.overrides.goods_received_note import (
 	_only_default_received_type,
 	_selected_draft_receivable_rows,
 	aggregate_packing_grn_rows_for_ui,
+	get_missing_draft_receivable_rows,
 	get_sewing_plan_remaining_quantities,
 	get_work_order_defaults,
 	normalize_cutting_grn_row_indexes,
@@ -340,6 +341,92 @@ class TestGoodsReceivedNoteCustomization(FrappeTestCase):
 			filtered = _selected_draft_receivable_rows(grn, existing)
 
 		self.assertEqual([row.received_type for row in filtered], ["Accepted"])
+
+	def test_saved_draft_keeps_every_receivable_without_a_saved_row(self):
+		existing = [
+			frappe._dict(ref_docname="RECEIVABLE-1", item_variant="ITEM-26", received_type="Accepted")
+		]
+		pending = [
+			frappe._dict(
+				ref_docname=reference,
+				item_variant=item_variant,
+				received_type=received_type,
+				quantity=0,
+			)
+			for reference, item_variant in (("RECEIVABLE-1", "ITEM-24"), ("RECEIVABLE-2", "ITEM-30"))
+			for received_type in ("Accepted", "Rejected")
+		]
+		grn = frappe._dict(against_id="WO-1", delivery_challan=None)
+		work_order = frappe._dict(
+			receivables=[
+				frappe._dict(name="RECEIVABLE-1", item_variant="ITEM-24"),
+				frappe._dict(name="RECEIVABLE-2", item_variant="ITEM-30"),
+			]
+		)
+		with (
+			patch.object(frappe, "get_doc", return_value=work_order),
+			patch(
+				"yrp.yrp.doctype.yrp_goods_received_note.yrp_goods_received_note._pending_receivable_rows",
+				return_value=pending,
+			),
+			patch(
+				"essdee_yrp.overrides.goods_received_note._default_received_type",
+				return_value="Accepted",
+			),
+			patch(
+				"yrp.yrp.doctype.yrp_delivery_challan.yrp_delivery_challan._get_production_group_dimensions",
+				return_value={},
+			),
+			patch(
+				"yrp.yrp.doctype.yrp_delivery_challan.yrp_delivery_challan._apply_dimension_values_to_rows"
+			),
+			patch("yrp.stock.dimensions.apply_dimension_defaults"),
+		):
+			filtered = _selected_draft_receivable_rows(grn, existing, include_actual_dia=True)
+
+		self.assertEqual(
+			[(row.ref_docname, row.received_type) for row in filtered],
+			[("RECEIVABLE-1", "Accepted"), ("RECEIVABLE-2", "Accepted")],
+		)
+
+	def test_saved_draft_offers_receivables_it_no_longer_carries(self):
+		grn = frappe._dict(
+			docstatus=0,
+			against="YRP Work Order",
+			against_id="WO-1",
+			delivery_challan=None,
+			items=[frappe._dict(ref_docname="RECEIVABLE-1", item_variant="ITEM-26", quantity=74)],
+		)
+		pending = [
+			frappe._dict(ref_docname=reference, item_variant=item_variant, received_type="Accepted", quantity=0)
+			for reference, item_variant in (("RECEIVABLE-1", "ITEM-24"), ("RECEIVABLE-2", "ITEM-30"))
+		]
+		with (
+			patch.object(frappe, "get_doc", return_value=frappe._dict()),
+			patch(
+				"yrp.yrp.doctype.yrp_goods_received_note.yrp_goods_received_note._pending_receivable_rows",
+				return_value=pending,
+			),
+			patch(
+				"essdee_yrp.overrides.goods_received_note._default_received_type",
+				return_value="Accepted",
+			),
+			patch(
+				"yrp.yrp.doctype.yrp_goods_received_note.yrp_goods_received_note._get_production_group_dimensions",
+				return_value={},
+			),
+			patch(
+				"yrp.yrp.doctype.yrp_goods_received_note.yrp_goods_received_note._apply_dimension_values_to_rows"
+			),
+			patch("yrp.stock.dimensions.apply_dimension_defaults"),
+			patch(
+				"essdee_yrp.overrides.goods_received_note.normalize_cutting_grn_row_indexes",
+				side_effect=lambda rows: rows,
+			),
+		):
+			missing = get_missing_draft_receivable_rows(grn)
+
+		self.assertEqual([(row.ref_docname, row.quantity) for row in missing], [("RECEIVABLE-2", 0)])
 
 	def test_approved_production_api_fields_are_essdee_custom_fields(self):
 		meta = frappe.get_meta("YRP Goods Received Note", cached=False)

@@ -12,7 +12,7 @@ from collections import defaultdict
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt
+from frappe.utils import flt
 from yrp.attribute_links import value as _attribute_value
 from yrp.stock.shortage import get_stock_qty_precision, get_stock_shortage
 from yrp.yrp.doctype.yrp_item.yrp_item import get_parent_item
@@ -256,9 +256,11 @@ def calculate_consumption_plan(grn, work_order_doc=None):
 	if not demands:
 		return []
 	rows = _calculate_saved_execution_inputs(wo, demands)
-	if rows is None and step and cint(wo.get("cloth_execution_version")) == 1:
+	if rows is None and step:
 		from essdee_yrp.api.work_order import _step_kind
 
+		# A knitting WO's saved inputs are the agreed contract on every route,
+		# so an Actual-Dia receipt never re-reads the IPD matrix.
 		if _step_kind(ipd, step) == "knitting":
 			rows = _calculate_saved_work_order_inputs(wo, demands)
 	if rows is None:

@@ -53,6 +53,7 @@ from essdee_yrp.item_matrix import get_duplicate_row_message
 from essdee_yrp.overrides.goods_received_note import (
 	_lock_versioned_cloth_lot,
 	get_empty_draft_rows,
+	get_missing_draft_receivable_rows,
 	get_work_order_defaults,
 	validate_work_order_has_passed_inspection,
 )
@@ -1182,7 +1183,9 @@ def save_goods_received_note(
 			_row_dict(row) for row in (doc.get("correction_items") or [])
 		]
 		# A draft saved without quantities merges onto the rows a new GRN would offer.
-		matrix_source_items = authoritative_items or [
+		# Receivables whose rows were saved at zero stay enterable on later saves.
+		missing_items = [_row_dict(row) for row in get_missing_draft_receivable_rows(doc)]
+		matrix_source_items = (authoritative_items + missing_items) or [
 			_row_dict(row) for row in (get_empty_draft_rows(doc) or [])
 		]
 	else:
