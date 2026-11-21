@@ -729,8 +729,7 @@ def save_fabric_program_details(lot_doc):
 def save_fabric_requirement_details(lot_doc):
 	"""before_validate: rebuild `lot_fabric_requirements` from the island's
 	transient JSON (`fabric_requirement_details`). Unreachable combos hard-block
-	(data error, not a balance). When the IPD is Approved, the plan rebuilds in
-	the same save; otherwise the fabric row is marked Pending Approval."""
+	(data error, not a balance). The plan rebuilds in the same save."""
 	raw = lot_doc.get("fabric_requirement_details")
 	if raw is None or raw == "":
 		return
@@ -816,34 +815,17 @@ def save_fabric_requirement_details(lot_doc):
 
 def rebuild_plans_after_save(lot_doc):
 	"""on_update companion for save_fabric_requirement_details: fabric rows now
-	have names, ledger writes can attach. Approved IPD -> build; else Pending."""
+	have names, ledger writes can attach. Cloth IPDs need no approval to plan."""
 	if not lot_doc.flags.get("rebuild_fabric_plans"):
 		return
 	from essdee_yrp.fabric_plan import build_fabric_plan
 
 	for fabric in lot_doc.get("lot_fabric_details") or []:
-		if not fabric.production_detail:
-			continue
-		approved = (
-			attribute_db.get_value("YRP Item Production Detail", fabric.production_detail, "approval_status")
-			== "Approved"
-		)
-		if approved:
+		if fabric.production_detail:
 			# never hard-block the Lot save on solver trouble — reachability was
 			# already gated at requirement entry; residual failures surface as
 			# plan_status Error on the fabric row
 			build_fabric_plan(lot_doc, fabric, raise_on_unreachable=False)
-		else:
-			has_requirement = any(
-				r.cloth_item == fabric.cloth_item for r in lot_doc.get("lot_fabric_requirements") or []
-			)
-			frappe.db.set_value(
-				"SD YRP Lot Fabric Detail",
-				fabric.name,
-				"plan_status",
-				"Pending Approval" if has_requirement else "",
-				update_modified=False,
-			)
 
 	# the plan/pre-seed wrote rows at the DB level — refresh the in-memory doc so
 	# the save RESPONSE carries them (else the open form's next save deletes them)

@@ -279,15 +279,17 @@ class TestClothProgramAccess(IntegrationTestCase):
 			ipd_ui.duplicate_ipd(name)
 		self.assertEqual(frappe.db.count("YRP Item Production Detail"), count)
 
-	def test_builder_creates_new_versions_and_retains_approved_lock(self):
+	def test_builder_creates_not_approved_versions_and_keeps_approved_lock(self):
 		self.prepare_program()
 		first = cloth_program._find_or_create_cpd(self.cloth, self.selection, self.tuples)
 		self.selection["cloth_per_kg_yarn"] = 2
 		second = cloth_program._find_or_create_cpd(self.cloth, self.selection, self.tuples)
 		self.assertNotEqual(first, second)
 		doc = frappe.get_doc("YRP Item Production Detail", second)
-		self.assertEqual(doc.approval_status, "Approved")
+		self.assertEqual(doc.approval_status, "Not Approved")
 		self.assertFalse(frappe.flags.get("generated_cloth_ipd_insert"))
+		frappe.db.set_value(doc.doctype, doc.name, "approval_status", "Approved", update_modified=False)
+		doc.reload()
 		with self.assertRaisesRegex(frappe.ValidationError, "Revert Approval before editing"):
 			doc.save(ignore_permissions=True)
 
