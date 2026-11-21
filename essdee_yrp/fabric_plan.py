@@ -10,9 +10,8 @@ down to the yarn kgs. Matrices are the ONLY quantity source (user rule
 2026-07-04), so wastage later is a data change, never a solver change.
 
 Results land in `Lot Fabric Step Ledger` (planned_weight, server-owned) and
-pre-seed untouched knitting-program rows. Triggered from IPD approval
-(rebuild_fabric_plans_for_ipd) and from Lot requirement saves when the IPD is
-already Approved. Plan state never blocks WOs/GRNs (warn-only doctrine).
+pre-seed untouched knitting-program rows. Triggered from cloth IPD saves
+(rebuild_fabric_plans_for_ipd) and from Lot requirement saves. Plan state never blocks WOs/GRNs (warn-only doctrine).
 
 The process model is documented with the fabric-chain architecture.
 """
@@ -466,9 +465,9 @@ def _clear_plan(lot_doc, fabric_row):
 
 
 def rebuild_fabric_plans_for_ipd(ipd_doc):
-	"""IPD-approval hook body: rebuild the plan of every open Lot referencing
+	"""Cloth IPD save hook body: rebuild the plan of every open Lot referencing
 	this IPD. Per-lot try/except — one lot's bad requirement never blocks the
-	approval or the other lots; failures aggregate into ONE msgprint."""
+	save or the other lots; failures aggregate into ONE msgprint."""
 	fabric_rows = frappe.get_all(
 		"SD YRP Lot Fabric Detail",
 		filters={"production_detail": ipd_doc.name, "parenttype": "SD YRP Lot"},
@@ -533,19 +532,7 @@ def _plan_headline(step_plans):
 
 def on_ipd_update(doc, method=None):
 	"""hooks.py on_update, AFTER sync_fabric_process_matrices (the solver must
-	read the matrices just rebuilt in this same save). Plans rebuild only on
-	APPROVED cloth IPDs; edits to a non-approved IPD mark referencing plans
-	Stale instead."""
-	if not is_cloth_ipd(doc):
-		return
-	if doc.approval_status == "Approved":
+	read the matrices just rebuilt in this same save). Cloth IPDs need no
+	approval, so every save rebuilds the plans that reference it."""
+	if is_cloth_ipd(doc):
 		rebuild_fabric_plans_for_ipd(doc)
-	else:
-		frappe.db.sql(
-			"""
-			UPDATE `tabSD YRP Lot Fabric Detail`
-			SET plan_status = 'Stale'
-			WHERE production_detail = %s AND parenttype = 'SD YRP Lot' AND plan_status = 'Built'
-			""",
-			(doc.name,),
-		)

@@ -690,7 +690,7 @@ class TestClothProgram(IntegrationTestCase):
 		self.assertEqual(cpd.is_cloth_item, 1)
 		self.assertEqual(cpd.yarn_item, self.yarn)
 		self.assertEqual(cpd.cloth_per_kg_yarn, 3.0)
-		self.assertEqual(cpd.approval_status, "Approved")
+		self.assertEqual(cpd.approval_status, "Not Approved")
 		self.assertEqual(
 			[_attribute_value(r.dia) for r in cpd.knitting_dia_details], [_attribute_value(self.dia)]
 		)
@@ -2251,6 +2251,11 @@ class TestClothProgram(IntegrationTestCase):
 		lot.reload()
 		fab = [f for f in lot.lot_fabric_details if f.cloth_item == self.cloth]
 		self.assertEqual(len(fab), 1)
+		self.assertEqual(
+			frappe.db.get_value("YRP Item Production Detail", fab[0].production_detail, "approval_status"),
+			"Not Approved",
+		)
+		# Cloth IPDs need no approval: the plan builds straight away.
 		self.assertEqual(fab[0].plan_status, "Built")
 		reqs = [r for r in lot.lot_fabric_requirements if r.cloth_item == self.cloth]
 		self.assertEqual(len(reqs), 1)

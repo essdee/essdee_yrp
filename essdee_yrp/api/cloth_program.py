@@ -8,7 +8,7 @@ ONE whitelisted orchestrator (`build_cloth_programs`) runs Phases 2-4:
      shared cloths keep sibling lots' rows) knitting_dia_details from the demanded
      dias and dyeing_colour_details {dia, greige->demanded colour} from the
      demanded (dia,colour) tuples, copy the garment IPD's synced compacting
-     references for that cloth, auto-approve, and save() (matrices auto-rebuild
+     references for that cloth, and save() as Not Approved (matrices auto-rebuild
      via fabric_ipd.sync_fabric_process_matrices).
   3. attach a Lot Fabric Detail row (cloth_item + CPD) if absent.
   4. write the Lot's transient fabric_requirement_details JSON and lot.save() so
@@ -926,7 +926,6 @@ def _find_or_create_cpd(cloth_item, selection, tuples, rebuilding_lot=None):
 			)
 
 	_persist_generic_fabric_rows(cpd)
-	cpd.approval_status = "Approved"  # base field is UI-read_only; set server-side
 	# The building Lot's own save rebuilds its plan after the program is reset.
 	cpd.flags.rebuilding_lot = rebuilding_lot
 	_save_generated_cpd(cpd)
@@ -1390,9 +1389,9 @@ def recalculate_cloth_program(lot, modified=None, additions=None, excess_percent
 				_("Cloth {0} has no linked IPD. Use Setup in Build Cloth Program first.").format(cloth)
 			)
 		ipd = frappe.get_doc("YRP Item Production Detail", linked[cloth])
-		if ipd.item != cloth or not ipd.is_cloth_item or ipd.approval_status != "Approved":
+		if ipd.item != cloth or not ipd.is_cloth_item:
 			frappe.throw(
-				_("Cloth {0} requires its existing approved cloth IPD before recalculation.").format(cloth)
+				_("Cloth {0} requires its existing cloth IPD before recalculation.").format(cloth)
 			)
 		payload.setdefault(cloth, {})[(dia, colour)] = flt(kg)
 	excess = flt(lot_doc.get("cloth_excess_percentage"))

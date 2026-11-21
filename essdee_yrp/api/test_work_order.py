@@ -1097,6 +1097,42 @@ class TestCalculateFabricDeliverables(IntegrationTestCase):
 			self.assertEqual(flt(row.cost), 7.5)
 			self.assertEqual(flt(row.total_cost), round(7.5 * flt(row.qty), 2))
 
+	def test_cloth_work_order_needs_no_approved_ipd(self):
+		self.wo.reload()
+		status = frappe.db.get_value(
+			"YRP Item Production Detail", self.wo.production_detail, "approval_status"
+		)
+		self.assertEqual(status, "Not Approved")
+		self.assertEqual(self._calculate()["receivables"], 1)
+		wo = frappe.get_doc("YRP Work Order", self.wo.name)
+		with patch.object(type(wo), "get_process_cost_readiness_issues", return_value=[]):
+			self.assertEqual(wo.get_submit_readiness_issues(), [])
+
+	def test_garment_work_order_still_requires_approved_ipd(self):
+		garment = frappe.get_doc(
+			{
+				"doctype": "YRP Item Production Detail",
+				"item": _ensure_item("_Test Garment Approval WOCalc"),
+				"based_on_other_attribute_mapping": 1,
+				"packing_mode": "Size Wise Packing",
+			}
+		)
+		garment.flags.skip_ipd_settings_defaults = True
+		garment.insert(ignore_permissions=True)
+		wo = frappe.get_doc(
+			{
+				"doctype": "YRP Work Order",
+				"production_detail": garment.name,
+				"deliverables": [{"item_variant": self.yarn, "qty": 1}],
+				"receivables": [{"item_variant": self.cloth, "qty": 1}],
+			}
+		)
+		with patch.object(type(wo), "get_process_cost_readiness_issues", return_value=[]):
+			issues = wo.get_submit_readiness_issues()
+		self.assertEqual(
+			issues, [f"Item Production Detail {garment.name} is not Approved (status: Not Approved)."]
+		)
+
 	def test_resolve_variant_keeps_declared_drops_undeclared(self):
 		"""_resolve_variant: attrs the Item DECLARES are always kept (full-set
 		path); attrs it does NOT declare are dropped instead of poisoning the

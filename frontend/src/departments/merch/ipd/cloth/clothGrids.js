@@ -41,23 +41,6 @@ export function nextSequence(processes = []) {
 	return sequences.length ? Math.max(...sequences) + 10 : 10
 }
 
-export function newProcessRow(processes = [], { item = "", defaultInput = "" } = {}) {
-	const previous = (processes || []).at(-1)
-	return {
-		sequence: nextSequence(processes),
-		fabric_process: null,
-		input_item: previous?.output_item || defaultInput || null,
-		output_item: item || null,
-		quantity_ratio: 1,
-	}
-}
-
-export function newMappingRow(processes = [], mappings = []) {
-	const sequence = Number((processes || []).at(-1)?.sequence) || null
-	const indexes = (mappings || []).filter((row) => Number(row.sequence) === sequence).map((row) => Number(row.mapping_index) || 0)
-	return { sequence, mapping_index: indexes.length ? Math.max(...indexes) + 1 : 0, attribute: null, role: "Change", from_value: null, to_value: null }
-}
-
 export function sortBySequence(rows = [], fields = ["sequence"]) {
 	return (rows || []).map((row, index) => ({ row, index })).sort((left, right) => {
 		for (const field of fields) {
@@ -68,31 +51,50 @@ export function sortBySequence(rows = [], fields = ["sequence"]) {
 	}).map((entry) => entry.row)
 }
 
-export function applyProcessEdit(processes = [], mappings = [], nextProcesses = []) {
-	const moved = new Map()
-	nextProcesses.forEach((row, index) => {
-		const before = processes[index]
-		if (before && Number(before.sequence) !== Number(row.sequence)) moved.set(Number(before.sequence), Number(row.sequence))
-	})
-	const nextMappings = moved.size
-		? mappings.map((row) => (moved.has(Number(row.sequence)) ? { ...row, sequence: moved.get(Number(row.sequence)) } : row))
-		: mappings
-	return { processes: sortBySequence(nextProcesses), mappings: moved.size ? sortBySequence(nextMappings, ["sequence", "mapping_index"]) : nextMappings }
-}
-
 export function removeProcess(processes = [], mappings = [], key) {
 	const target = (processes || []).find((row, index) => rowKey(row, index) === key)
 	const sequence = Number(target?.sequence)
 	const shared = (processes || []).filter((row) => Number(row.sequence) === sequence).length > 1
-	return {
-		processes: removeRow(processes, key),
-		mappings: target && !shared ? (mappings || []).filter((row) => Number(row.sequence) !== sequence) : mappings,
-	}
+	return resequenceProcesses(
+		sortBySequence(removeRow(processes, key)),
+		target && !shared ? (mappings || []).filter((row) => Number(row.sequence) !== sequence) : mappings,
+	)
 }
 
-export function orphanMappingCount(processes = [], mappings = []) {
-	const sequences = new Set((processes || []).map((row) => Number(row.sequence)))
-	return (mappings || []).filter((row) => !sequences.has(Number(row.sequence))).length
+export function resequenceProcesses(processes = [], mappings = []) {
+	const renumbered = new Map()
+	const nextProcesses = (processes || []).map((row, index) => {
+		const sequence = (index + 1) * 10
+		if (!renumbered.has(Number(row.sequence))) renumbered.set(Number(row.sequence), sequence)
+		return Number(row.sequence) === sequence ? row : { ...row, sequence }
+	})
+	const nextMappings = (mappings || []).map((row) => {
+		const sequence = renumbered.get(Number(row.sequence))
+		return sequence === undefined || sequence === Number(row.sequence) ? row : { ...row, sequence }
+	})
+	return { processes: nextProcesses, mappings: sortBySequence(nextMappings, ["sequence", "mapping_index"]) }
+}
+
+function movedProcesses(processes, index, direction) {
+	const ordered = sortBySequence(processes)
+	const target = index + direction
+	if (index < 0 || target < 0 || target >= ordered.length) return null
+	const [row] = ordered.splice(index, 1)
+	ordered.splice(target, 0, row)
+	return ordered
+}
+
+export function canMoveProcess(processes = [], index, direction) {
+	const ordered = movedProcesses(processes || [], index, direction)
+	return Boolean(ordered) && ordered.every((row, position) => {
+		const previousOutput = ordered[position - 1]?.output_item
+		return !previousOutput || !row.input_item || previousOutput === row.input_item
+	})
+}
+
+export function moveProcess(processes = [], mappings = [], index, direction) {
+	if (!canMoveProcess(processes, index, direction)) return { processes, mappings }
+	return resequenceProcesses(movedProcesses(processes, index, direction), mappings)
 }
 
 function mappingGroups(mappings = []) {

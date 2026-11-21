@@ -273,7 +273,6 @@ test('B5 IPD grid columns declare only their actual Link targets', () => {
   'sections/IpdProcessesSection.vue': { process_name: 'YRP Process', process_item: 'Item', in_stage: 'YRP Item Attribute Value' },
   'sections/IpdCuttingSection.vue': { cloth: 'Item' },
   'cloth/IpdYarnRatioSection.vue': { yarn_item: 'Item', colour: 'YRP Item Attribute Value', yarn_colour: 'YRP Item Attribute Value' },
-  'cloth/IpdFabricProcessesSection.vue': { fabric_process: 'YRP Process', input_item: 'Item', output_item: 'Item', attribute: 'Item Attribute' },
  }
  for (const [path, fields] of Object.entries(definitions)) {
   const source = readFileSync(resolve(`frontend/src/departments/merch/ipd/${path}`), 'utf8')
