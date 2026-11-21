@@ -961,7 +961,22 @@ def get_empty_draft_rows(grn):
 
 	Returns None when the GRN already has rows or its rows come from a builder.
 	"""
-	if grn.docstatus != 0 or not grn.get("against_id") or grn.get("items") or grn.get("correction_items"):
+	if grn.get("items") or grn.get("correction_items"):
+		return None
+	return get_draft_source_rows(grn)
+
+
+def get_missing_draft_receivable_rows(grn):
+	"""Zero-quantity Work Order receivable rows a saved draft no longer carries."""
+	if grn.get("against") != "YRP Work Order" or grn.get("additional_grn") or not grn.get("items"):
+		return []
+	saved = {row.get("ref_docname") for row in grn.get("items")}
+	return [row for row in get_draft_source_rows(grn) or [] if row.get("ref_docname") not in saved]
+
+
+def get_draft_source_rows(grn):
+	"""Zero-quantity source rows a draft offers; None when a builder owns its rows."""
+	if grn.docstatus != 0 or not grn.get("against_id"):
 		return None
 	if any(grn.get(fieldname) for fieldname in BUILDER_SOURCE_FIELDS):
 		return None
@@ -1060,10 +1075,13 @@ def _selected_draft_receivable_rows(grn, existing_rows, *, include_actual_dia=Fa
 		)
 		for row in existing_rows
 	}
+	# Every receivable keeps its default Received Type row, even at zero, so
+	# removing a saved split never drops the planned row from the draft.
 	rows = [
 		row
 		for row in rows
-		if (
+		if (row.get("received_type") or default or "") == (default or "")
+		or (
 			row.get("ref_docname"),
 			row.get("item_variant"),
 			row.get("delivery_challan_item"),

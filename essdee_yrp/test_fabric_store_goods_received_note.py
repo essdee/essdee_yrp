@@ -33,6 +33,10 @@ class TestFabricStoreGoodsReceivedNote(TestCase):
 			"essdee_yrp.fabric_store.documents.goods_received_note._actual_dia_context",
 			return_value={"enabled": False, "dia_options": []},
 		))
+		self.missing_receivables = self.enterContext(patch(
+			"essdee_yrp.fabric_store.documents.goods_received_note.get_missing_draft_receivable_rows",
+			return_value=[],
+		))
 
 	def test_web_delivery_address_search_and_default_contract(self):
 		source = (Path(__file__).parent.parent / "frontend/src/departments/fabric-store/GoodsReceivedNoteWorkspace.vue").read_text()
@@ -789,6 +793,21 @@ class TestFabricStoreGoodsReceivedNote(TestCase):
 		self.assertNotIn("name", added)
 		self.assertNotEqual(added.row_index, source["row_index"])
 		doc.save.assert_called_once()
+
+	def test_saved_draft_accepts_quantity_for_a_receivable_saved_at_zero(self):
+		doc = self.make_document()
+		dropped = dict(doc["items"][0], name=None, ref_docname="WOR-DROPPED", item_variant="Greige-24", quantity=0)
+		self.missing_receivables.return_value = [frappe._dict(dropped)]
+		browser_rows = [*(dict(row) for row in doc["items"]), dict(dropped, quantity=7)]
+		with (
+			patch("essdee_yrp.fabric_store.documents.goods_received_note._get_grn", return_value=doc),
+			patch("essdee_yrp.fabric_store.documents.goods_received_note.assert_expected_modified"),
+			patch("essdee_yrp.fabric_store.documents.goods_received_note.ungroup_items_from_ui", return_value=browser_rows),
+			patch("essdee_yrp.fabric_store.documents.goods_received_note.get_goods_received_note_workspace", return_value={}),
+		):
+			save_goods_received_note({"item_details": [{}]}, name=doc.name)
+		restored = [row for row in doc["items"] if row.ref_docname == "WOR-DROPPED"]
+		self.assertEqual([(row.item_variant, row.quantity) for row in restored], [("Greige-24", 7)])
 
 	def submitted_document_with_stock_tables(self):
 		doc = self.make_document(docstatus=1)

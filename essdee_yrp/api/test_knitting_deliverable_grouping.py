@@ -133,6 +133,55 @@ class TestKnittingDeliverableGrouping(IntegrationTestCase):
 			self.assertEqual(flt(qty_row["ordered"]), PROGRAM_QTY)
 			self.assertEqual(flt(qty_row["balance"]), 0)
 
+	def test_actual_dia_grn_consumes_the_saved_manual_knitting_contract(self):
+		from essdee_yrp.api.work_order import _resolve_variant
+		from essdee_yrp.fabric_grn import calculate_consumption_plan
+
+		work_order = self.make_work_order(self.knitting)
+		row = get_fabric_deliverable_context(work_order.name)["rows"][0]
+		entries = [
+			{
+				"key": qty_row["key"],
+				"matrix_key": qty_row["key"],
+				"colour": qty_row["knit_colour"],
+				"qty": qty_row["prefill"],
+				"inputs": [
+					{"key": qty_row["knitting_inputs"][0]["key"], "qty": flt(qty_row["prefill"]) * 1.1}
+				],
+			}
+			for qty_row in row["qty_rows"]
+		]
+		calculate_fabric_deliverables(
+			work_order.name, [{"fabric_row": row["fabric_row"], "entries": entries}]
+		)
+		work_order.reload()
+		self.assertFalse(work_order.cloth_execution_version)
+		planned = work_order.receivables[0]
+		actual_dia = _ensure_iav("Dia", f"_Test KG Actual Dia {frappe.generate_hash(length=6)}")
+		actual_variant = _resolve_variant(self.cloth, {"Dia": actual_dia, "Colour": self.greige})
+		grn = frappe._dict(
+			against="YRP Work Order",
+			against_id=work_order.name,
+			flags=frappe._dict(skip_input_stock_check=True),
+			items=[
+				frappe._dict(
+					name="GRNI-ACTUAL-DIA",
+					item_variant=actual_variant,
+					quantity=flt(planned.qty) / 2,
+					ref_docname=planned.name,
+				)
+			],
+		)
+
+		with patch("essdee_yrp.fabric_grn._supplier_stock", return_value=(0, 0)):
+			plan = calculate_consumption_plan(grn, work_order)
+
+		yarn_total = sum(flt(deliverable.qty) for deliverable in work_order.deliverables)
+		receivable_total = sum(flt(receivable.qty) for receivable in work_order.receivables)
+		expected = flt(planned.qty) / 2 * yarn_total / receivable_total
+		self.assertEqual({item["received_item_variant"] for item in plan}, {actual_variant})
+		self.assertAlmostEqual(sum(flt(item["stock_qty"]) for item in plan), expected, places=3)
+
 	def test_dyeing_popup_keeps_one_row_per_finished_colour(self):
 		work_order = self.make_work_order(self.dyeing)
 		row = get_fabric_deliverable_context(work_order.name)["rows"][0]

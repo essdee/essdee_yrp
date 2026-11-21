@@ -210,38 +210,36 @@ class TestEssdeeValuationContract(UnitTestCase):
 		self.assertEqual({row["item_variant"]: row["qty"] for row in rows}, {"YARN-A": 23.6, "YARN-B": 16.4})
 		self.assertEqual({row["work_order_deliverable"] for row in rows}, {"WOD-A", "WOD-B"})
 
-	def test_legacy_knitting_keeps_the_recipe_consumption_calculator(self):
+	def test_legacy_knitting_consumes_the_saved_work_order_contract(self):
 		from essdee_yrp.fabric_grn import calculate_consumption_plan
 
-		work_order = frappe._dict(
-			name="WO-LEGACY-KNITTING",
-			production_detail="IPD-1",
-			process_name="Knitting",
-			cloth_execution_version=0,
-		)
-		grn = frappe._dict(
-			against="YRP Work Order",
-			against_id=work_order.name,
-		)
+		saved_rows = [{"item_variant": "YARN-SAVED", "qty": 10}]
 		legacy_rows = [{"item_variant": "YARN-LEGACY", "qty": 10}]
-		with (
-			patch("essdee_yrp.fabric_grn.is_calculable_fabric_grn", return_value=True),
-			patch("essdee_yrp.fabric_grn.frappe.get_cached_doc", return_value=frappe._dict()),
-			patch("essdee_yrp.fabric_grn.get_fabric_step", return_value={"shape": "matrix"}),
-			patch("essdee_yrp.fabric_grn._get_output_demands", return_value=[{"qty": 10}]),
-			patch("essdee_yrp.fabric_grn._calculate_saved_execution_inputs", return_value=None),
-			patch(
-				"essdee_yrp.fabric_grn._calculate_saved_work_order_inputs",
-				return_value=[{"item_variant": "YARN-SAVED", "qty": 10}],
-			),
-			patch("essdee_yrp.fabric_grn._calculate_consumed_rows", return_value=legacy_rows),
-			patch("essdee_yrp.fabric_grn._align_cloth_input_rounding", side_effect=lambda rows, *_args, **_kwargs: rows),
-			patch("essdee_yrp.fabric_grn._allocate_to_work_order_deliverables", side_effect=lambda rows, *_args: rows),
-			patch("essdee_yrp.api.work_order._step_kind", return_value="knitting"),
-		):
-			rows = calculate_consumption_plan(grn, work_order)
 
-		self.assertEqual(rows, legacy_rows)
+		def calculate(saved):
+			work_order = frappe._dict(
+				name="WO-LEGACY-KNITTING",
+				production_detail="IPD-1",
+				process_name="Knitting",
+				cloth_execution_version=0,
+			)
+			grn = frappe._dict(against="YRP Work Order", against_id=work_order.name)
+			with (
+				patch("essdee_yrp.fabric_grn.is_calculable_fabric_grn", return_value=True),
+				patch("essdee_yrp.fabric_grn.frappe.get_cached_doc", return_value=frappe._dict()),
+				patch("essdee_yrp.fabric_grn.get_fabric_step", return_value={"shape": "matrix"}),
+				patch("essdee_yrp.fabric_grn._get_output_demands", return_value=[{"qty": 10}]),
+				patch("essdee_yrp.fabric_grn._calculate_saved_execution_inputs", return_value=None),
+				patch("essdee_yrp.fabric_grn._calculate_saved_work_order_inputs", return_value=saved),
+				patch("essdee_yrp.fabric_grn._calculate_consumed_rows", return_value=legacy_rows),
+				patch("essdee_yrp.fabric_grn._align_cloth_input_rounding", side_effect=lambda rows, *_args, **_kwargs: rows),
+				patch("essdee_yrp.fabric_grn._allocate_to_work_order_deliverables", side_effect=lambda rows, *_args: rows),
+				patch("essdee_yrp.api.work_order._step_kind", return_value="knitting"),
+			):
+				return calculate_consumption_plan(grn, work_order)
+
+		self.assertEqual(calculate(saved_rows), saved_rows)
+		self.assertEqual(calculate(None), legacy_rows)
 
 	def test_consumption_aggregation_keeps_exact_work_order_inputs_separate(self):
 		rows = [
