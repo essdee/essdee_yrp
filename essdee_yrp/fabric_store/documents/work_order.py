@@ -52,6 +52,10 @@ from essdee_yrp.work_order_actions import (
 	get_work_order_action_context,
 )
 from essdee_yrp.work_order_close import SD_CLOSE_REASONS, close_work_order
+from essdee_yrp.work_order_correction import (
+	create_work_order_correction,
+	get_work_order_correction_context,
+)
 from essdee_yrp.work_order_piece_tracking import calculate_completed_pieces
 from essdee_yrp.work_order_reopen import reopen_work_order
 
@@ -324,6 +328,31 @@ def _related_documents(work_order: str, key: str, adapter=None) -> list[dict]:
 	return [_as_dict(row) for row in rows]
 
 
+def _work_order_corrections(work_order: str, group_items) -> list[dict]:
+	if not _target_read_permission("YRP Work Order Correction"):
+		return []
+	names = frappe.get_list(
+		"YRP Work Order Correction",
+		filters={"work_order": work_order, "docstatus": 1},
+		order_by="creation asc",
+		pluck="name",
+	)
+	corrections = []
+	for name in names:
+		correction = frappe.get_doc("YRP Work Order Correction", name)
+		corrections.append(
+			{
+				"name": correction.name,
+				"status": correction.status,
+				"correction_date": correction.correction_date,
+				"reason": correction.reason,
+				"deliverables": group_items(correction.get("deliverables") or [], "YRP Work Order Deliverables"),
+				"receivables": group_items(correction.get("receivables") or [], "YRP Work Order Receivables"),
+			}
+		)
+	return corrections
+
+
 def _load_action_context(doc) -> dict:
 	# A process is mandatory on persisted Work Orders. The guard also keeps the
 	# compatibility adapter tolerant of old partially-migrated draft records.
@@ -465,6 +494,10 @@ def _capability_candidates(
 				action_context.get("can_create_sewing_plan") and not action_context.get("sewing_plan")
 			),
 		},
+		"create_work_order_correction": {
+			"label": _("Create Work Order Correction"),
+			"eligible": bool(action_context.get("can_create_work_order_correction")),
+		},
 		"open_sewing_plan": {
 			"label": _("Open Sewing Plan"),
 			"eligible": bool(
@@ -554,6 +587,7 @@ def _build_work_order_workspace(name: str, *, _adapter=None) -> dict:
 	delivery_challans = _related_documents(doc.name, "delivery_challan", _adapter)
 	goods_received_notes = _related_documents(doc.name, "goods_received_note", _adapter)
 	calculated_items = [_as_dict(row) for row in (doc.get("work_order_calculated_items") or [])]
+	corrections = _work_order_corrections(doc.name, group_items)
 	readable_fields = {field["fieldname"] for field in workspace["fields"]}
 	workspace["record"].update(
 		{
@@ -588,6 +622,7 @@ def _build_work_order_workspace(name: str, *, _adapter=None) -> dict:
 			"action_context": action_context,
 			"close_context": close_context,
 			"calculated_items": calculated_items,
+			"corrections": corrections,
 			"summary": summary,
 			"related": {
 				"delivery_challans": delivery_challans,
@@ -842,6 +877,8 @@ def execute_work_order_command(
 		"prepare_recut",
 		"create_recut",
 		"create_sewing_plan",
+		"get_correction_context",
+		"create_work_order_correction",
 	}
 	if command not in commands:
 		frappe.throw(_("Unsupported Work Order command: {0}").format(command))
@@ -869,6 +906,8 @@ def execute_work_order_command(
 				can_read_debits and _settings_role_allowed("debit_approval_role")
 			),
 		}
+	if command == "get_correction_context":
+		return get_work_order_correction_context(name)
 	if command == "get_rework_context":
 		return {"rows": get_rework_source_rows(name)}
 	if command == "get_change_item_context":
@@ -997,6 +1036,16 @@ def execute_work_order_command(
 			recut.submit()
 		workspace = get_work_order_workspace(name)
 		workspace["created"] = {"doctype": recut.doctype, "name": recut.name, "docstatus": recut.docstatus}
+		return workspace
+	elif command == "create_work_order_correction":
+		correction = create_work_order_correction(
+			name,
+			deliverable_details=payload.get("deliverable_details") or [],
+			receivable_details=payload.get("receivable_details") or [],
+			reason=payload.get("reason"),
+		)
+		workspace = get_work_order_workspace(name)
+		workspace["created"] = {"doctype": "YRP Work Order Correction", "name": correction, "docstatus": 1}
 		return workspace
 	elif command == "create_sewing_plan":
 		from essdee_yrp.sewing.plan import create_sewing_plan

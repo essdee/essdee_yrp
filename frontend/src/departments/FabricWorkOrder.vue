@@ -31,12 +31,19 @@
 							<Tab value="overview">Overview</Tab>
 							<Tab v-if="deliverables.length" value="deliverables">Deliverables {{ deliverableCount }}</Tab>
 							<Tab v-if="receivables.length" value="receivables">Receivables {{ receivableCount }}</Tab>
+							<Tab v-if="corrections.length" value="corrections">Corrections {{ corrections.length }}</Tab>
 							<Tab v-if="showSummary" value="summary">Summary</Tab>
 						</TabList>
 						<TabPanels class="work-order-panels">
 							<TabPanel value="overview"><WorkOrderOverview :details="visibleFields" /></TabPanel>
 							<TabPanel v-if="deliverables.length" value="deliverables"><WorkOrderDetails :deliverables="deliverables" :process-cost-view-route-name="processCostViewRouteName" matrices-only /></TabPanel>
 							<TabPanel v-if="receivables.length" value="receivables"><WorkOrderDetails :receivables="receivables" :process-cost-view-route-name="processCostViewRouteName" matrices-only /></TabPanel>
+							<TabPanel v-if="corrections.length" value="corrections">
+								<section v-for="correction in corrections" :key="correction.name" class="work-order-correction-block">
+									<header><DocumentLink doctype="YRP Work Order Correction" :name="correction.name" :label="correction.name" /><span>{{ formatDisplayDate(correction.correction_date) }}</span><DocumentStatusBadge :docstatus="1" :label="correction.status" /><small v-if="correction.reason">{{ correction.reason }}</small></header>
+									<WorkOrderDetails :deliverables="correction.deliverables" :receivables="correction.receivables" :process-cost-view-route-name="processCostViewRouteName" matrices-only />
+								</section>
+							</TabPanel>
 							<TabPanel v-if="showSummary" value="summary"><WorkOrderSummary :summary="workspace.summary || {}" :process-cost-view-route-name="processCostViewRouteName" /></TabPanel>
 						</TabPanels>
 					</Tabs>
@@ -52,6 +59,7 @@
 		</section>
 
 		<WorkOrderActionPanel v-model:visible="actionVisible" :mode="actionMode" :work-order="workspace.record || {}" :editor="actionEditor" @changed="actionChanged" />
+		<WorkOrderCorrectionDialog v-model:visible="correctionVisible" :work-order="workspace.record || {}" @changed="actionChanged" />
 		<RelatedDocumentWorkspaceDialog v-model:visible="relatedVisible" :doctype="relatedDoctype" :name="relatedName" :source-context="relatedSourceContext" @changed="relatedChanged" @closed="relatedClosed" />
 		<DocumentConfirmationDialog v-model:visible="lifecycleConfirmVisible" :title="lifecycleConfirmTitle" :message="lifecycleConfirmMessage" :confirm-label="lifecycleConfirmLabel" :busy="Boolean(acting)" @confirm="confirmLifecycleAction" />
 		<FabricStockOperationDialog v-model:visible="materialIssueVisible" operation="stock_entry" :source-context="materialIssueContext" @changed="materialIssueChanged" />
@@ -96,6 +104,7 @@ import FabricStockOperationDialog from "./fabric-store/FabricStockOperationDialo
 import RelatedDocumentWorkspaceDialog from "./fabric-store/RelatedDocumentWorkspaceDialog.vue"
 import WorkOrderActionPanel from "./fabric-store/WorkOrderActionPanel.vue"
 import WorkOrderActivityRail from "./fabric-store/WorkOrderActivityRail.vue"
+import WorkOrderCorrectionDialog from "./fabric-store/WorkOrderCorrectionDialog.vue"
 import WorkOrderDetails from "./fabric-store/WorkOrderDetails.vue"
 import WorkOrderOverview from "./fabric-store/WorkOrderOverview.vue"
 import WorkOrderSummary from "./fabric-store/WorkOrderSummary.vue"
@@ -122,6 +131,7 @@ const activeTab = ref("overview")
 const workspace = ref({})
 const canCreateQualityInspection = ref(false)
 const actionVisible = ref(false)
+const correctionVisible = ref(false)
 const actionMode = ref("")
 const actionEditor = ref({})
 const actionSourceId = ref("")
@@ -165,6 +175,7 @@ const deliverables = computed(() => workspace.value.matrices?.deliverables || wo
 const receivables = computed(() => workspace.value.matrices?.receivables || workspace.value.receivables || [])
 const deliverableCount = computed(() => itemCount(deliverables.value))
 const receivableCount = computed(() => itemCount(receivables.value))
+const corrections = computed(() => workspace.value.corrections || [])
 const deliveryChallans = computed(() => workspace.value.related?.delivery_challans || workspace.value.delivery_challans || [])
 const goodsReceivedNotes = computed(() => workspace.value.related?.goods_received_notes || workspace.value.goods_received_notes || [])
 const showSummary = computed(() => Boolean(
@@ -207,6 +218,7 @@ const workOrderActions = computed(() => {
 	add("calculate_garment", "Calculate Items", "pi pi-calculator", () => openAction("calculate_garment"))
 	add("calculate_fabric", "Calculate Fabric Deliverables", "pi pi-calculator", () => openAction("calculate_fabric"))
 	add("create_cutting_plan", "Make Cutting Plan", "pi pi-scissors", openCuttingPlan)
+	add("create_work_order_correction", "Create Work Order Correction", "pi pi-file-edit", () => { correctionVisible.value = true })
 	add("save", "Edit", "pi pi-pencil", editWorkOrder)
 	add("submit", "Submit", "pi pi-check", () => requestLifecycleAction("submit"), { shortcut: "submit" })
 	add("cancel", "Cancel Document", "pi pi-ban", () => requestLifecycleAction("cancel"), { menuOnly: true, shortcut: "cancel" })
@@ -248,6 +260,7 @@ async function loadWorkspace(refresh = false) {
 	if (!refresh) {
 		acting.value = ""
 		actionVisible.value = false
+		correctionVisible.value = false
 		actionSourceId.value = ""
 		relatedVisible.value = false
 		relatedName.value = ""
@@ -409,6 +422,10 @@ watch(() => [route.params.workOrderId, props.quality], () => loadWorkspace(false
 .work-order-page__total { display: grid; min-height: 66px; align-content: center; gap: 3px; padding: 9px 11px; border: 1px solid var(--erp-border); border-radius: var(--erp-control-radius); background: var(--erp-surface); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--erp-accent) 58%, var(--erp-surface)); }
 .work-order-page__total strong { color: var(--erp-accent-hover); font-size: 17px; font-weight: 780; }
 .work-order-grn-source { display: grid; gap: var(--erp-space-3); }
+.work-order-correction-block { display: grid; gap: var(--erp-space-2); }
+.work-order-correction-block + .work-order-correction-block { margin-top: var(--erp-space-4); }
+.work-order-correction-block > header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-weight: 720; }
+.work-order-correction-block > header span, .work-order-correction-block > header small { color: var(--erp-text-muted); }
 @media (max-width: 900px) { .work-order-page__totals, :deep(.work-order-activity-rail) { grid-column: 1 / -1; } }
 @media (max-width: 640px) { .fabric-work-order-frame { margin-bottom: 0; } .work-order-page__identity { width: 100%; } .work-order-page__meta { flex-wrap: wrap; gap: 2px 10px; } .work-order-page__date { padding-left: 0; border-left: 0; } .work-order-page__identity h1 { max-width: 100%; flex-wrap: wrap; row-gap: 0; white-space: normal; overflow-wrap: anywhere; } .work-order-page__total:nth-child(odd):last-child { grid-column: 1 / -1; } .work-order-page__totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } .work-order-panels { padding: var(--erp-space-2); } }
 </style>

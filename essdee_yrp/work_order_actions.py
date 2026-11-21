@@ -17,6 +17,8 @@ from yrp.attribute_links import value as _attribute_value
 from yrp.stock.save_stock_items import group_items_for_ui
 from yrp.utils import get_variant_attr_details, update_if_string_instance
 
+from essdee_yrp.work_order_correction import can_create_correction
+
 
 def _processes(process_name: str | None) -> list[str]:
 	if not process_name:
@@ -92,6 +94,7 @@ def get_work_order_action_context(work_order: str) -> dict:
 		"can_make_recut": bool(is_open and not doc.get("is_rework") and _can_create("SD YRP WO Recut")),
 		"can_create_sewing_plan": can_create_sewing_plan,
 		"sewing_plan": sewing_plan,
+		"can_create_work_order_correction": is_open and can_create_correction(doc),
 	}
 
 
