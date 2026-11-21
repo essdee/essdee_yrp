@@ -133,6 +133,7 @@ const ESSDEE_WORK_ORDER_ACTIONS = [
 	"Open Sewing Plan",
 	"Calculate Pieces",
 	"Reopen",
+	"Create Work Order Correction",
 ];
 
 function clear_essdee_work_order_actions(frm) {
@@ -166,6 +167,11 @@ function setup_essdee_work_order_actions(frm) {
 			}
 			if (!context.is_open) return;
 			add_essdee_create_actions(frm, context);
+			if (context.can_create_work_order_correction) {
+				frm.add_custom_button(__("Create Work Order Correction"), () => {
+					open_work_order_correction_dialog(frm);
+				});
+			}
 			if (context.can_change_delivery_date) {
 				frm.add_custom_button(__("Change Delivery Date"), () => {
 					open_change_delivery_date_dialog(frm);
@@ -190,6 +196,82 @@ function setup_essdee_work_order_actions(frm) {
 			}
 		},
 	});
+}
+
+function open_work_order_correction_dialog(frm) {
+	frappe.call({
+		method: "essdee_yrp.work_order_correction.get_work_order_correction_context",
+		args: { work_order: frm.doc.name },
+		callback(r) {
+			const context = r.message || {};
+			if (!context.can_create) {
+				frappe.msgprint(__("You cannot create a correction for this Work Order."));
+				return;
+			}
+			show_work_order_correction_dialog(frm, context);
+		},
+	});
+}
+
+function show_work_order_correction_dialog(frm, context) {
+	const editors = {};
+	const dialog = new frappe.ui.Dialog({
+		title: __("Create Work Order Correction"),
+		size: "extra-large",
+		fields: [
+			{ fieldname: "reason", fieldtype: "Small Text", label: __("Reason") },
+			{ fieldname: "deliverables_html", fieldtype: "HTML" },
+			{ fieldname: "receivables_html", fieldtype: "HTML" },
+		],
+		primary_action_label: __("Submit Correction"),
+		primary_action(values) {
+			frappe.call({
+				method: "essdee_yrp.work_order_correction.create_work_order_correction",
+				args: {
+					work_order: frm.doc.name,
+					deliverable_details: JSON.stringify(editors.deliverables.get_items()),
+					receivable_details: JSON.stringify(editors.receivables.get_items()),
+					reason: values.reason || "",
+				},
+				freeze: true,
+				freeze_message: __("Submitting Work Order Correction..."),
+				callback(r) {
+					dialog.hide();
+					frappe.show_alert({
+						message: __("Work Order Correction {0} submitted.", [r.message]),
+						indicator: "green",
+					});
+					frm.reload_doc();
+				},
+			});
+		},
+	});
+	const mount_editor = (fieldname, title, editorType, extra = {}) => {
+		const editor = new frappe.yrp.work_order.ItemEditor(dialog.fields_dict[fieldname].wrapper, {
+			title,
+			editorType,
+			docstatus: 0,
+			showSecondary: true,
+			showDimensions: false,
+			allowCreate: true,
+			allowEdit: true,
+			allowRemove: true,
+			...extra,
+		});
+		editor.load_data([]);
+		return editor;
+	};
+	// The item pickers bind Frappe controls only once their root is in the visible modal.
+	dialog.$wrapper.one("shown.bs.modal", () => {
+		editors.deliverables = mount_editor("deliverables_html", __("Deliverables"), "work_order_deliverables", {
+			allowedItemNames: context.deliverable_items || [],
+		});
+		editors.receivables = mount_editor("receivables_html", __("Receivables"), "work_order_receivables");
+	});
+	dialog.onhide = () => {
+		for (const editor of Object.values(editors)) editor.app.unmount();
+	};
+	dialog.show();
 }
 
 function reopen_work_order(frm) {
