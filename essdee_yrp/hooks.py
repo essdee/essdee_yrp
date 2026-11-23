@@ -684,6 +684,21 @@ doc_events = {
 	},
 }
 
+# JSON fields that store stock-dimension values by name (see yrp.stock.dimension_rename).
+stock_dimension_json_fields = {
+	"SD YRP GRN Deliverable": ["stock_dimensions"],
+	"SD YRP Lot Transfer Item": ["stock_dimensions"],
+	"SD YRP Finishing Plan Dispatch": ["finishing_items", "dispatch_colour_details"],
+	"YRP Goods Received Note": ["items_json"],
+}
+
+stock_dimension_keyed_json_fields = {
+	"received_type": {
+		"SD YRP Finishing Plan Detail": ["received_type_json"],
+		"YRP Goods Received Note": ["items_json"],
+	},
+}
+
 # Scheduled Tasks
 # ---------------
 
