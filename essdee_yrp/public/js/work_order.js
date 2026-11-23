@@ -774,6 +774,10 @@ function open_fabric_calculate(frm, source_process = null, previous_dialog = nul
 				return;
 			}
 			previous_dialog?.hide();
+			if (essdee_yrp.is_knitting_contract(ctx)) {
+				essdee_yrp.render_knitting_contract_dialog(frm, ctx);
+				return;
+			}
 			render_fabric_dialog(frm, ctx);
 		},
 	});

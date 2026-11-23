@@ -6,9 +6,13 @@ import "./supplier_warehouse";
 import "./supplier_whatsapp";
 import "./ipd_attributes";
 import { install_json_formatter } from "./json_format";
+import { isKnittingContract, renderKnittingContractDialog } from "./work_order_knitting_contract";
 
 frappe.provide("frappe.yrp.work_order");
 frappe.provide("essdee_yrp");
+
+essdee_yrp.is_knitting_contract = isKnittingContract;
+essdee_yrp.render_knitting_contract_dialog = renderKnittingContractDialog;
 
 // Register before any form is rendered, not in refresh after unsafe HTML ran.
 install_json_formatter(frappe.form.formatters);
