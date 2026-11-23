@@ -12,7 +12,7 @@ from yrp.yrp.doctype.yrp_purchase_invoice.test_yrp_purchase_invoice import (
 from yrp.yrp.doctype.yrp_work_order.yrp_work_order import _stock_dimension_values
 
 from essdee_yrp.work_order_close import close_work_order
-from essdee_yrp.work_order_reopen import reopen_work_order
+from essdee_yrp.work_order_reopen import reopen_work_order, restore_deliverable_stock_update
 
 
 class TestWorkOrderReopen(IntegrationTestCase):
@@ -31,6 +31,10 @@ class TestWorkOrderReopen(IntegrationTestCase):
 		patcher = patch.object(frappe.db, "get_single_value", side_effect=get_single_value)
 		patcher.start()
 		cls.addClassCleanup(patcher.stop)
+		# The shared helper picks any host Lot, which may track cut bundles.
+		bundle_patcher = patch("essdee_yrp.cutting.movement.validate_movement_required")
+		bundle_patcher.start()
+		cls.addClassCleanup(bundle_patcher.stop)
 
 	def setUp(self):
 		frappe.set_user("Administrator")
@@ -97,18 +101,40 @@ class TestWorkOrderReopen(IntegrationTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "Only a closed Work Order"):
 			reopen_work_order(work_order.name)
 
-	def test_second_close_and_reopen_reverse_only_the_new_close(self):
+	def test_close_after_reopen_moves_stock_but_keeps_the_first_close_valuation(self):
 		work_order, bucket = self._closable_work_order()
 		opening = self._balance(bucket)
 		close_work_order(work_order.name, sd_close_reason="NA")
+		adjustments = self._close_adjustments(work_order.name)
 		first = reopen_work_order(work_order.name)
 
 		closed = close_work_order(work_order.name, sd_close_reason="NA")
 		self.assertAlmostEqual(closed["deducted_qty"], first["restored_qty"])
+		self.assertAlmostEqual(self._balance(bucket), opening - closed["deducted_qty"])
+		self.assertEqual(self._close_adjustments(work_order.name), adjustments)
 		second = reopen_work_order(work_order.name)
 
 		self.assertAlmostEqual(second["restored_qty"], first["restored_qty"])
 		self.assertAlmostEqual(self._balance(bucket), opening)
+		self.assertEqual(self._close_adjustments(work_order.name), adjustments)
+
+	def test_reopen_restores_stock_at_zero_value_when_close_valuation_moved_it_to_outputs(self):
+		work_order, bucket = self._closable_work_order()
+		close_work_order(work_order.name, sd_close_reason="NA")
+		with patch("essdee_yrp.work_order_reopen.has_close_valuation", return_value=True):
+			result = reopen_work_order(work_order.name)
+
+		receipt = frappe.get_doc("YRP Stock Entry", result["stock_entry"])
+		self.assertEqual(flt(receipt.items[0].rate), 0)
+		self.assertEqual(receipt.items[0].allow_zero_valuation_rate, 1)
+		values = frappe.get_all(
+			"YRP Stock Ledger Entry",
+			filters={"voucher_type": "YRP Stock Entry", "voucher_no": receipt.name, "is_cancelled": 0},
+			pluck="stock_value_difference",
+		)
+		self.assertTrue(values)
+		self.assertAlmostEqual(sum(flt(value) for value in values), 0)
+		self.assertAlmostEqual(self._balance(bucket), result["restored_qty"])
 
 	def test_reopen_fails_loudly_when_close_ledger_is_missing(self):
 		work_order, _bucket = self._closable_work_order()
@@ -123,10 +149,41 @@ class TestWorkOrderReopen(IntegrationTestCase):
 			reopen_work_order(work_order.name)
 		self.assertEqual(frappe.db.get_value("YRP Work Order", work_order.name, "open_status"), "Close")
 
+	def test_restore_rounds_away_float_residual_stock_update(self):
+		row = frappe._dict(name="ROW-1", item_variant="ITEM", uom="Nos", stock_update=1.33)
+		entries = [frappe._dict(voucher_detail_no="ROW-1", qty=qty) for qty in (-0.13, -1.2)]
+		doc = frappe._dict(deliverables=[row])
+		with patch(
+			"essdee_yrp.work_order_reopen.get_conversion_factor", return_value={"conversion_factor": 1}
+		):
+			restore_deliverable_stock_update(doc, entries)
+		self.assertEqual(row.stock_update, 0)
+
+	def test_float_residual_stock_update_does_not_block_reopen(self):
+		doc = frappe._dict(
+			name="WO-1",
+			docstatus=1,
+			open_status="Close",
+			deliverables=[frappe._dict(name="ROW-1", stock_update=5.551115123125783e-17)],
+		)
+		with (
+			patch.object(frappe.db, "sql"),
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch("essdee_yrp.work_order_reopen.get_unreversed_close_entries", return_value=[]),
+			patch("essdee_yrp.work_order_reopen.get_stock_qty_precision", return_value=3),
+			patch(
+				"essdee_yrp.work_order_reopen.restore_deliverable_stock_update",
+				side_effect=AssertionError("reached"),
+			),
+		):
+			with self.assertRaisesRegex(AssertionError, "reached"):
+				reopen_work_order("WO-1")
+
 	def _closable_work_order(self):
 		"""Submitted WO with 3 of 5 pieces delivered and that leftover held at the supplier."""
 		work_order = _work_order_for_invoice(qty=5)
 		row = work_order.deliverables[0]
+		self._keep_one_supplier_warehouse(work_order.supplier)
 		warehouse = _get_warehouse_for_supplier(work_order.supplier)
 		dimensions = _stock_dimension_values(work_order, row)
 		stock_uom = get_conversion_factor(row.item_variant, row.uom).get("stock_uom") or row.uom
@@ -142,5 +199,18 @@ class TestWorkOrderReopen(IntegrationTestCase):
 		work_order.reload()
 		return work_order, {"item": row.item_variant, "warehouse": warehouse, "dimensions": dimensions}
 
+	def _keep_one_supplier_warehouse(self, supplier):
+		"""The supplier insert hook adds a second warehouse; close needs exactly one."""
+		warehouses = frappe.get_all("Warehouse", filters={"supplier": supplier, "disabled": 0}, pluck="name")
+		for warehouse in warehouses[1:]:
+			frappe.db.set_value("Warehouse", warehouse, "disabled", 1)
+
 	def _balance(self, bucket):
 		return flt(get_stock_balance(bucket["item"], bucket["warehouse"], **bucket["dimensions"]))
+
+	def _close_adjustments(self, work_order):
+		return frappe.get_all(
+			"YRP Stock Valuation Adjustment",
+			filters={"source_doctype": "YRP Work Order", "source_name": work_order, "docstatus": 1},
+			pluck="name",
+		)

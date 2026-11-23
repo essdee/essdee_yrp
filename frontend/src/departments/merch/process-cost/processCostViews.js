@@ -26,9 +26,8 @@ export function processCostPath(name, routes = MERCH_PROCESS_COST_ROUTES) {
 	return `${routes.listPath}/${encodeURIComponent(name)}`
 }
 
-/** Item comes from the Lot, except on a Folding Lot where any enabled Item may be chosen. */
-export function processCostReadOnly(fieldname, context = {}) {
-	if (fieldname === "item") return !context.is_folding_lot
+/** Any enabled Item may be chosen; an empty Item defaults to the Lot Item. */
+export function processCostReadOnly(fieldname) {
 	return ["uom", "supplier_name"].includes(fieldname)
 }
 

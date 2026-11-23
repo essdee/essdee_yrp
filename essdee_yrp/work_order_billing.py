@@ -12,12 +12,13 @@ from frappe.utils import flt, getdate
 from yrp.attribute_links import value as _attribute_value
 from yrp.stock.uom import resolve_item_uom
 from yrp.yrp.doctype.yrp_item.yrp_item import get_or_create_variant
+from yrp.yrp.doctype.yrp_process_cost.yrp_process_cost import is_flat_process_cost
 from yrp.yrp.doctype.yrp_purchase_invoice.yrp_purchase_invoice import (
 	_get_item_group,
 	_get_tax_rate,
 	_normal_json,
 )
-from yrp.yrp.doctype.yrp_work_order.yrp_work_order import get_variant_attributes
+from yrp.yrp.doctype.yrp_work_order.yrp_work_order import get_variant_attributes, get_variant_items
 
 from essdee_yrp.overrides.work_order import _combination_key
 from essdee_yrp.work_order_piece_tracking import get_selected_grn_piece_quantities
@@ -286,7 +287,7 @@ def _build_modern_work_order_context(
 		else None
 	)
 	received_json = _uses_received_json(work_order, process, ipd)
-	calculated = _modern_calculated_items(work_order)
+	calculated = _modern_calculated_items(work_order, ipd)
 	if received_json:
 		quantities = get_selected_grn_piece_quantities(work_order, selected_grns)
 		for calculated_item in calculated.values():
@@ -301,7 +302,7 @@ def _build_modern_work_order_context(
 					grn_item,
 					round(flt(grn_item.get("quantity")), quantity_precisions["physical"]),
 					grn.name,
-					work_order.name,
+					work_order,
 					warnings,
 				)
 
@@ -329,6 +330,7 @@ def _build_modern_work_order_context(
 		"billing_uom": billing_uom,
 		"item_group": item_group,
 		"tax": tax,
+		"process_cost": process_cost,
 		"lot": work_order.get("lot"),
 		"received_json": received_json,
 		"ipd": ipd,
@@ -410,14 +412,53 @@ def _uses_received_json(work_order, process, ipd):
 	)
 
 
-def _modern_calculated_items(work_order):
+def _modern_calculated_items(work_order, ipd=None):
+	rows = work_order.get("work_order_calculated_items") or []
+	if not rows and ipd and ipd.get("is_cloth_item"):
+		rows = get_fabric_billing_rows(work_order)
 	calculated = {}
-	for row in work_order.get("work_order_calculated_items") or []:
+	for row in rows:
 		calculated[_calculated_item_key(row)] = {
 			"row": row,
 			"selected_qty": 0,
 		}
 	return calculated
+
+
+def get_fabric_billing_rows(work_order):
+	"""Billable rows for a fabric Work Order, one per received cloth variant.
+
+	Fabric Work Orders keep no calculated items; their receivables are the billed output.
+	"""
+	rows = {}
+	for receivable in work_order.get("receivables") or []:
+		key = _calculated_item_key(receivable)
+		row = rows.setdefault(
+			key,
+			frappe._dict(
+				idx=len(rows) + 1,
+				item_variant=receivable.item_variant,
+				set_combination=receivable.get("set_combination"),
+				delivered_quantity=0,
+				received_qty=0,
+				billed_qty=0,
+			),
+		)
+		row.delivered_quantity += flt(receivable.get("qty"))
+		row.received_qty += max(flt(receivable.get("qty")) - flt(receivable.get("pending_quantity")), 0)
+	for billed in frappe.db.sql(
+		"""
+		SELECT item_variant, set_combination, quantity
+		FROM `tabYRP PI Work Order Billed Detail`
+		WHERE work_order = %(work_order)s AND docstatus = 1
+		""",
+		{"work_order": work_order.name},
+		as_dict=True,
+	):
+		row = rows.get(_calculated_item_key(billed))
+		if row:
+			row.billed_qty += flt(billed.quantity)
+	return list(rows.values())
 
 
 def _calculated_item_key(row):
@@ -429,19 +470,40 @@ def _piece_quantity_key(row):
 	return row.item_variant, _combination_key(row.get("set_combination"))
 
 
+def get_calculated_item_for_grn_row(calculated, work_order, grn_item):
+	"""Calculated row a GRN row bills against; Actual Dia rows use their planned receivable."""
+	matched = calculated.get(_calculated_item_key(grn_item))
+	if matched:
+		return matched
+	receivable = get_planned_receivable(work_order, grn_item)
+	return calculated.get(_calculated_item_key(receivable)) if receivable else None
+
+
+def get_planned_receivable(work_order, grn_item):
+	"""Receivable with the GRN row's variant, else the one its `ref_docname` points to."""
+	combination = _normal_json(grn_item.get("set_combination"))
+	receivables = work_order.get("receivables") or []
+	for row in receivables:
+		if row.item_variant == grn_item.item_variant and _normal_json(row.get("set_combination")) == combination:
+			return row
+	if grn_item.get("ref_doctype") != "YRP Work Order Receivables":
+		return None
+	return next((row for row in receivables if row.name == grn_item.get("ref_docname")), None)
+
+
 def _add_calculated_quantity(calculated, source_row, quantity, grn, work_order, warnings):
-	key = _calculated_item_key(source_row)
-	if key in calculated:
-		calculated[key]["selected_qty"] += quantity
+	matched = get_calculated_item_for_grn_row(calculated, work_order, source_row)
+	if matched:
+		matched["selected_qty"] += quantity
 		return
 	warnings.append(
 		{
-			"work_order": work_order,
+			"work_order": work_order.name,
 			"grns": [grn],
 			"reason": _(
 				"GRN {0} row {1} item {2} is not a calculated item of Work Order {3}; "
 				"its quantity is not billed."
-			).format(grn, source_row.get("idx") or "?", source_row.item_variant, work_order),
+			).format(grn, source_row.get("idx") or "?", source_row.item_variant, work_order.name),
 		}
 	)
 
@@ -451,7 +513,7 @@ def _process_cost_rate(process_cost, quantity, item_variant, stitching_attribute
 	if not process_cost:
 		return 0
 	rows = list(process_cost.get("process_cost_values") or [])
-	if process_cost.get("depends_on_attribute") and process_cost.get("attribute") != stitching_attribute:
+	if not is_flat_process_cost(process_cost) and process_cost.attribute != stitching_attribute:
 		attribute = process_cost.attribute
 		variant_value = _attribute_value(get_variant_attributes(item_variant).get(attribute))
 		if not variant_value:
@@ -548,7 +610,7 @@ def _build_direct_physical_rows(hidden, work_order, selected_grns, context):
 			)
 			if quantity <= 0:
 				continue
-			calculated = context["calculated"].get(_calculated_item_key(grn_item))
+			calculated = get_calculated_item_for_grn_row(context["calculated"], work_order, grn_item)
 			_append_modern_physical_row(
 				hidden,
 				grn.name,
@@ -572,6 +634,20 @@ def _build_received_json_physical_rows(hidden, work_order, selected_grns, contex
 			)
 			if quantity > 0:
 				physical_rows.append((grn.name, grn_item, quantity))
+	physical_rows, other_item_rows = split_process_cost_item_rows(physical_rows, context["process_cost"])
+	for source_grn, grn_item, quantity in other_item_rows:
+		_append_modern_physical_row(
+			hidden,
+			source_grn,
+			grn_item,
+			work_order,
+			None,
+			None,
+			_physical_source_rate(work_order, grn_item),
+			0,
+			0,
+			quantity,
+		)
 	physical_quantity = sum(quantity for _grn, _row, quantity in physical_rows)
 	if not physical_quantity:
 		return
@@ -624,6 +700,22 @@ def _build_received_json_physical_rows(hidden, work_order, selected_grns, contex
 				rate_weight,
 				quantity,
 			)
+
+
+def split_process_cost_item_rows(physical_rows, process_cost):
+	"""Split GRN rows into Process Cost item rows and other items, such as folding cloth.
+
+	Matches YRP's receivable rating: only the Process Cost item carries the process charge.
+	"""
+	if not physical_rows or not process_cost or not process_cost.get("item"):
+		return physical_rows, []
+	item = process_cost.item.casefold()
+	items = get_variant_items([grn_item.item_variant for _grn, grn_item, _quantity in physical_rows])
+	charged, others = [], []
+	for row in physical_rows:
+		is_charged = (items.get(row[1].item_variant) or "").casefold() == item
+		(charged if is_charged else others).append(row)
+	return charged, others
 
 
 def _build_even_received_json_physical_rows(
@@ -693,16 +785,7 @@ def _physical_source_rate(work_order, grn_item):
 	quantity = flt(grn_item.get("quantity"))
 	if quantity <= 0:
 		return 0
-	combination = _normal_json(grn_item.get("set_combination"))
-	receivable = next(
-		(
-			row
-			for row in work_order.get("receivables") or []
-			if row.item_variant == grn_item.item_variant
-			and _normal_json(row.get("set_combination")) == combination
-		),
-		None,
-	)
+	receivable = get_planned_receivable(work_order, grn_item)
 	stock_quantity = flt(grn_item.get("stock_qty")) or quantity
 	if receivable:
 		return flt(receivable.get("cost")) * stock_quantity / quantity

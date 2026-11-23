@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
-from frappe.utils import cint, today
+from frappe.utils import cint, flt, today
+from yrp.stock.shortage import get_stock_qty_precision
 
 from essdee_yrp.delivery_challan_hooks import requires_exact_source_lifecycle
 from essdee_yrp.work_order_correction_hooks import get_correction_deliverable_items
@@ -89,7 +90,7 @@ def write_off_correction_stock(doc, method=None):
 	"""On Work Order close, remove correction-delivered stock still at the supplier (no valuation transfer)."""
 	if doc.get("open_status") != "Close" or not doc.has_value_changed("open_status"):
 		return
-	from frappe.utils import flt, nowdate, nowtime
+	from frappe.utils import nowdate, nowtime
 	from yrp.stock.stock_ledger import make_sl_entries
 	from yrp.yrp.doctype.yrp_delivery_challan.yrp_delivery_challan import _get_warehouse_for_supplier
 
@@ -105,6 +106,7 @@ def write_off_correction_stock(doc, method=None):
 def _delivered_correction_rows(work_order):
 	from essdee_yrp.work_order_reopen import get_unreversed_close_entries
 
+	precision = get_stock_qty_precision()
 	written_off = {}
 	for entry in get_unreversed_close_entries(work_order):
 		written_off[entry.voucher_detail_no] = written_off.get(entry.voucher_detail_no, 0) + abs(entry.qty)
@@ -113,7 +115,9 @@ def _delivered_correction_rows(work_order):
 		CORRECTION_DOCTYPE, filters={"work_order": work_order, "docstatus": 1}, pluck="name"
 	):
 		for row in frappe.get_doc(CORRECTION_DOCTYPE, name).get("deliverables") or []:
-			row.outstanding_qty = row.qty - row.pending_quantity - written_off.get(row.name, 0)
+			row.outstanding_qty = flt(
+				row.qty - row.pending_quantity - written_off.get(row.name, 0), precision
+			)
 			if row.outstanding_qty > 0:
 				rows.append(row)
 	return rows

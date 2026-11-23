@@ -1991,7 +1991,15 @@ class TestEssdeeValuationContract(UnitTestCase):
 			),
 			patch(
 				"essdee_yrp.essdee_yrp.doctype.sd_yrp_cutting_laysheet.sd_yrp_cutting_laysheet._cutting_grn_consumed_rows",
-				return_value=[{"item_variant": "CLOTH-1", "uom": "Kg", "qty": 1}],
+				return_value=[{"item_variant": "CLOTH-1", "uom": "Kg", "qty": 1, "colours": {"Red", "Blue"}}],
+			),
+			patch(
+				"essdee_yrp.essdee_yrp.doctype.sd_yrp_cutting_laysheet.sd_yrp_cutting_laysheet.frappe.get_cached_value",
+				return_value="Colour",
+			),
+			patch(
+				"essdee_yrp.essdee_yrp.doctype.sd_yrp_cutting_laysheet.sd_yrp_cutting_laysheet.get_variant_attr_details",
+				side_effect=lambda variant: {"Colour": variant.split("-")[1].title()},
 			),
 			patch(
 				"yrp.stock.utils.get_conversion_factor",

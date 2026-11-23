@@ -1,7 +1,7 @@
 // Essdee Process Cost values are scoped by the Lot's IPD and process.
 frappe.ui.form.on("YRP Process Cost", {
 	setup(frm) {
-		// A Folding Lot's Item is chosen freely; other Lots overwrite it with the Lot Item on save.
+		// Any enabled Item may be priced; an empty Item is filled from the Lot on save.
 		frm.set_query("item", () => ({ filters: { disabled: 0 } }));
 		frm.set_query("attribute", () => {
 			if (!frm.doc.lot) {
@@ -21,9 +21,19 @@ frappe.ui.form.on("YRP Process Cost", {
 		});
 	},
 
+	refresh(frm) {
+		setAttributeValueRequired(frm);
+	},
+
+	item(frm) {
+		if (frm.doc.attribute) frm.set_value("attribute", null);
+	},
+
 	attribute(frm) {
+		setAttributeValueRequired(frm);
 		if (!frm.doc.attribute) {
 			frm.clear_table("process_cost_values");
+			frm.add_child("process_cost_values");
 			frm.refresh_field("process_cost_values");
 			return;
 		}
@@ -47,3 +57,9 @@ frappe.ui.form.on("YRP Process Cost", {
 		});
 	},
 });
+
+// No Attribute means a flat cost: price rows need no Attribute Value.
+function setAttributeValueRequired(frm) {
+	const grid = frm.fields_dict.process_cost_values.grid;
+	grid.toggle_reqd("attribute_value", Boolean(frm.doc.attribute));
+}

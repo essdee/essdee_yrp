@@ -4,6 +4,7 @@ import frappe
 from frappe import _
 from frappe.utils import escape_html, flt, nowdate, nowtime
 from yrp.stock.job_worker_variant import get_job_worker_stock_variant
+from yrp.stock.shortage import get_stock_qty_precision
 from yrp.yrp.doctype.yrp_work_order.yrp_work_order import (
 	_apply_close_details,
 	_get_wo_close_approver_role,
@@ -40,10 +41,6 @@ def close_work_order(
 	)
 	from yrp.yrp.doctype.yrp_delivery_challan.yrp_delivery_challan import (
 		_get_warehouse_for_supplier,
-	)
-	from yrp.yrp_stock.doctype.yrp_stock_valuation_adjustment.yrp_stock_valuation_adjustment import (
-		create_adjustment,
-		register_production_links,
 	)
 
 	selected_reason, other_reason = _validate_close_reason(
@@ -91,9 +88,9 @@ def close_work_order(
 	posting_date = nowdate()
 	posting_time = nowtime()
 	has_lineage = _has_mapped_output_lineage(doc.name)
+	precision = get_stock_qty_precision()
 	for row in doc.get("deliverables") or []:
-		delivered_qty = flt(row.qty) - flt(row.pending_quantity)
-		reduce_qty = delivered_qty - flt(row.stock_update)
+		reduce_qty = flt(flt(row.qty) - flt(row.pending_quantity) - flt(row.stock_update), precision)
 		if reduce_qty <= 0:
 			continue
 		if get_job_worker_stock_variant(doc, row.item_variant) != row.item_variant:
@@ -195,6 +192,53 @@ def close_work_order(
 	if not has_lineage and excess_plans:
 		doc.add_comment("Comment", _get_write_off_comment(excess_plans))
 
+	if not has_close_valuation(doc.name):
+		post_close_valuation(doc, excess_plans, posting_date)
+	close_voucher_reservations("YRP Work Order", doc.name)
+	enqueue_voucher_repost(
+		frappe._dict(
+			doctype=doc.doctype,
+			name=doc.name,
+			posting_date=posting_date,
+			posting_time=posting_time,
+		)
+	)
+	return {
+		"status": "Close",
+		"deducted_qty": round(sum(flt(plan["stock_quantity"]) for plan in excess_plans), 3),
+	}
+
+
+def has_close_valuation(work_order):
+	"""True when an earlier close already moved this Work Order's excess value into its outputs."""
+	return bool(
+		frappe.db.sql(
+			"""
+			SELECT 1
+			FROM `tabYRP Stock Valuation Adjustment` adjustment
+			WHERE adjustment.source_doctype = 'YRP Work Order'
+			  AND adjustment.source_name = %(work_order)s
+			  AND adjustment.adjustment_type = 'Work Order Excess Usage'
+			  AND adjustment.docstatus = 1
+			  AND NOT EXISTS (
+				SELECT 1
+				FROM `tabYRP Stock Valuation Adjustment` reversal
+				WHERE reversal.reversal_of = adjustment.name AND reversal.docstatus = 1
+			  )
+			LIMIT 1
+			""",
+			{"work_order": work_order},
+		)
+	)
+
+
+def post_close_valuation(doc, excess_plans, posting_date):
+	"""Spread each close write-off's actual value over the Work Order's received outputs."""
+	from yrp.yrp_stock.doctype.yrp_stock_valuation_adjustment.yrp_stock_valuation_adjustment import (
+		create_adjustment,
+		register_production_links,
+	)
+
 	adjustment_allocations = []
 	production_links = []
 	for plan in excess_plans:
@@ -259,22 +303,8 @@ def close_work_order(
 		source_name=doc.name,
 		effective_date=posting_date,
 		allocations=adjustment_allocations,
-		# Keyed by this close's own ledger so a close after a reopen gets a fresh adjustment.
 		idempotency_key=f"{doc.doctype}:{doc.name}:close:{close_key}",
 	)
-	close_voucher_reservations("YRP Work Order", doc.name)
-	enqueue_voucher_repost(
-		frappe._dict(
-			doctype=doc.doctype,
-			name=doc.name,
-			posting_date=posting_date,
-			posting_time=posting_time,
-		)
-	)
-	return {
-		"status": "Close",
-		"deducted_qty": round(sum(flt(plan["stock_quantity"]) for plan in excess_plans), 3),
-	}
 
 
 def _validate_internal_transfers_complete(work_order):
@@ -350,8 +380,7 @@ def _get_excess_output_allocations(work_order, deliverable, dimensions):
 		)
 		grouped[key] = flt(grouped.get(key)) + flt(row.stock_qty)
 	if not rows:
-		# No receipt ever used this input: it is unsewn stock, so nothing carries its value.
-		return []
+		return get_work_order_output_allocations(work_order)
 	if not grouped:
 		_throw_lineage_dimension_mismatch(work_order, deliverable, dimensions, rows)
 	return [
@@ -364,6 +393,40 @@ def _get_excess_output_allocations(work_order, deliverable, dimensions):
 		}
 		for key, weight in grouped.items()
 		if weight > 0
+	]
+
+
+def get_work_order_output_allocations(work_order):
+	"""Spread an input no GRN consumed (e.g. folding cloth) over every output by received qty."""
+	rows = frappe.db.sql(
+		"""
+		SELECT DISTINCT d.output_receipt_sle, d.parent AS output_voucher,
+		       d.goods_received_note_item AS output_detail,
+		       d.received_item_variant AS output_item, sle.qty AS allocation_weight
+		FROM `tabSD YRP GRN Deliverable` d
+		INNER JOIN `tabYRP Goods Received Note` g ON g.name = d.parent
+		INNER JOIN `tabYRP Stock Ledger Entry` sle ON sle.name = d.output_receipt_sle
+		WHERE d.parenttype = 'YRP Goods Received Note'
+		  AND d.parentfield = 'grn_deliverables'
+		  AND g.docstatus = 1
+		  AND g.against = 'YRP Work Order'
+		  AND g.against_id = %s
+		  AND sle.is_cancelled = 0
+		  AND sle.qty > 0
+		ORDER BY d.output_receipt_sle
+		""",
+		(work_order.name,),
+		as_dict=True,
+	)
+	return [
+		{
+			"output_receipt_sle": row.output_receipt_sle,
+			"output_voucher": row.output_voucher,
+			"output_detail": row.output_detail,
+			"output_item": row.output_item,
+			"allocation_weight": flt(row.allocation_weight),
+		}
+		for row in rows
 	]
 
 

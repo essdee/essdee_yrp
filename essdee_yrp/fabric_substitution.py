@@ -700,14 +700,26 @@ def get_process_conversion_index(
 	return dict(index)
 
 
-def resolve_process_conversion(index, *, route_item, planned_item, projected_item):
+def _process_conversion_targets(index, route_item, planned_item):
 	if not index or not planned_item:
-		return projected_item
+		return None
 	targets = index.get((route_item or "", planned_item))
 	if not targets and route_item:
 		targets = index.get(("", planned_item))
-	if not targets or projected_item in targets:
+	return targets
+
+
+def has_process_conversion(index, *, route_item, planned_item, projected_item):
+	targets = _process_conversion_targets(index, route_item, planned_item)
+	return not targets or projected_item in targets
+
+
+def resolve_process_conversion(index, *, route_item, planned_item, projected_item):
+	if has_process_conversion(
+		index, route_item=route_item, planned_item=planned_item, projected_item=projected_item
+	):
 		return projected_item
+	targets = _process_conversion_targets(index, route_item, planned_item)
 	frappe.throw(
 		_(
 			"Lot fabric conversion is out of date for {0}: calculated {1}, but the Lot contains {2}."

@@ -60,7 +60,7 @@ def get_item_attributes(doctype, txt, searchfield, start, page_len, filters):
 		item = frappe.get_cached_doc("Item", filters.item)
 		attributes = [row.attribute for row in item.get("attributes") or []]
 
-	seen = set()
+	seen = {ipd.get("dependent_attribute")}
 	return [
 		[attribute]
 		for attribute in attributes
@@ -96,7 +96,7 @@ def get_pc_attribute_values(
 	if not ipd_name and is_folding_lot(lot):
 		return base_process_cost.get_pc_attribute_values(item, attribute, for_link)
 	if not ipd_name:
-		frappe.throw(_("Lot {0} has no Item Production Detail.").format(lot))
+		frappe.throw(_("Item {0} has no Item Production Detail in Lot {1}.").format(item, lot))
 	frappe.has_permission("YRP Item Production Detail", "read", doc=ipd_name, throw=True)
 	ipd = frappe.get_cached_doc("YRP Item Production Detail", ipd_name)
 	mapping = next(
@@ -150,35 +150,30 @@ def _check_process_cost_permissions(*, item=None, lot=None, process_name=None):
 			frappe.has_permission(doctype, "read", doc=name, throw=True)
 
 
-def _resolve_ipd_name(item, lot, process_name):
-	if is_folding_lot(lot):
-		return _get_folding_ipd_name(item, lot, process_name)
-	if process_name and frappe.db.get_value("YRP Process", process_name, "is_cloth_process"):
-		from essdee_yrp.api.work_order import _get_work_order_selection_context
-
-		context = _get_work_order_selection_context(lot, process_name, check_permission=False)
-		matches = [row for row in context["options"] if row["item"] == item]
-		if len(matches) != 1:
-			frappe.throw(_("Select a cloth Item configured for this Lot and Process."))
-		return matches[0]["production_detail"]
-	return attribute_db.get_value("SD YRP Lot", lot, "production_detail")
-
-
-def _get_folding_ipd_name(item, lot, process_name):
-	"""A Folding Lot prices any Item; only an Item from the Lot's own IPDs uses that IPD."""
-	if process_name and frappe.db.get_value("YRP Process", process_name, "is_cloth_process"):
-		from essdee_yrp.api.work_order import _get_work_order_selection_context
-
-		context = _get_work_order_selection_context(lot, process_name, check_permission=False)
-		matches = [row["production_detail"] for row in context["options"] if row["item"] == item]
-		return matches[0] if len(matches) == 1 else None
-	if item and item == attribute_db.get_value("SD YRP Lot", lot, "item"):
+def _resolve_ipd_name(item, lot, process_name=None):
+	"""IPD of the chosen (else the Lot) Item: the Lot IPD for the Lot Item, else its Lot fabric IPD."""
+	if not lot:
+		return None
+	lot_item = attribute_db.get_value("SD YRP Lot", lot, "item")
+	if not item or item == lot_item:
 		return attribute_db.get_value("SD YRP Lot", lot, "production_detail")
-	return None
+	fabric_ipds = set(
+		frappe.get_all(
+			"SD YRP Lot Fabric Detail",
+			filters={"parent": lot, "parenttype": "SD YRP Lot", "cloth_item": item},
+			pluck="production_detail",
+		)
+	) - {None, ""}
+	if len(fabric_ipds) > 1 and process_name:
+		from essdee_yrp.api.work_order import _get_work_order_selection_context
+
+		context = _get_work_order_selection_context(lot, process_name, check_permission=False)
+		fabric_ipds = {row["production_detail"] for row in context["options"] if row["item"] == item}
+	return fabric_ipds.pop() if len(fabric_ipds) == 1 else None
 
 
-def validate_folding_item(item):
-	"""Folding Lot Process Costs accept any enabled Item, template or variant."""
+def validate_enabled_item(item):
+	"""A Process Cost accepts any enabled Item, template or variant."""
 	if item and frappe.db.get_value("Item", item, "disabled") != 0:
 		frappe.throw(_("Select an enabled Item."))
 
@@ -186,16 +181,32 @@ def validate_folding_item(item):
 def before_validate(doc, method=None):
 	if not doc.get("lot") or not doc.get("process_name"):
 		return
-	if is_folding_lot(doc.lot):
-		validate_folding_item(doc.item)
-		if doc.item:
-			doc.uom = frappe.db.get_value("Item", doc.item, "stock_uom")
-		return
-	if frappe.db.get_value("YRP Process", doc.process_name, "is_cloth_process"):
-		_resolve_ipd_name(doc.item, doc.lot, doc.process_name)
-	else:
-		# Preserve the previous garment Lot fetch while allowing an explicit
-		# cloth Item for processes that use the Lot's separate cloth IPDs.
+	if not doc.item:
 		doc.item = attribute_db.get_value("SD YRP Lot", doc.lot, "item")
-		if doc.item:
-			doc.uom = frappe.db.get_value("Item", doc.item, "stock_uom")
+	validate_enabled_item(doc.item)
+	if doc.item:
+		doc.uom = frappe.db.get_value("Item", doc.item, "stock_uom")
+	validate_attribute(doc)
+
+
+def validate_attribute(doc):
+	"""Attributes come from the Item's IPD; billing has no price for its dependent attribute (Stage)."""
+	if not doc.get("depends_on_attribute") or not doc.get("attribute"):
+		return
+	ipd_name = _resolve_ipd_name(doc.item, doc.lot, doc.process_name)
+	if not ipd_name and is_folding_lot(doc.lot):
+		return
+	if not ipd_name:
+		frappe.throw(
+			_(
+				"Item {0} has no Item Production Detail in Lot {1}. Remove the Attribute for a flat cost."
+			).format(doc.item, doc.lot)
+		)
+	dependent_attribute = frappe.db.get_value("YRP Item Production Detail", ipd_name, "dependent_attribute")
+	if doc.attribute == dependent_attribute:
+		frappe.throw(
+			_(
+				"Process Cost cannot depend on {0}, the item's dependent attribute. "
+				"Choose another attribute or none."
+			).format(dependent_attribute)
+		)

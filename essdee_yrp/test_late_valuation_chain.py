@@ -368,3 +368,114 @@ class TestLateValuationChain(FrappeTestCase):
 		self.assertEqual(forward["overlays"], [10, 11, 13, 16, 20])
 		self.assertEqual(reverse["overlays"], [10, 11, 13, 16, 20])
 		self.assertEqual(forward, reverse)
+
+	def test_upstream_cost_crosses_close_links_into_garments_and_dispatch(self):
+		from yrp.stock.stock_ledger import make_sl_entries
+
+		work_order = frappe.db.get_value("YRP Work Order", {}, "name")
+		with patch.object(frappe.db, "commit"):
+			unit, garments, dispatch = (
+				_warehouse(f"Close Accessory {stage}") for stage in ("Unit", "GRN", "Dispatch")
+			)
+			accessory = _stock_entry(
+				self.item,
+				self.uom,
+				self.dimensions,
+				"Material Receipt",
+				10,
+				10,
+				to_warehouse=unit,
+				posting_time="08:00:00",
+			)
+			outputs = [
+				_stock_entry(
+					self.item,
+					self.uom,
+					self.dimensions,
+					"Material Receipt",
+					qty,
+					50,
+					to_warehouse=garments,
+					posting_time="08:01:00",
+				)
+				for qty in (4, 6)
+			]
+			make_sl_entries(
+				[
+					{
+						"item": self.item,
+						"warehouse": unit,
+						"uom": self.uom,
+						"voucher_type": "YRP Work Order",
+						"voucher_no": work_order,
+						"voucher_detail_no": "_test-folding-cloth",
+						"posting_date": accessory.posting_date,
+						"posting_time": "08:02:00",
+						"qty": -10,
+						"rate": 0,
+						"is_cancelled": 0,
+						**self.dimensions,
+					}
+				]
+			)
+			close_sle = frappe.db.get_value(
+				"YRP Stock Ledger Entry",
+				{"warehouse": unit, "voucher_type": "YRP Work Order", "is_cancelled": 0},
+				"name",
+			)
+			output_sles = [self._sle(output, True) for output in outputs]
+			register_production_links(
+				"YRP Work Order",
+				work_order,
+				[
+					{
+						"consumption_sle": close_sle,
+						"output_receipt_sle": output.name,
+						"source_row": "_test-folding-cloth",
+						"input_quantity": output.qty,
+						"allocation_weight": output.qty,
+					}
+					for output in output_sles
+				],
+			)
+			issue = _stock_entry(
+				self.item,
+				self.uom,
+				self.dimensions,
+				"Material Issue",
+				10,
+				0,
+				from_warehouse=garments,
+				posting_time="08:03:00",
+			)
+			dispatched = _stock_entry(
+				self.item,
+				self.uom,
+				self.dimensions,
+				"Material Receipt",
+				10,
+				55,
+				to_warehouse=dispatch,
+				posting_time="08:04:00",
+			)
+			dispatched_sle = self._sle(dispatched, True)
+			register_production_links(
+				issue.doctype,
+				issue.name,
+				[
+					{
+						"consumption_sle": self._sle(issue, False).name,
+						"output_receipt_sle": dispatched_sle.name,
+						"input_quantity": 10,
+						"allocation_weight": 10,
+					}
+				],
+			)
+			scenario = {"source": accessory, "targets": [self._sle(accessory, True)]}
+			self._apply_difference(scenario, 0, 20)
+
+			overlays = [
+				flt(frappe.db.get_value("YRP Stock Ledger Entry", sle.name, "valuation_adjustment_value"))
+				for sle in [*output_sles, dispatched_sle]
+			]
+			self.assertEqual([round(value, 2) for value in overlays], [8, 12, 20])

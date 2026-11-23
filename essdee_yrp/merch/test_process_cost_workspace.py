@@ -255,10 +255,23 @@ class TestProcessCostWorkspace(TestCase):
 
 	def test_lot_derives_item_before_process_is_selected(self):
 		lot = cost_document()
-		with patch(f"{MODULE}.frappe.get_doc", return_value=lot), patch(f"{MODULE}._item_uom", return_value="Nos"):
+		with patch(f"{MODULE}.frappe.get_doc", return_value=lot), patch("frappe.db", self.selection_database()):
 			context = workspace._selection("ZZ TEST Lot")
 		self.assertEqual((context["item"], context["uom"]), ("ZZ TEST Item", "Nos"))
-		self.assertFalse(context["is_cloth_process"])
+
+	def test_selection_keeps_the_chosen_item_for_any_process(self):
+		with patch(f"{MODULE}.frappe.get_doc", return_value=cost_document()), patch("frappe.db", self.selection_database()), patch("frappe.has_permission", return_value=True):
+			context = workspace._selection("ZZ TEST Lot", "ZZ TEST Printing", "ZZ TEST Cloth")
+		self.assertEqual((context["item"], context["uom"]), ("ZZ TEST Cloth", "Nos"))
+		self.assertNotIn("field_errors", context)
+
+	def test_selection_rejects_a_disabled_item(self):
+		database = self.selection_database()
+		database.get_value.side_effect = lambda doctype, name, fieldname: 1 if fieldname == "disabled" else "Nos"
+		with patch(f"{MODULE}.frappe.get_doc", return_value=cost_document()), patch("frappe.db", database):
+			context = workspace._selection("ZZ TEST Lot", None, "ZZ TEST Old")
+		self.assertEqual(context["item"], None)
+		self.assertEqual(context["field_errors"], {"item": "Select an enabled Item."})
 
 	def restrict_link_reads(self, blocked=("Item", "YRP Item Production Detail")):
 		def has_permission(doctype, *args, throw=False, **kwargs):
@@ -270,7 +283,7 @@ class TestProcessCostWorkspace(TestCase):
 
 	def selection_database(self):
 		database = Mock()
-		values = {("YRP Process", "is_cloth_process"): 0, ("Item", "stock_uom"): "Nos",
+		values = {("Item", "disabled"): 0, ("Item", "stock_uom"): "Nos",
 			("Supplier", "supplier_name"): "ZZ TEST Supplier Name", ("YRP Tax Slab", "enabled"): 1}
 		database.get_value.side_effect = lambda doctype, name, fieldname: values[(doctype, fieldname)]
 		return database
@@ -290,13 +303,13 @@ class TestProcessCostWorkspace(TestCase):
 		doc = frappe._dict(attribute=None, workflow_state="Draft")
 		doc.set = lambda key, value: doc.update({key: value})
 		doc.insert = Mock(side_effect=lambda: doc.update(name="ZZ TEST PC"))
-		values = {"lot": "ZZ TEST Lot", "process_name": "ZZ TEST Process", "item": "untrusted",
+		values = {"lot": "ZZ TEST Lot", "process_name": "ZZ TEST Process", "item": "ZZ TEST Cloth",
 			"supplier": "ZZ TEST Supplier", "from_date": "2099-01-01", "tax_slab": "ZZ TEST Tax",
 			"process_cost_values": [{"price": 12.5, "min_order_qty": 0}]}
 		with self.restrict_link_reads(), patch("frappe.db", self.selection_database()), patch("frappe.new_doc", return_value=doc), patch("frappe.get_doc", return_value=cost_document()), patch(f"{MODULE}.get_process_cost_workspace", return_value={"saved": True}):
 			self.assertEqual(workspace.save_process_cost(values), {"saved": True})
 		doc.insert.assert_called_once()
-		self.assertEqual((doc.item, doc.uom, doc.attribute), ("ZZ TEST Item", "Nos", None))
+		self.assertEqual((doc.item, doc.uom, doc.attribute), ("ZZ TEST Cloth", "Nos", None))
 		self.assertEqual(doc.process_cost_values, [{"attribute_value": None, "min_order_qty": 0, "price": 12.5}])
 
 	def test_attribute_permission_failures_return_field_error_payload(self):
@@ -325,18 +338,6 @@ class TestProcessCostWorkspace(TestCase):
 		self.assertIn("ZZ TEST IPD", payload["field_errors"]["attribute"])
 		doc.insert.assert_not_called()
 
-	def test_cloth_permission_failure_returns_item_field_error(self):
-		lot = frappe._dict(name="ZZ TEST Lot", item="ZZ TEST Item", lot_fabric_details=[
-			frappe._dict(cloth_item="ZZ TEST Cloth", production_detail="ZZ TEST Cloth IPD")])
-		lot.check_permission = Mock()
-		database = Mock()
-		database.get_value.return_value = 1
-		with self.restrict_link_reads(), patch("frappe.db", database), patch("frappe.get_doc", return_value=lot), patch(f"{MODULE}.get_work_order_selection_context", side_effect=frappe.PermissionError):
-			grid = workspace.get_process_cost_grid(lot.name, "ZZ TEST Dyeing")
-		self.assertTrue(grid["is_cloth_process"])
-		self.assertEqual(grid["item_options"], [])
-		self.assertEqual(grid["field_errors"], {"item": "You cannot read YRP Item Production Detail ZZ TEST Cloth IPD needed to select a cloth Item."})
-
 	def test_grid_keeps_lot_and_process_read_checks(self):
 		with patch("frappe.get_doc", return_value=cost_document()), patch("frappe.db", self.selection_database()), self.restrict_link_reads(("YRP Process",)):
 			with self.assertRaises(frappe.PermissionError):
@@ -346,21 +347,6 @@ class TestProcessCostWorkspace(TestCase):
 		with patch("frappe.get_doc", return_value=lot):
 			with self.assertRaises(frappe.PermissionError):
 				workspace.get_process_cost_grid("ZZ TEST Lot", None)
-
-	def test_cloth_selection_uses_work_order_options(self):
-		options = [{"item": "ZZ TEST Cloth A"}, {"item": "ZZ TEST Cloth B"}]
-		with patch(f"{MODULE}.frappe.get_doc", return_value=cost_document()), patch("frappe.db", Mock()) as database, patch(f"{MODULE}.get_work_order_selection_context", return_value={"options": options}), patch(f"{MODULE}._item_uom", return_value="Kg"):
-			database.get_value.return_value = 1
-			context = workspace._selection("ZZ TEST Lot", "ZZ TEST Dyeing", "ZZ TEST Cloth B")
-		self.assertEqual(context["item_options"], options)
-		self.assertEqual((context["item"], context["uom"]), ("ZZ TEST Cloth B", "Kg"))
-
-	def test_save_refuses_a_non_listed_cloth_item(self):
-		doc = cost_document()
-		context = {"is_cloth_process": True, "item_options": [{"item": "ZZ TEST Cloth"}]}
-		with patch(f"{MODULE}.get_process_cost_grid", return_value=context):
-			with self.assertRaisesRegex(frappe.ValidationError, "Select a cloth Item configured for this Lot and Process"):
-				workspace._apply_values(doc, {})
 
 	def test_grid_resolves_value_labels_to_ids(self):
 		master = frappe._dict(name="size-60", attribute_value="60 cm")
