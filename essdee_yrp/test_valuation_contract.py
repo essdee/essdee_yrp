@@ -6,9 +6,8 @@ import frappe
 from frappe.tests import UnitTestCase
 from yrp.yrp.doctype.yrp_goods_received_note.yrp_goods_received_note import GoodsReceivedNote
 
-from essdee_yrp.api.work_order import _normalize_generated_uom_rows
 from essdee_yrp import delivery_challan_hooks as dc_hooks
-from essdee_yrp.work_order_hooks import validate_fabric_execution_immutable
+from essdee_yrp.api.work_order import _normalize_generated_uom_rows
 from essdee_yrp.essdee_yrp.doctype.sd_yrp_cutting_laysheet.sd_yrp_cutting_laysheet import (
 	calculate_cutting_consumption_plan,
 )
@@ -53,7 +52,10 @@ from essdee_yrp.rework_work_order import (
 	_subtract_direct_clearing,
 	get_rework_source_rows,
 )
-from essdee_yrp.work_order_hooks import preserve_dynamic_packing_piece_uom
+from essdee_yrp.work_order_hooks import (
+	preserve_dynamic_packing_piece_uom,
+	validate_fabric_execution_immutable,
+)
 
 
 class TestEssdeeValuationContract(UnitTestCase):
@@ -63,7 +65,7 @@ class TestEssdeeValuationContract(UnitTestCase):
 		work_order = frappe._dict(
 			name="WO-KNIT-1",
 			process_name="Knitting",
-			cloth_execution_version=1,
+			production_detail="CLOTH-IPD",
 			receivables=[frappe._dict(name="WOR-1", item_variant="CLOTH-18-GREY")],
 		)
 		grn = frappe._dict(
@@ -95,7 +97,7 @@ class TestEssdeeValuationContract(UnitTestCase):
 		work_order = frappe._dict(
 			name="WO-KNIT-1",
 			process_name="Knitting",
-			cloth_execution_version=1,
+			production_detail="CLOTH-IPD",
 			receivables=[frappe._dict(name="WOR-1", item_variant="CLOTH-18-GREY")],
 		)
 		base_grn = {
@@ -140,7 +142,7 @@ class TestEssdeeValuationContract(UnitTestCase):
 		work_order = frappe._dict(
 			name="WO-KNIT-1",
 			process_name="Knitting",
-			cloth_execution_version=1,
+			production_detail="CLOTH-IPD",
 			receivables=[frappe._dict(name="WOR-1", item_variant="CLOTH-18-GREY")],
 		)
 		grn = frappe._dict(
@@ -370,45 +372,7 @@ class TestEssdeeValuationContract(UnitTestCase):
 		validate_actual.assert_called_once_with(doc)
 		base_submit.assert_called_once_with()
 
-	def test_versioned_cloth_receipt_rejects_aggregate_over_process_allowance(self):
-		receivable = frappe._dict(
-			name="WOR-CLOTH-1",
-			item_variant="CLOTH-PLANNED",
-			qty=100,
-			pending_quantity=100,
-		)
-		work_order = frappe._dict(name="WO-CLOTH-1", receivables=[receivable])
-		grn = frappe._dict(
-			against_id=work_order.name,
-			items=[
-				frappe._dict(
-					idx=1,
-					ref_doctype="YRP Work Order Receivables",
-					ref_docname=receivable.name,
-					item_variant="CLOTH-ACTUAL-30",
-					quantity=60,
-				),
-				frappe._dict(
-					idx=2,
-					ref_doctype="YRP Work Order Receivables",
-					ref_docname=receivable.name,
-					item_variant="CLOTH-ACTUAL-32",
-					quantity=51,
-				),
-			],
-		)
-
-		with (
-			patch(
-				"essdee_yrp.overrides.goods_received_note._wo_excess_percentage",
-				return_value=10,
-				create=True,
-			),
-			self.assertRaisesRegex(frappe.ValidationError, "exceeds allowance 110"),
-		):
-			_validate_versioned_cloth_receivables(grn, work_order)
-
-	def test_versioned_cloth_receipt_exposes_remaining_process_allowance(self):
+	def test_versioned_cloth_receipt_accepts_aggregate_over_process_allowance(self):
 		receivable = frappe._dict(
 			name="WOR-CLOTH-1",
 			item_variant="CLOTH-PLANNED",
@@ -416,24 +380,24 @@ class TestEssdeeValuationContract(UnitTestCase):
 			pending_quantity=60,
 		)
 		work_order = frappe._dict(name="WO-CLOTH-1", receivables=[receivable])
-		row = frappe._dict(
-			idx=1,
-			ref_doctype="YRP Work Order Receivables",
-			ref_docname=receivable.name,
-			item_variant="CLOTH-ACTUAL-30",
-			quantity=70,
-		)
-		grn = frappe._dict(against_id=work_order.name, items=[row])
+		rows = [
+			frappe._dict(
+				idx=index,
+				ref_doctype="YRP Work Order Receivables",
+				ref_docname=receivable.name,
+				item_variant=item_variant,
+				quantity=quantity,
+			)
+			for index, item_variant, quantity in ((1, "CLOTH-ACTUAL-30", 60), (2, "CLOTH-ACTUAL-32", 51))
+		]
+		grn = frappe._dict(against_id=work_order.name, items=rows)
 
-		with patch(
-			"essdee_yrp.overrides.goods_received_note._wo_excess_percentage",
-			return_value=10,
-			create=True,
-		):
-			_validate_versioned_cloth_receivables(grn, work_order)
+		_validate_versioned_cloth_receivables(grn, work_order)
 
-		self.assertEqual(row.pending_quantity, 60)
-		self.assertAlmostEqual(row.max_receivable_quantity, 70)
+		for row in rows:
+			self.assertEqual(row.ref_docname, receivable.name)
+			self.assertEqual(row.pending_quantity, 60)
+			self.assertIsNone(row.max_receivable_quantity)
 
 	def test_grouped_receipt_sle_lookup_uses_saved_output_lineage_for_every_row(self):
 		from yrp.yrp_stock.doctype.yrp_stock_valuation_adjustment import (
@@ -2756,9 +2720,10 @@ class TestIncomingValuationRegressions(UnitTestCase):
 			)],
 		)
 		current = frappe._dict(before.copy())
-		current.deliverables = list(before.deliverables) + [frappe._dict(
-			name="WOD-EXTRA", item_variant="YARN-EXTRA", qty=1, uom="Kg",
-		)]
+		current.deliverables = [
+			*before.deliverables,
+			frappe._dict(name="WOD-EXTRA", item_variant="YARN-EXTRA", qty=1, uom="Kg"),
+		]
 		current.receivables = list(before.receivables)
 		current.flags = frappe._dict()
 		current.get_doc_before_save = lambda: before

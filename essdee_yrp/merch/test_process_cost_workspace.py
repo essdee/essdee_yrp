@@ -253,11 +253,17 @@ class TestProcessCostWorkspace(TestCase):
 				with self.assertRaisesRegex(frappe.ValidationError, f"{label} is required"):
 					workspace._require_fields(values)
 
-	def test_lot_derives_item_before_process_is_selected(self):
+	def test_lot_prefills_item_before_process_is_selected(self):
 		lot = cost_document()
 		with patch(f"{MODULE}.frappe.get_doc", return_value=lot), patch("frappe.db", self.selection_database()):
-			context = workspace._selection("ZZ TEST Lot")
+			context = workspace._selection("ZZ TEST Lot", prefill_item=True)
 		self.assertEqual((context["item"], context["uom"]), ("ZZ TEST Item", "Nos"))
+
+	def test_cleared_item_stays_empty_without_prefill(self):
+		with patch(f"{MODULE}.frappe.get_doc", return_value=cost_document()), patch("frappe.db", self.selection_database()), patch("frappe.has_permission", return_value=True):
+			for process_name in (None, "ZZ TEST Process"):
+				context = workspace.get_process_cost_grid("ZZ TEST Lot", process_name, item=None)
+				self.assertEqual((context["item"], context["uom"]), (None, None))
 
 	def test_selection_keeps_the_chosen_item_for_any_process(self):
 		with patch(f"{MODULE}.frappe.get_doc", return_value=cost_document()), patch("frappe.db", self.selection_database()), patch("frappe.has_permission", return_value=True):
@@ -293,7 +299,7 @@ class TestProcessCostWorkspace(TestCase):
 		lot = cost_document()
 		with self.restrict_link_reads(), patch("frappe.db", self.selection_database()), patch("frappe.get_doc", return_value=lot):
 			for process_name in (None, "ZZ TEST Process"):
-				grid = workspace.get_process_cost_grid("ZZ TEST Lot", process_name)
+				grid = workspace.get_process_cost_grid("ZZ TEST Lot", process_name, prefill_item=1)
 				self.assertEqual((grid["item"], grid["uom"]), (lot.item, "Nos"))
 				self.assertNotIn("field_errors", grid)
 		lot.check_permission.assert_called_with("read")
@@ -312,10 +318,21 @@ class TestProcessCostWorkspace(TestCase):
 		self.assertEqual((doc.item, doc.uom, doc.attribute), ("ZZ TEST Cloth", "Nos", None))
 		self.assertEqual(doc.process_cost_values, [{"attribute_value": None, "min_order_qty": 0, "price": 12.5}])
 
+	def test_save_with_empty_item_falls_back_to_the_lot_item(self):
+		doc = frappe._dict(attribute=None, workflow_state="Draft")
+		doc.set = lambda key, value: doc.update({key: value})
+		doc.insert = Mock(side_effect=lambda: doc.update(name="ZZ TEST PC"))
+		values = {"lot": "ZZ TEST Lot", "process_name": "ZZ TEST Process", "item": "",
+			"supplier": "ZZ TEST Supplier", "from_date": "2099-01-01", "tax_slab": "ZZ TEST Tax",
+			"process_cost_values": [{"price": 12.5, "min_order_qty": 0}]}
+		with patch("frappe.has_permission", return_value=True), patch("frappe.db", self.selection_database()), patch("frappe.new_doc", return_value=doc), patch("frappe.get_doc", return_value=cost_document()), patch(f"{MODULE}.get_process_cost_workspace", return_value={"saved": True}):
+			workspace.save_process_cost(values)
+		self.assertEqual((doc.item, doc.uom), ("ZZ TEST Item", "Nos"))
+
 	def test_attribute_permission_failures_return_field_error_payload(self):
 		for blocked in (("Item", "YRP Item Production Detail"), ("YRP Item Production Detail",)):
 			with self.subTest(blocked=blocked), self.restrict_link_reads(blocked), patch("frappe.db", self.selection_database()), patch("frappe.get_doc", return_value=cost_document()), patch(f"{MODULE}.process_cost._resolve_ipd_name", return_value="ZZ TEST IPD"):
-				grid = workspace.get_process_cost_grid("ZZ TEST Lot", "ZZ TEST Process", attribute="Panel")
+				grid = workspace.get_process_cost_grid("ZZ TEST Lot", "ZZ TEST Process", "ZZ TEST Item", attribute="Panel")
 				self.assertEqual(grid["attribute_values"], [])
 				self.assertIn(f"You cannot read {blocked[0]}", grid["field_errors"]["attribute"])
 				self.assertIn("needed to price by Attribute", grid["field_errors"]["attribute"])
@@ -324,7 +341,7 @@ class TestProcessCostWorkspace(TestCase):
 
 	def test_attribute_search_permission_failure_returns_field_error_payload(self):
 		with self.restrict_link_reads(("YRP Item Production Detail",)), patch("frappe.db", self.selection_database()), patch("frappe.get_doc", return_value=cost_document()), patch(f"{MODULE}.process_cost._resolve_ipd_name", return_value="ZZ TEST IPD"):
-			result = workspace.search_process_cost_attributes("ZZ TEST Lot", "ZZ TEST Process")
+			result = workspace.search_process_cost_attributes("ZZ TEST Lot", "ZZ TEST Process", "ZZ TEST Item")
 		self.assertEqual(result["options"], [])
 		self.assertEqual(result["field_errors"], {"attribute": "You cannot read YRP Item Production Detail ZZ TEST IPD needed to price by Attribute."})
 

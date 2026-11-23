@@ -239,7 +239,10 @@ class TestFoldingWorkOrderWebEditor(FoldingLotTestCase):
 	def grouped(self, table, child_doctype):
 		from yrp.stock.save_stock_items import group_items_for_ui
 
-		groups = group_items_for_ui(self.sample.get(table)[:1], child_doctype)
+		# Copy only the item, never the sample's keyed cloth execution contract.
+		source = self.sample.get(table)[0]
+		row = {"item_variant": source.item_variant, "qty": 10, "uom": source.uom}
+		groups = group_items_for_ui([row], child_doctype)
 		for group in groups:
 			for item in group["items"]:
 				item["dimensions"] = {}

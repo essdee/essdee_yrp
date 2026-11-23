@@ -17,9 +17,12 @@ test("Item search offers only enabled Items, templates included", () => {
 	assert.deepEqual(processCostLinkFilters("supplier"), {})
 })
 
-test("Editor uses the open Item link and keeps the Item when only the Process changes", () => {
+test("Editor keeps the chosen Item and prefills it from the Lot only when a Lot is picked with no Item", () => {
 	const source = readFileSync(new URL("../src/departments/merch/process-cost/ProcessCostEditor.vue", import.meta.url), "utf8")
 	assert.doesNotMatch(source, /item_options|is_cloth_process/)
 	assert.match(source, /processCostReadOnly\(key, context\.value\)/)
-	assert.match(source, /if \(key === "lot"\) form\.item = null/)
+	assert.doesNotMatch(source, /form\.item = null/)
+	assert.match(source, /refreshContext\(true, key === "lot" && !form\.item\)/)
+	assert.match(source, /getProcessCostGrid\(form, prefillItem\)/)
+	assert.match(source, /if \(saving\.value \|\| field\.read_only\) return true/)
 })

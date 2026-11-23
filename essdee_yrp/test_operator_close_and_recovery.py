@@ -1,5 +1,5 @@
 from unittest import TestCase
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import frappe
 from yrp.yrp.doctype.yrp_purchase_invoice import yrp_purchase_invoice as purchase_invoice
@@ -58,15 +58,22 @@ class TestWorkOrderCloseDetails(TestCase):
 			order_by="creation asc",
 			limit_page_length=0,
 		)
-		get_all.assert_called_once_with(
-			"SD YRP WO Recut Detail",
-			filters={
-				"parent": ["in", [row.name for row in parents]],
-				"parenttype": "SD YRP WO Recut",
-				"parentfield": "wo_recut_details",
-			},
-			fields=["*"],
-			order_by="parent asc, idx asc",
+		# Meta loading may also call get_all, so check only the recut child query.
+		recut_queries = [c for c in get_all.call_args_list if c.args[:1] == ("SD YRP WO Recut Detail",)]
+		self.assertEqual(
+			recut_queries,
+			[
+				call(
+					"SD YRP WO Recut Detail",
+					filters={
+						"parent": ["in", [row.name for row in parents]],
+						"parenttype": "SD YRP WO Recut",
+						"parentfield": "wo_recut_details",
+					},
+					fields=["*"],
+					order_by="parent asc, idx asc",
+				)
+			],
 		)
 
 	def test_no_visible_recuts_skips_child_query(self):

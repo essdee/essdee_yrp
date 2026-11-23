@@ -181,6 +181,9 @@ class TestBulkCloseAndApproveLive(IntegrationTestCase):
 	def _closable(self):
 		return reopen_fixtures.TestWorkOrderReopen._closable_work_order(self)
 
+	def _keep_one_supplier_warehouse(self, supplier):
+		return reopen_fixtures.TestWorkOrderReopen._keep_one_supplier_warehouse(self, supplier)
+
 	def _balance(self, bucket):
 		return reopen_fixtures.TestWorkOrderReopen._balance(self, bucket)
 

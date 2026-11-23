@@ -143,9 +143,9 @@ export function getProcessCostEditor(name = null, lot = null, duplicateFrom = nu
 	return callMethod(`${PROCESS_COST_METHOD}.get_process_cost_editor`, { name, lot, duplicate_from: duplicateFrom })
 }
 
-export function getProcessCostGrid(values) {
+export function getProcessCostGrid(values, prefillItem = false) {
 	const { lot, process_name, item, attribute } = values
-	return callMethod(`${PROCESS_COST_METHOD}.get_process_cost_grid`, { lot, process_name, item, attribute })
+	return callMethod(`${PROCESS_COST_METHOD}.get_process_cost_grid`, { lot, process_name, item, attribute, prefill_item: prefillItem ? 1 : 0 })
 }
 
 export function saveProcessCost(values, name = null, expectedModified = null) {

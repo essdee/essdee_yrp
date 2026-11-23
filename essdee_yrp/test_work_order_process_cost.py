@@ -2,7 +2,6 @@ from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from yrp.yrp.doctype.yrp_work_order.yrp_work_order import get_variant_attributes
 
 from essdee_yrp.hooks import override_doctype_class
 from essdee_yrp.overrides.work_order import EssdeeWorkOrder
@@ -313,35 +312,47 @@ class TestEssdeeWorkOrderProcessCost(FrappeTestCase):
 		self.assertEqual(by_item["BACK-BLACK-M"].cost, 2)
 		self.assertEqual(by_item["SLEEVE-BLACK-M"].cost, 1)
 
-	def test_pc_25_oracle_conserves_colour_value_with_panel_type_split(self):
-		if not frappe.db.exists("YRP Work Order", "YRP-WO-2026-00058"):
-			self.skipTest("YRP-WO-2026-00058 is unavailable")
-		if not frappe.db.exists("YRP Process Cost", "YRP-PC-00025"):
-			self.skipTest("YRP-PC-00025 is unavailable")
+	def test_colour_rate_conserves_colour_value_with_panel_type_split(self):
+		work_order = EssdeeWorkOrder({"doctype": "YRP Work Order", "production_detail": "TEST-IPD"})
+		garments = (("Black", "M", 10), ("Black", "L", 5), ("Navy", "M", 20), ("Olive", "M", 8))
+		attributes = {}
+		for colour, size, quantity in garments:
+			_add_garment_rows(work_order, colour=colour, size=size, quantity=quantity)
+			attributes |= _variant_attributes(colour, size)
+		prices = {"Black": 6, "Navy": 6, "Olive": 4.5}
+		process_cost = frappe._dict(
+			name="TEST-COLOUR-PROCESS-COST",
+			depends_on_attribute=1,
+			attribute="Colour",
+			process_cost_values=[
+				frappe._dict(attribute_value=colour, min_order_qty=0, price=price)
+				for colour, price in prices.items()
+			],
+		)
 
-		work_order = frappe.get_doc("YRP Work Order", "YRP-WO-2026-00058")
-		process_cost = frappe.get_doc("YRP Process Cost", "YRP-PC-00025")
-		self.assertIsInstance(work_order, EssdeeWorkOrder)
-		work_order.apply_receivable_process_costs(process_cost)
+		with (
+			patch("essdee_yrp.overrides.work_order.frappe.get_cached_doc", return_value=_ipd()),
+			patch(
+				"essdee_yrp.overrides.work_order.get_variant_attributes",
+				side_effect=lambda item_variant: attributes[item_variant],
+			),
+			patch(
+				"yrp.yrp.doctype.yrp_work_order.yrp_work_order.get_variant_attributes",
+				side_effect=lambda item_variant: attributes[item_variant],
+			),
+		):
+			work_order.apply_receivable_process_costs(process_cost)
 
-		colour_totals = {"Black": 0, "Mint": 0, "Navy": 0, "Olive": 0}
-		front_rate = None
-		sleeve_rate = None
+		colour_totals = dict.fromkeys(prices, 0)
 		for row in work_order.receivables:
-			attributes = get_variant_attributes(row.item_variant)
-			colour_totals[attributes["Colour"]] += row.total_cost
-			if attributes["Colour"] == "Black" and attributes["Size"] == "45 cm":
-				if attributes["Panel"] == "Top Front":
-					front_rate = row.cost
-				elif attributes["Panel"] == "Sleeve 1":
-					sleeve_rate = row.cost
-
-		self.assertAlmostEqual(front_rate, 5 / 9, places=8)
-		self.assertAlmostEqual(sleeve_rate, 5 / 18, places=8)
-		self.assertAlmostEqual(colour_totals["Black"], 3000, places=4)
-		self.assertAlmostEqual(colour_totals["Mint"], 3000, places=4)
-		self.assertAlmostEqual(colour_totals["Navy"], 3000, places=4)
-		self.assertAlmostEqual(colour_totals["Olive"], 2400, places=4)
+			attribute = attributes[row.item_variant]
+			colour_totals[attribute["Colour"]] += row.total_cost
+			unit_share = prices[attribute["Colour"]] / 3
+			expected = unit_share / 2 if attribute["Panel"] == "Sleeve" else unit_share
+			self.assertAlmostEqual(row.cost, expected, places=8)
+		self.assertAlmostEqual(colour_totals["Black"], 15 * 6, places=6)
+		self.assertAlmostEqual(colour_totals["Navy"], 20 * 6, places=6)
+		self.assertAlmostEqual(colour_totals["Olive"], 8 * 4.5, places=6)
 
 
 def _work_order():
