@@ -43,6 +43,8 @@ def close_work_order(
 		_get_warehouse_for_supplier,
 	)
 
+	from essdee_yrp.work_order_correction import write_off_correction_stock
+
 	selected_reason, other_reason = _validate_close_reason(
 		sd_close_reason or close_reason, close_other_reason
 	)
@@ -189,6 +191,7 @@ def close_work_order(
 	doc.is_delivered = 1
 	doc.total_quantity = 0
 	doc.save(ignore_permissions=True)
+	write_off_correction_stock(doc)
 	if not has_lineage and excess_plans:
 		doc.add_comment("Comment", _get_write_off_comment(excess_plans))
 

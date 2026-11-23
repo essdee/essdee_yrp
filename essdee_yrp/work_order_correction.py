@@ -86,9 +86,9 @@ def _grouped_rows(value) -> list:
 	return groups
 
 
-def write_off_correction_stock(doc, method=None):
-	"""On Work Order close, remove correction-delivered stock still at the supplier (no valuation transfer)."""
-	if doc.get("open_status") != "Close" or not doc.has_value_changed("open_status"):
+def write_off_correction_stock(doc):
+	"""Called by Work Order close: remove correction-delivered stock still at the supplier (no valuation transfer)."""
+	if doc.get("open_status") != "Close":
 		return
 	from frappe.utils import nowdate, nowtime
 	from yrp.stock.stock_ledger import make_sl_entries

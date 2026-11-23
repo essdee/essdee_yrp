@@ -551,7 +551,6 @@ doc_events = {
 		"onload": "essdee_yrp.work_order_hooks.onload",
 		"validate": "essdee_yrp.work_order_hooks.validate",
 		"before_update_after_submit": "essdee_yrp.work_order_hooks.before_update_after_submit",
-		"on_update_after_submit": "essdee_yrp.work_order_correction.write_off_correction_stock",
 		"before_cancel": "essdee_yrp.sewing.plan.before_work_order_cancel",
 		"on_submit": [
 			"essdee_yrp.finishing.work_order.on_submit",
