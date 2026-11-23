@@ -95,8 +95,8 @@ const takenDefaults = takeNewDocumentDefaults("YRP Process Cost")
 let filterDefaults = props.processCostId || route.query.duplicate_from || route.query.lot ? {} : takenDefaults
 
 function isDisabled(field) {
-	if (saving.value || contextLoading.value || field.read_only) return true
-	return field.fieldname === "attribute" && (!form.lot || !form.process_name || !form.item)
+	if (saving.value || field.read_only) return true
+	return field.fieldname === "attribute" && (contextLoading.value || !form.lot || !form.process_name || !form.item)
 }
 async function searchAttributes(text) {
 	const sequence = contextSequence
@@ -164,11 +164,10 @@ function cancelChange() { pendingChange.value = null; fieldResetVersion.value++ 
 function applyChange(key, value) {
 	form[key] = value
 	if (key !== "attribute") form.attribute = ""
-	if (key === "lot") form.item = null
 	errors.value = {}
 	lookupErrors.value = {}
 	gridErrors.value = {}
-	refreshContext(true)
+	refreshContext(true, key === "lot" && !form.item)
 }
 async function updateSupplier(name) {
 	const sequence = ++supplierSequence
@@ -179,12 +178,12 @@ async function updateSupplier(name) {
 		if (sequence === supplierSequence) form.supplier_name = supplier.supplier_name
 	} catch (reason) { if (sequence === supplierSequence) errors.value.supplier = reason.message }
 }
-async function refreshContext(reset) {
+async function refreshContext(reset, prefillItem = false) {
 	const sequence = ++contextSequence
 	contextLoading.value = true
 	contextError.value = ""
 	try {
-		const result = await getProcessCostGrid(form)
+		const result = await getProcessCostGrid(form, prefillItem)
 		if (sequence !== contextSequence) return
 		context.value = result
 		lookupErrors.value = result.field_errors || {}

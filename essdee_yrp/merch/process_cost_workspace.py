@@ -166,15 +166,15 @@ def get_process_cost_workspace(name):
 	}
 
 
-def _selection(lot, process_name=None, item=None):
-	"""Any enabled Item may be priced; an empty Item falls back to the Lot Item."""
+def _selection(lot, process_name=None, item=None, prefill_item=False):
+	"""Any enabled Item may be priced; only `prefill_item` fills an empty Item with the Lot Item."""
 	if not lot:
 		return {"item": None, "uom": None, "is_folding_lot": False}
 	lot_doc = frappe.get_doc("SD YRP Lot", lot)
 	lot_doc.check_permission("read")
 	if process_name:
 		frappe.has_permission("YRP Process", ptype="read", doc=process_name, throw=True)
-	item = item or lot_doc.item
+	item = item or (lot_doc.item if prefill_item else None)
 	selection = {"item": item, "uom": _item_uom(item), "is_folding_lot": bool(lot_doc.get("is_folding_lot"))}
 	if item and frappe.db.get_value("Item", item, "disabled") != 0:
 		return {**selection, "item": None, "uom": None, "field_errors": {"item": _("Select an enabled Item.")}}
@@ -204,9 +204,9 @@ def _attribute_permission_error(lot, process_name, item):
 
 
 @frappe.whitelist()
-def get_process_cost_grid(lot, process_name, item=None, attribute=None):
+def get_process_cost_grid(lot, process_name, item=None, attribute=None, prefill_item=0):
 	frappe.has_permission(DOCTYPE, ptype="read", throw=True)
-	selection = _selection(lot, process_name, item)
+	selection = _selection(lot, process_name, item, cint(prefill_item))
 	values = []
 	if attribute and selection["item"] and process_name:
 		try:
@@ -245,7 +245,7 @@ def get_process_cost_editor(name=None, lot=None, duplicate_from=None):
 		if duplicate_from:
 			values = build_duplicate_values(DOCTYPE, duplicate_from)
 			doc.update({key: value for key, value in values.items() if value is not None})
-	context = get_process_cost_grid(doc.lot, doc.process_name, doc.item, doc.attribute)
+	context = get_process_cost_grid(doc.lot, doc.process_name, doc.item, doc.attribute, prefill_item=not name)
 	values = {key: doc.get(key) for key in VIEW_FIELDS}
 	values.update(item=context["item"], uom=context["uom"], from_date=doc.from_date or nowdate())
 	values["process_cost_values"] = _tiers(doc)
@@ -311,7 +311,7 @@ def _apply_values(doc, values):
 			doc.set(key, values[key])
 	if not doc.lot or not doc.process_name:
 		_require_fields(doc)
-	context = get_process_cost_grid(doc.lot, doc.process_name, doc.item, doc.attribute)
+	context = get_process_cost_grid(doc.lot, doc.process_name, doc.item, doc.attribute, prefill_item=1)
 	for fieldname, message in context.get("field_errors", {}).items():
 		_field_error(fieldname, message)
 	doc.item, doc.uom = context["item"], context["uom"]
