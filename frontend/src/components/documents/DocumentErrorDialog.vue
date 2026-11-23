@@ -11,7 +11,7 @@
 	>
 		<div class="document-error-dialog__body" role="alert" aria-live="assertive">
 			<span class="document-error-dialog__icon" aria-hidden="true"><i class="pi pi-exclamation-circle" /></span>
-			<div><strong>{{ summary }}</strong><p>{{ formatDatesInText(message) }}</p></div>
+			<div><strong>{{ summary }}</strong><p><template v-for="(segment, index) in segments" :key="index"><a v-if="segment.href" :href="segment.href" target="_blank" rel="noopener">{{ segment.text }}</a><template v-else>{{ segment.text }}</template></template></p></div>
 		</div>
 		<template #footer>
 			<Button v-if="retryLabel" label="Dismiss" severity="secondary" text @click="close" />
@@ -23,7 +23,8 @@
 <script setup>
 import Button from "primevue/button"
 import Dialog from "primevue/dialog"
-import { nextTick, ref, watch } from "vue"
+import { computed, nextTick, ref, watch } from "vue"
+import { messageSegments } from "../../api/messageLinks.js"
 import { formatDatesInText } from "../../utils/dateFormat.js"
 
 const props = defineProps({
@@ -33,6 +34,7 @@ const props = defineProps({
 	retryLabel: { type: String, default: "" },
 })
 const emit = defineEmits(["dismiss", "retry"])
+const segments = computed(() => messageSegments(formatDatesInText(props.message)))
 const visible = ref(Boolean(props.message))
 const primaryAction = ref(null)
 let focusOrigin = null
@@ -75,5 +77,6 @@ function retry() { visible.value = false; emit("retry") }
 .document-error-dialog__icon i { font-size: 18px; }
 .document-error-dialog__body > div { display: grid; gap: 5px; min-width: 0; }
 .document-error-dialog__body strong { color: var(--erp-text); font-size: 14px; }
+.document-error-dialog__body p a { color: var(--erp-accent); font-weight: 600; text-decoration: underline; }
 .document-error-dialog__body p { margin: 0; color: var(--erp-text-secondary); font-size: 13px; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; max-height: min(60vh, 480px); overflow-y: auto; }
 </style>

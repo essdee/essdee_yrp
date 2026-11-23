@@ -26,7 +26,7 @@ test("server messages, error dialogs and link descriptions format embedded dates
 	const [entry] = parseServerMessages(JSON.stringify([JSON.stringify({ message: "Posting date 2026-10-23 is before PO-2026-10-23-0001" })]))
 	assert.equal(entry.message, "Posting date 23-10-2026 is before PO-2026-10-23-0001")
 	assert.equal(extractServerMessage({ exception: "frappe.exceptions.ValidationError: Due on 2026-10-23" }), "Due on 23-10-2026")
-	assert.match(source("documents/DocumentErrorDialog.vue"), /\{\{ formatDatesInText\(message\) \}\}/)
+	assert.match(source("documents/DocumentErrorDialog.vue"), /messageSegments\(formatDatesInText\(props\.message\)\)/)
 	assert.match(source("common/LinkField.vue"), /\{\{ formatDatesInText\(option\.description\) \}\}/)
 	assert.match(source("common/MultiSelectField.vue"), /\{\{ formatDatesInText\(option\.description\) \}\}/)
 })
