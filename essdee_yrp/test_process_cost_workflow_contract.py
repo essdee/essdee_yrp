@@ -17,7 +17,7 @@ class TestProcessCostWorkflowContract(UnitTestCase):
 
 	def test_live_process_cost_workflow_uses_yrp_managed_field(self):
 		workflow = frappe.get_doc("Workflow", "Process Cost Workflow")
-		self.assertEqual(workflow.document_type, "Process Cost")
+		self.assertEqual(workflow.document_type, "YRP Process Cost")
 		self.assertEqual(workflow.workflow_state_field, "workflow_state")
 		transitions = {
 			(row.state, row.action, row.next_state) for row in workflow.transitions
@@ -26,50 +26,27 @@ class TestProcessCostWorkflowContract(UnitTestCase):
 		self.assertIn(("Approval Pending", "Approve", "Approved"), transitions)
 		self.assertIn(("Approval Pending", "Reject", "Rejected"), transitions)
 
-		field = frappe.get_meta("Process Cost").get_field("workflow_state")
+		field = frappe.get_meta("YRP Process Cost").get_field("workflow_state")
 		self.assertIsNotNone(field)
 		self.assertEqual(field.fieldtype, "Link")
 		self.assertEqual(field.options, "Workflow State")
 
 	def test_active_workflow_contract_is_server_authoritative(self):
-		contract = get_active_workflow("Process Cost")
+		contract = get_active_workflow("YRP Process Cost")
 		self.assertEqual(contract["name"], "Process Cost Workflow")
 		self.assertEqual(contract["state_field"], "workflow_state")
 		self.assertIn("Approval Pending", contract["states"])
 		self.assertIn("Approved", contract["states"])
 
-		self.assertIsNone(get_active_workflow("Lot"))
+		self.assertIsNone(get_active_workflow("SD YRP Lot"))
 
 	def test_web_uses_workflow_actions_exclusively(self):
-		detail_path = (
-			Path(frappe.get_app_path("essdee_yrp")).parent
-			/ "frontend"
-			/ "src"
-			/ "views"
-			/ "dynamic"
-			/ "DocDetail.vue"
-		)
-		source = detail_path.read_text(encoding="utf-8")
+		source = Path(frappe.get_app_path("essdee_yrp")).parent / "frontend" / "src" / "components"
+		dialog = (source / "documents" / "DocumentTransactionDialog.vue").read_text(encoding="utf-8")
+		list_view = (source / "common" / "ListView.vue").read_text(encoding="utf-8")
 
-		self.assertIn('v-if="workflowChecked && isWorkflow"', source)
-		self.assertIn(
-			'v-if="docstatus === 0 && plainLifecycleAllowed && isSubmittable && canSubmit(doctype)"',
-			source,
-		)
-		self.assertIn(
-			"plainLifecycleAllowed.value\n\t\t&& docstatus.value === 1",
-			source,
-		)
-		self.assertIn(
-			"docstatus.value === 0 && plainLifecycleAllowed.value && isSubmittable.value",
-			source,
-		)
-		self.assertIn(
-			"docstatus.value === 1 && plainLifecycleAllowed.value && isSubmittable.value",
-			source,
-		)
-
-		list_path = detail_path.with_name("DynamicListPage.vue")
-		list_source = list_path.read_text(encoding="utf-8")
-		self.assertIn("getActiveWorkflow(dt)", list_source)
-		self.assertIn("workflowChecked.value && !isWorkflow.value", list_source)
+		self.assertIn("getActiveWorkflow(props.doctype)", dialog)
+		self.assertIn('v-if="payload.permissions?.can_submit && workflowReady && !activeWorkflow"', dialog)
+		self.assertIn('v-if="payload.permissions?.can_cancel && workflowReady && !activeWorkflow"', dialog)
+		self.assertIn("getActiveWorkflow(doctype)", list_view)
+		self.assertIn("const canBulkLifecycle = computed(() => workflowReady.value && !activeWorkflow.value", list_view)

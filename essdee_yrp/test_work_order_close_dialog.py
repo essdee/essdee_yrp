@@ -24,24 +24,24 @@ class TestWorkOrderCloseDialog(UnitTestCase):
 		fixture_path = frappe.get_app_path("essdee_yrp", "fixtures", "custom_field.json")
 		with open(fixture_path, encoding="utf-8") as fixture_file:
 			custom_fields = {row["name"]: row for row in json.load(fixture_file)}
-		other_reason = custom_fields["Work Order-close_other_reason"]
+		other_reason = custom_fields["YRP Work Order-close_other_reason"]
 		self.assertEqual(other_reason["module"], "Essdee YRP")
-		self.assertEqual(other_reason["insert_after"], "close_reason")
+		self.assertEqual(other_reason["insert_after"], "sd_close_reason")
 
 		self.assertTrue(custom_fields)
 		self.assertTrue(all(row["module"] == "Essdee YRP" for row in custom_fields.values()))
 		for base_owned_field in (
-			"Bin-lot",
-			"Delivery Challan Item-received_type",
-			"Goods Received Note Item-lot",
-			"Stock Entry Detail-received_type",
-			"Work Order-lot",
+			"YRP Bin-lot",
+			"YRP Delivery Challan Item-received_type",
+			"YRP Goods Received Note Item-lot",
+			"YRP Stock Entry Detail-received_type",
+			"YRP Work Order-lot",
 		):
 			self.assertNotIn(base_owned_field, custom_fields)
 
 		for essdee_owned_field in (
-			"Item Production Detail-packing_tab",
-			"Process-includes_packing",
-			"Production Order-lot_ordered_html",
+			"YRP Item Production Detail-packing_tab",
+			"YRP Process-includes_packing",
+			"YRP Production Order-lot_ordered_html",
 		):
 			self.assertIn(essdee_owned_field, custom_fields)
