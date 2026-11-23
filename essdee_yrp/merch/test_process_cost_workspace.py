@@ -55,6 +55,8 @@ class TestProcessCostWorkspace(TestCase):
 		patch("frappe.session", frappe._dict(user="zz.creator@example.test")).start()
 		self.approval_matches = workspace._approval_matches
 		patch(f"{MODULE}._approval_matches", return_value=[]).start()
+		self.item_options = ["ZZ TEST Item", "ZZ TEST Cloth"]
+		patch(f"{MODULE}.process_cost.get_lot_item_options", side_effect=lambda lot: self.item_options).start()
 
 	def assert_actions(self, state, status, role, actions, can_edit):
 		self.roles = [role]
@@ -270,6 +272,14 @@ class TestProcessCostWorkspace(TestCase):
 			context = workspace._selection("ZZ TEST Lot", "ZZ TEST Printing", "ZZ TEST Cloth")
 		self.assertEqual((context["item"], context["uom"]), ("ZZ TEST Cloth", "Nos"))
 		self.assertNotIn("field_errors", context)
+
+	def test_selection_offers_only_the_lot_item_and_its_fabric_items(self):
+		with patch(f"{MODULE}.frappe.get_doc", return_value=cost_document()), patch("frappe.db", self.selection_database()):
+			context = workspace._selection("ZZ TEST Lot", "ZZ TEST Printing", "ZZ TEST Cloth")
+			self.assertEqual(context["item_options"], ["ZZ TEST Item", "ZZ TEST Cloth"])
+			context = workspace._selection("ZZ TEST Lot", "ZZ TEST Printing", "ZZ TEST Other")
+		self.assertEqual(context["item"], None)
+		self.assertEqual(context["field_errors"], {"item": "Select the Lot Item or one of the Lot's fabric Items."})
 
 	def test_selection_rejects_a_disabled_item(self):
 		database = self.selection_database()

@@ -26,15 +26,17 @@ export function processCostPath(name, routes = MERCH_PROCESS_COST_ROUTES) {
 	return `${routes.listPath}/${encodeURIComponent(name)}`
 }
 
-/** Any enabled Item may be chosen; an empty Item defaults to the Lot Item. */
+/** Item stays editable; an empty Item defaults to the Lot Item. */
 export function processCostReadOnly(fieldname) {
 	return ["uom", "supplier_name"].includes(fieldname)
 }
 
-export function processCostLinkFilters(fieldname) {
+/** With a Lot, Item offers only the Lot Item and its fabric Items (`item_options`); a Folding Lot allows any enabled Item. */
+export function processCostLinkFilters(fieldname, context = {}) {
 	if (fieldname === "tax_slab") return { enabled: 1 }
-	if (fieldname === "item") return { disabled: 0 }
-	return {}
+	if (fieldname !== "item") return {}
+	const options = context.item_options
+	return Array.isArray(options) ? { disabled: 0, name: ["in", options.length ? options : [""]] } : { disabled: 0 }
 }
 
 export function mergeProcessCostRows(values = [], tiers = [], attribute = "") {

@@ -87,7 +87,7 @@ class ProcessCostStageTest(unittest.TestCase):
 		options = [{"item": "Cloth", "production_detail": "Knit IPD"}]
 		self.assertEqual(self._resolve("Cloth", ["Knit IPD", "Dye IPD"], options), "Knit IPD")
 
-	def _save(self, doc, ipd_name=None):
+	def _save(self, doc, ipd_name=None, is_new=True):
 		from essdee_yrp.process_cost import before_validate
 
 		values = {
@@ -95,12 +95,16 @@ class ProcessCostStageTest(unittest.TestCase):
 			("Item", "Cloth", "stock_uom"): "Kg",
 			("Item", "Garment", "disabled"): 0,
 			("Item", "Garment", "stock_uom"): "Nos",
+			("Item", "Other", "disabled"): 0,
 		}
+		doc.is_new = lambda: is_new
+		doc.has_value_changed = lambda fieldname: is_new
 		with (
 			patch("essdee_yrp.process_cost.attribute_db.get_value", return_value="Garment"),
 			patch("essdee_yrp.process_cost._resolve_ipd_name", return_value=ipd_name),
 			patch("essdee_yrp.process_cost.is_folding_lot", return_value=False),
 			patch("essdee_yrp.process_cost.frappe.db.get_value", side_effect=lambda *args: values.get(args)),
+			patch("essdee_yrp.process_cost.frappe.get_all", return_value=["Cloth", "Disabled"]),
 		):
 			before_validate(doc)
 		return doc
@@ -112,6 +116,27 @@ class ProcessCostStageTest(unittest.TestCase):
 	def test_save_fills_the_lot_item_only_when_item_is_empty(self):
 		doc = self._save(frappe._dict(lot="Lot", process_name="Printing", item=None))
 		self.assertEqual((doc.item, doc.uom), ("Garment", "Nos"))
+
+	def test_save_rejects_an_item_outside_the_lot(self):
+		with self.assertRaises(frappe.ValidationError) as raised:
+			self._save(frappe._dict(lot="Lot", process_name="Printing", item="Other"))
+		self.assertIn("one of the Lot's fabric Items", str(raised.exception))
+
+	def test_unchanged_legacy_item_outside_the_lot_still_saves(self):
+		doc = self._save(frappe._dict(lot="Lot", process_name="Printing", item="Other"), is_new=False)
+		self.assertEqual(doc.item, "Other")
+
+	def test_lot_item_options_are_the_lot_item_then_its_fabric_items(self):
+		from essdee_yrp.process_cost import get_lot_item_options
+
+		with (
+			patch("essdee_yrp.process_cost.attribute_db.get_value", return_value="Garment"),
+			patch("essdee_yrp.process_cost.is_folding_lot", side_effect=lambda lot: lot == "Folding"),
+			patch("essdee_yrp.process_cost.frappe.get_all", return_value=["Cloth", None, "Cloth", "Rib"]),
+		):
+			self.assertEqual(get_lot_item_options("Lot"), ["Garment", "Cloth", "Rib"])
+			self.assertIsNone(get_lot_item_options("Folding"))
+			self.assertIsNone(get_lot_item_options(None))
 
 	def test_save_rejects_a_disabled_item(self):
 		with patch("essdee_yrp.process_cost.frappe.throw", side_effect=frappe.ValidationError):
@@ -146,6 +171,7 @@ class ProcessCostDependentAttributeTest(unittest.TestCase):
 	def _before_validate(self, doc, ipd_name="IPD", folding=False):
 		from essdee_yrp.process_cost import before_validate
 
+		doc.is_new = lambda: True
 		with (
 			patch("essdee_yrp.process_cost.is_folding_lot", return_value=folding),
 			patch("essdee_yrp.process_cost.attribute_db.get_value", return_value="Garment"),
@@ -154,6 +180,7 @@ class ProcessCostDependentAttributeTest(unittest.TestCase):
 				"essdee_yrp.process_cost.frappe.db.get_value",
 				side_effect=lambda *args: self.DB_VALUES.get(args),
 			),
+			patch("essdee_yrp.process_cost.frappe.get_all", return_value=[]),
 		):
 			before_validate(doc)
 

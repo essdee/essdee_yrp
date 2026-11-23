@@ -172,6 +172,50 @@ def _resolve_ipd_name(item, lot, process_name=None):
 	return fabric_ipds.pop() if len(fabric_ipds) == 1 else None
 
 
+def get_lot_item_options(lot):
+	"""Items a Lot's Process Cost may price: the Lot Item and its fabric Items; None allows any enabled Item."""
+	if not lot or is_folding_lot(lot):
+		return None
+	lot_item = attribute_db.get_value("SD YRP Lot", lot, "item")
+	fabric_items = frappe.get_all(
+		"SD YRP Lot Fabric Detail",
+		filters={"parent": lot, "parenttype": "SD YRP Lot"},
+		pluck="cloth_item",
+		order_by="idx",
+	)
+	return list(dict.fromkeys(item for item in [lot_item, *fabric_items] if item))
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_lot_items(doctype, txt, searchfield, start, page_len, filters):
+	"""Desk Item picker: the Lot Item and the Lot's fabric Items (any enabled Item on a Folding Lot)."""
+	lot = frappe._dict(filters or {}).lot
+	if lot:
+		frappe.has_permission("SD YRP Lot", "read", doc=lot, throw=True)
+	item_filters = {"disabled": 0}
+	options = get_lot_item_options(lot)
+	if options is not None:
+		item_filters["name"] = ["in", options]
+	like = f"%{txt or ''}%"
+	return frappe.get_list(
+		"Item",
+		filters=item_filters,
+		or_filters=[["name", "like", like], ["item_name", "like", like]],
+		fields=["name", "item_name"],
+		order_by="name",
+		limit_start=start,
+		limit_page_length=page_len,
+		as_list=True,
+	)
+
+
+def validate_lot_item(item, lot):
+	options = get_lot_item_options(lot)
+	if item and options is not None and item not in options:
+		frappe.throw(_("Select the Lot Item or one of the Lot's fabric Items."))
+
+
 def validate_enabled_item(item):
 	"""A Process Cost accepts any enabled Item, template or variant."""
 	if item and frappe.db.get_value("Item", item, "disabled") != 0:
@@ -184,6 +228,8 @@ def before_validate(doc, method=None):
 	if not doc.item:
 		doc.item = attribute_db.get_value("SD YRP Lot", doc.lot, "item")
 	validate_enabled_item(doc.item)
+	if doc.is_new() or doc.has_value_changed("item") or doc.has_value_changed("lot"):
+		validate_lot_item(doc.item, doc.lot)
 	if doc.item:
 		doc.uom = frappe.db.get_value("Item", doc.item, "stock_uom")
 	validate_attribute(doc)

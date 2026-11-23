@@ -1,8 +1,11 @@
 // Essdee Process Cost values are scoped by the Lot's IPD and process.
 frappe.ui.form.on("YRP Process Cost", {
 	setup(frm) {
-		// Any enabled Item may be priced; an empty Item is filled from the Lot on save.
-		frm.set_query("item", () => ({ filters: { disabled: 0 } }));
+		// With a Lot: the Lot Item and its fabric Items; an empty Item is filled from the Lot on save.
+		frm.set_query("item", () => {
+			if (!frm.doc.lot) return { filters: { disabled: 0 } };
+			return { query: "essdee_yrp.process_cost.get_lot_items", filters: { lot: frm.doc.lot } };
+		});
 		frm.set_query("attribute", () => {
 			if (!frm.doc.lot) {
 				frappe.throw(__("Select Lot before Attribute."));
