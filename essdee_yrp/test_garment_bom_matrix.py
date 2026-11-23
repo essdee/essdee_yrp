@@ -156,6 +156,32 @@ class TestUnbuildableVariants(TestCase):
 		self.assertEqual(frappe.message_log, [])
 
 
+class TestVariantClothRows(TestCase):
+	def test_cloth_not_marked_bom_item_is_a_cutting_input(self):
+		ipd = frappe._dict(
+			item="TRUNK",
+			packing_attribute="Colour",
+			dependent_attribute=None,
+			cloth_detail=[frappe._dict(name1="Dyed Fabrics", cloth="DYED-CLOTH", is_bom_item=0)],
+		)
+		variant = frappe._dict(name="TRUNK-RED", variant_of="TRUNK", attributes=[])
+		requirement = {"cloth_type": "Dyed Fabrics", "colour": "Red", "dia": "20", "quantity": 0.2}
+		with (
+			patch.object(garment_bom_matrix.frappe, "get_cached_doc", return_value=variant),
+			patch.object(garment_bom_matrix, "get_cloth_combination", return_value={}),
+			patch.object(garment_bom_matrix, "get_stitching_combination", return_value={}),
+			patch.object(garment_bom_matrix, "calculate_cloth", return_value=[requirement]),
+			patch.object(garment_bom_matrix, "get_dia_attribute", return_value="Dia"),
+			patch.object(garment_bom_matrix.frappe.db, "get_value", return_value="Kg"),
+		):
+			rows, _output = garment_bom_matrix._get_variant_cloth_rows(ipd, "TRUNK-RED")
+
+		self.assertEqual(
+			rows,
+			[{"item": "DYED-CLOTH", "attrs": {"Colour": "Red", "Dia": "20"}, "quantity": 0.2, "uom": "Kg"}],
+		)
+
+
 class TestOnDemandGarmentMatricesOnMigratedData(IntegrationTestCase):
 	"""Migrated Lot C0126-05 (garment IPD, Open, draft) builds its Cutting matrices on first use."""
 

@@ -134,9 +134,8 @@ def regenerate_garment_bom_matrices(ipd_name, item_variants):
 		if not cloth_rows:
 			if any(row.is_bom_item for row in ipd.get("cloth_detail") or []):
 				frappe.throw(_("No BOM cloth requirement was generated for {0}.").format(variant))
-			# Some legacy IPDs intentionally have no cloth marked Is BOM Item.
-			# Keep an output-only matrix so the generic engine can still run
-			# their Item BOM accessories without inventing a cloth input.
+			# Like Production API, a variant without cloth demand on an IPD with
+			# no Is BOM Item cloth keeps an output-only matrix (accessories only).
 			matrix_docs.append(_build_matrix(ipd, variant, output_attrs, None, []))
 			continue
 		for cloth_item, rows in _group_by_cloth_item(cloth_rows).items():
@@ -162,10 +161,10 @@ def _get_variant_cloth_rows(ipd, item_variant):
 	}
 	cloth_combination = get_cloth_combination(ipd)
 	stitching_combination = get_stitching_combination(ipd)
+	# Production API's Work Order BOM counts every Cloth Detail row; Is BOM Item
+	# only limits the Lot BOM summary (see sd_yrp_lot.calculate_bom).
 	cloth_label_to_item = {
-		row.name1: row.cloth
-		for row in ipd.get("cloth_detail") or []
-		if row.name1 and row.cloth and row.is_bom_item
+		row.name1: row.cloth for row in ipd.get("cloth_detail") or [] if row.name1 and row.cloth
 	}
 
 	aggregated = defaultdict(float)
@@ -178,8 +177,6 @@ def _get_variant_cloth_rows(ipd, item_variant):
 	):
 		cloth_item = cloth_label_to_item.get(requirement["cloth_type"])
 		if not cloth_item:
-			# Production API deliberately excluded Cloth Detail rows that were
-			# not marked Is BOM Item from Lot.bom_summary.
 			continue
 		attrs = {
 			ipd.packing_attribute: _attribute_value(requirement["colour"]),
