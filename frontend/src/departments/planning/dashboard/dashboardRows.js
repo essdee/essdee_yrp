@@ -1,14 +1,16 @@
 import { csvText, plural } from "./dashboardFormat.js"
 
 export const NO_WORK_ORDER = "No Work Order yet"
+export const PO_CREATED = "PO Created"
 export const LADDER_TONE = {
+	[PO_CREATED]: "amber", "Yarn / Fabric Received": "blue",
 	"Fabric not received": "amber", "Waiting for cutting": "amber", "In cutting": "amber",
 	"Waiting for sewing": "blue", "In sewing": "blue", "Ready for packing": "blue",
 	"Packing in progress": "amber", Dispatched: "green",
 }
 export const SUMMED_FIELDS = ["qty", "cut", "stitch", "packed", "dispatch"]
 export const PAGE_SIZE = 50
-export const DASHBOARD_FILTERS = ["ppo", "lot", "item", "status"]
+export const DASHBOARD_FILTERS = ["ppo", "lot", "item", "product_category", "status"]
 
 const sum = (rows, pick) => rows.reduce((total, row) => total + (Number(pick(row)) || 0), 0)
 const isOpen = (row) => row.status !== "Dispatched"
@@ -20,15 +22,25 @@ export function statusTone(status) {
 	return LADDER_TONE[status] || (status === NO_WORK_ORDER ? "neutral" : "process")
 }
 
+/** `{ status, status_rank, pieces }` a lot counts under: its status, plus its PO Created share while still on PO. */
+export function rowBuckets(row) {
+	const pieces = row.has_work_order ? row.total : row.qty
+	const own = { status: row.status, status_rank: row.status_rank, pieces }
+	const split = row.purchase_split
+	return split ? [split, { ...own, pieces: Math.max((Number(pieces) || 0) - split.pieces, 0) }] : [own]
+}
+
+const rowStatuses = (row) => rowBuckets(row).map((bucket) => bucket.status)
+
 /** Distinct statuses of `rows` in display order; a status ranks by its lowest row. */
 export function orderStatuses(rows) {
 	const ranks = new Map()
-	rows.forEach((row) => ranks.set(row.status, Math.min(ranks.get(row.status) ?? Infinity, row.status_rank ?? 0)))
+	rows.flatMap(rowBuckets).forEach(({ status, status_rank }) => ranks.set(status, Math.min(ranks.get(status) ?? Infinity, status_rank ?? 0)))
 	return [...ranks.keys()].sort((a, b) => displayRank(a, ranks.get(a)) - displayRank(b, ranks.get(b)) || a.localeCompare(b))
 }
 
 export function emptyDashboardFilters() {
-	return { ppo: [], lot: [], item: [], status: [] }
+	return { ppo: [], lot: [], item: [], product_category: [], status: [] }
 }
 
 export function hasDashboardFilter(filters) {
@@ -37,7 +49,8 @@ export function hasDashboardFilter(filters) {
 
 /** Rows matching every filter except `except`, so each filter's options narrow to the others. */
 export function filterDashboardRows(rows, filters, except = null) {
-	const keep = (kind, row) => kind === except || !filters[kind]?.length || filters[kind].includes(row[kind])
+	const values = (kind, row) => (kind === "status" ? rowStatuses(row) : [row[kind]])
+	const keep = (kind, row) => kind === except || !filters[kind]?.length || values(kind, row).some((value) => filters[kind].includes(value))
 	return rows.filter((row) => DASHBOARD_FILTERS.every((kind) => keep(kind, row)))
 }
 
@@ -46,7 +59,7 @@ export function dashboardOptions(rows, filters, kind, ppos = {}) {
 	const matching = filterDashboardRows(rows, filters, kind)
 	if (kind === "lot") return matching.map((row) => ({ value: row.lot, hint: row.item || "" }))
 	const counts = new Map()
-	matching.forEach((row) => counts.set(row[kind], (counts.get(row[kind]) || 0) + 1))
+	matching.flatMap((row) => (kind === "status" ? rowStatuses(row) : [row[kind]])).filter(Boolean).forEach((value) => counts.set(value, (counts.get(value) || 0) + 1))
 	const statuses = kind === "status" ? orderStatuses(matching) : null
 	const entries = [...counts.entries()].sort((a, b) => (statuses ? statuses.indexOf(a[0]) - statuses.indexOf(b[0]) : String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true })))
 	if (kind === "ppo") return entries.map(([value, count]) => ({ value, hint: `${ppos[value]?.item_name || ppos[value]?.item || ""} · ${plural(count, "lot")}` }))
@@ -75,11 +88,12 @@ export function dashboardTotals(data, filters) {
 	}
 }
 
-/** One card per status present: lot count and Σ total pcs (Lot pcs for lots with no Work Order). */
+/** One card per status present: lot count and Σ total pcs (Lot pcs for lots with no Work Order); a lot still on PO adds its PO Created share. */
 export function statusCards(rows) {
+	const buckets = rows.flatMap(rowBuckets)
 	return orderStatuses(rows).map((status) => {
-		const matching = rows.filter((row) => row.status === status)
-		return { status, isNoWorkOrder: status === NO_WORK_ORDER, count: matching.length, pieces: sum(matching, (row) => (row.has_work_order ? row.total : row.qty)) }
+		const matching = buckets.filter((bucket) => bucket.status === status)
+		return { status, isNoWorkOrder: status === NO_WORK_ORDER, count: matching.length, pieces: sum(matching, (bucket) => bucket.pieces) }
 	})
 }
 
@@ -99,8 +113,9 @@ export function groupDashboardRows(rows) {
 	rows.forEach((row) => groups.set(row.ppo, [...(groups.get(row.ppo) || []), row]))
 	return [...groups.entries()].map(([ppo, lots]) => {
 		const items = [...new Set(lots.map((row) => row.item))]
+		const categories = [...new Set(lots.map((row) => row.product_category).filter(Boolean))]
 		const mix = {}
-		lots.forEach((row) => { mix[row.status] = (mix[row.status] || 0) + 1 })
+		lots.flatMap(rowStatuses).forEach((name) => { mix[name] = (mix[name] || 0) + 1 })
 		const { status, status_rank } = furthestBehind(lots)
 		const sums = Object.fromEntries(SUMMED_FIELDS.map((field) => [field, sum(lots, (row) => row[field])]))
 		return {
@@ -108,6 +123,7 @@ export function groupDashboardRows(rows) {
 			lot: lots.map((row) => row.lot).join(", "),
 			lotCount: lots.length,
 			item: items.length === 1 ? items[0] : `${items.length} items`,
+			product_category: categories.length > 1 ? `${categories.length} categories` : categories[0] || null,
 			otherStatuses: Object.keys(mix).length - 1,
 			has_work_order: status !== NO_WORK_ORDER,
 			breakdown: orderStatuses(lots).map((name) => `${name}: ${mix[name]}`).join("\n"),
@@ -119,6 +135,7 @@ const SORT_VALUES = {
 	ppo: (row) => row.ppo,
 	lot: (row) => row.lotCount ?? row.lot,
 	item: (row) => row.item,
+	product_category: (row) => row.product_category,
 	status: (row) => displayRank(row.status, row.status_rank),
 	ppoQty: (row, ppos) => ppoQuantityValue(ppos[row.ppo]),
 	qty: (row) => row.qty,
@@ -148,9 +165,9 @@ export function pageRows(rows, page, size = PAGE_SIZE) {
 }
 
 export function dashboardCsv(rows, grouped, ppos = {}) {
-	const header = ["#", "PPO", grouped ? "Lots" : "Lot", "Item", "Status", "PPO Qty", "PPO Qty unit", "Lot Qty", "Cut Qty", "Stitching Qty", "Packed Qty", "Dispatched Qty"]
+	const header = ["#", "PPO", grouped ? "Lots" : "Lot", "Item", "Product Category", "Status", "PPO Qty", "PPO Qty unit", "Lot Qty", "Cut Qty", "Stitching Qty", "Packed Qty", "Dispatched Qty"]
 	const lines = rows.map((row, index) => [
-		index + 1, row.ppo, row.lot, row.item, row.status, ppoQuantityValue(ppos[row.ppo]), ppos[row.ppo]?.pieces ? "pcs" : "box",
+		index + 1, row.ppo, row.lot, row.item, row.product_category || "", row.status, ppoQuantityValue(ppos[row.ppo]), ppos[row.ppo]?.pieces ? "pcs" : "box",
 		row.qty, row.cut, row.stitch, row.packed, row.dispatch,
 	])
 	return csvText([header, ...lines])

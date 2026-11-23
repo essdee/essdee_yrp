@@ -3,6 +3,7 @@ from collections import defaultdict
 import frappe
 from frappe import _
 
+from essdee_yrp.finishing.alternative_transfers import get_alternative_transfers
 from essdee_yrp.merch import lot_process_rules as rules
 from essdee_yrp.merch.lot_process_data import LotFlowData
 from essdee_yrp.merch.lot_process_flow import cutting_cloth, item_identity
@@ -55,7 +56,23 @@ def get_process_detail(lot, process):
 
 def get_packing(data, names):
 	packing = data.packing(names)
-	return {key: packing[key] for key in ("planned", "delivered", "received", "dispatch", "finishing_plans")}
+	return {
+		**{key: packing[key] for key in ("planned", "delivered", "received", "dispatch", "finishing_plans")},
+		"alternatives": get_alternative_sizes(data),
+	}
+
+
+def get_alternative_sizes(data):
+	"""Alternative lots of the lot with the pieces moved per size."""
+	rows = get_alternative_transfers([data.doc.name], per_variant=True).get(data.doc.name, [])
+	size_of = data.size_of(data.attributes(variant for row in rows for variant in row["variants"]))
+	result = []
+	for row in rows:
+		sizes = defaultdict(float)
+		for variant, quantity in row.pop("variants").items():
+			sizes[size_of(variant)] += quantity
+		result.append({**row, "sizes": dict(sizes)})
+	return result
 
 
 def get_fabrics(data, names):

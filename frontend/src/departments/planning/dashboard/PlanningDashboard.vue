@@ -5,10 +5,12 @@
 				<TabList>
 					<Tab :value="DASHBOARD_VIEW">Dashboard</Tab>
 					<Tab :value="TRACKING_VIEW">PPO Tracking</Tab>
+					<Tab :value="PROCESS_STATUS_VIEW">Process Status</Tab>
 				</TabList>
 			</Tabs>
 			<KeepAlive>
-				<DashboardView v-if="state.view === DASHBOARD_VIEW" @drill="drill" />
+				<DashboardView v-if="state.view === DASHBOARD_VIEW" :category="state.filters.category" @drill="drill" @update:category="setCategory" />
+				<ProcessStatusView v-else-if="state.view === PROCESS_STATUS_VIEW" :category="state.filters.category" :reports="reports" @update:category="setCategory" />
 				<PpoTrackingView v-else :filters="state.filters" :show-dispatched="state.showDispatched" :reports="reports" @update="updateTracking" />
 			</KeepAlive>
 		</section>
@@ -27,11 +29,12 @@ import DepartmentPage from "../../../components/DepartmentPage.vue"
 import { visibleProductionReports } from "../planningViews.js"
 import DashboardView from "./DashboardView.vue"
 import PpoTrackingView from "./PpoTrackingView.vue"
+import ProcessStatusView from "./ProcessStatusView.vue"
 import "../../../styles/lotProcessFlow.css"
 import "./planningDashboard.css"
-import { DASHBOARD_VIEW, TRACKING_VIEW, drillQuery, readTrackingQuery, trackingQuery } from "./routeFilters.js"
+import { DASHBOARD_VIEW, PROCESS_STATUS_VIEW, TRACKING_VIEW, drillQuery, readTrackingQuery, trackingQuery } from "./routeFilters.js"
 
-/** Planning Dashboard page: the factory-wide Dashboard and PPO Tracking tabs; tab and tracking filters live in the URL. */
+/** Planning Dashboard page: the factory-wide Dashboard, PPO Tracking and Process Status tabs; tab, tracking filters and the Product Category live in the URL. */
 const route = useRoute()
 const router = useRouter()
 const reports = ref([])
@@ -47,8 +50,12 @@ function updateTracking({ filters, showDispatched, replace }) {
 	return replace ? router.replace(location) : router.push(location)
 }
 
+function setCategory(category) {
+	router.replace({ query: { ...trackingQuery({ ...state.value, filters: { ...state.value.filters, category } }), view: state.value.view } })
+}
+
 async function drill(selection) {
-	await router.push({ query: drillQuery(selection) })
+	await router.push({ query: drillQuery({ ...selection, category: state.value.filters.category }) })
 	window.scrollTo({ top: 0 })
 }
 

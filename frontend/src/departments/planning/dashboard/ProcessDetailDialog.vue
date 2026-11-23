@@ -5,12 +5,14 @@
 				<div class="pf-modal__title"><h2>{{ step.name }} · {{ mode === "size" ? "Size-wise" : "Colour-wise" }}</h2></div>
 				<p>{{ row.lot }} · {{ isClothView ? "cloth per fabric in Kg" : row.item }} · {{ PROCESS_STATUS_LABELS[step.status] }}</p>
 			</div>
+			<div v-if="step && reports.length" class="pf-modal__actions pd-detail__reports"><LotFlowReports :reports="reports" :context="reportContext" /></div>
 		</template>
 		<template v-if="step">
 			<div class="pf-stats">
 				<div class="pf-stat"><span>Delivered</span><b>{{ withUnit(measure.delivered, measure.units[0]) }}</b></div>
 				<div class="pf-stat"><span>Received</span><b>{{ withUnit(measure.received, measure.units[1]) }}</b><i>{{ measure.percent.toFixed(1) }}%</i></div>
 				<div v-if="step.kind === 'packing'" class="pf-stat"><span>Dispatch</span><b>{{ formatQuantity(step.dispatch) }}</b><i>{{ (step.finishing_plans || []).join(", ") || "no Finishing Plan" }}</i></div>
+				<div v-if="step.to_alternative" class="pf-stat" data-stat-alternative><span>Moved to alternative</span><b>{{ formatQuantity(step.to_alternative) }}</b><i>counted as dispatched</i></div>
 				<div class="pf-stat"><span>First DC</span><b>{{ formatDisplayDate(step.first_dc) }}</b></div>
 				<div class="pf-stat"><span>Last GRN</span><b>{{ formatDisplayDate(step.last_grn) }}</b></div>
 				<div class="pf-stat"><span>Work Orders</span><b>{{ step.work_orders.length }}</b></div>
@@ -47,6 +49,21 @@
 						</tbody>
 					</table>
 				</div>
+				<div v-if="detail.packing?.alternatives?.length" class="pd-detail__section" data-alternative-sizes>
+					<h4>Moved to alternative lots (pcs, counted as dispatched)</h4>
+					<table class="erp-data-table pf-table">
+						<thead><tr><th>Alternative lot</th><th>Item</th><th v-for="size in detail.sizes" :key="size" class="erp-number">{{ size }}</th><th class="erp-number">Total</th><th class="erp-number">Box</th></tr></thead>
+						<tbody>
+							<tr v-for="transfer in detail.packing.alternatives" :key="`${transfer.lot}-${transfer.work_order}`">
+								<td><router-link class="pd-link" :to="`/planning/lots/${encodeURIComponent(transfer.lot)}`">{{ transfer.lot }}</router-link></td>
+								<td>{{ transfer.item }}</td>
+								<td v-for="size in detail.sizes" :key="size" class="erp-number">{{ transfer.sizes[size] ? formatQuantity(transfer.sizes[size]) : "—" }}</td>
+								<td class="erp-number"><b>{{ formatQuantity(transfer.quantity) }}</b></td>
+								<td class="erp-number">{{ transfer.boxes === null ? "—" : formatQuantity(transfer.boxes, true) }}</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
 				<ProcessWorkOrders :step="step" :work-orders="detail.work_orders?.length ? detail.work_orders : step.work_orders" />
 			</template>
 		</template>
@@ -61,7 +78,8 @@ import { computed, ref, watch } from "vue"
 
 import { getPpoProcessDetail } from "../../../api/planning.js"
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
-import { diffTone, statusTone } from "../../../utils/lotProcessFlow.js"
+import { diffTone, statusTone, stepReportContext } from "../../../utils/lotProcessFlow.js"
+import LotFlowReports from "../lot/flow/LotFlowReports.vue"
 import LotToneLegend from "../lot/flow/LotToneLegend.vue"
 import ProcessMatrixTable from "./ProcessMatrixTable.vue"
 import ProcessWorkOrders from "./ProcessWorkOrders.vue"
@@ -75,6 +93,7 @@ const props = defineProps({
 	row: { type: Object, required: true },
 	step: { type: Object, default: null },
 	mode: { type: String, default: "size" },
+	reports: { type: Array, default: () => [] },
 })
 const emit = defineEmits(["update:visible"])
 const LEGEND_NOTES = {
@@ -88,6 +107,7 @@ const loading = ref(false)
 const error = ref("")
 let sequence = 0
 
+const reportContext = computed(() => stepReportContext(props.row.lot, props.row.item, props.step?.name, props.step?.work_orders))
 const measure = computed(() => processMeasure(props.row, props.step))
 const isClothView = computed(() => props.step?.kind === "cloth")
 const matrix = computed(() => (props.mode === "size" ? sizeWiseMatrix(detail.value) : colourWiseMatrix(detail.value)))

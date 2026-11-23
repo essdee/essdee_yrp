@@ -6,7 +6,7 @@ import { drillQuery, readTrackingQuery, trackingQuery } from "../src/departments
 test("route query round-trips the PPO Tracking selection", () => {
 	const query = trackingQuery({ filters: { ppo: ["PPO-1"], lot: [], process: ["Cutting", "Packing"] }, showDispatched: true })
 	assert.deepEqual(query, { view: "tracking", ppo: ["PPO-1"], process: ["Cutting", "Packing"], dispatched: "1" })
-	assert.deepEqual(readTrackingQuery({ ...query, ppo: "PPO-1" }), { view: "tracking", filters: { ppo: ["PPO-1"], lot: [], process: ["Cutting", "Packing"] }, showDispatched: true })
+	assert.deepEqual(readTrackingQuery({ ...query, ppo: "PPO-1" }), { view: "tracking", filters: { ppo: ["PPO-1"], lot: [], process: ["Cutting", "Packing"], category: [] }, showDispatched: true })
 	assert.equal(readTrackingQuery({}).view, "dashboard")
 })
 
@@ -15,5 +15,5 @@ test("a drill-down opens PPO Tracking with only its selection", () => {
 })
 
 test("readTrackingQuery splits comma-separated values from a typed link", () => {
-	assert.deepEqual(readTrackingQuery({ view: "tracking", ppo: "PPO-1, PPO-2,", lot: ["L-1,L-2"] }).filters, { ppo: ["PPO-1", "PPO-2"], lot: ["L-1", "L-2"], process: [] })
+	assert.deepEqual(readTrackingQuery({ view: "tracking", ppo: "PPO-1, PPO-2,", lot: ["L-1,L-2"] }).filters, { ppo: ["PPO-1", "PPO-2"], lot: ["L-1", "L-2"], process: [], category: [] })
 })

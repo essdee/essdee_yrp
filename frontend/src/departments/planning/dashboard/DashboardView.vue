@@ -14,9 +14,9 @@
 					<Button icon="pi pi-refresh" label="Refresh" size="small" severity="secondary" outlined :loading="loading" @click="load" />
 				</div>
 			</div>
-			<div class="pd-filters pd-filters--four" role="search" aria-label="Dashboard filters">
-				<FilterMultiSelect v-for="filter in FILTERS" :key="filter.kind" v-model="filters[filter.kind]" :label="filter.label" :placeholder="filter.placeholder" :options="options[filter.kind]" />
-				<Button label="Clear" text size="small" class="pd-filters__clear" :disabled="!hasDashboardFilter(filters)" @click="clear" />
+			<div class="pd-filters pd-filters--five" role="search" aria-label="Dashboard filters">
+				<FilterMultiSelect v-for="filter in FILTERS" :key="filter.kind" :model-value="activeFilters[filter.kind]" :label="filter.label" :placeholder="filter.placeholder" :options="options[filter.kind]" @update:model-value="setFilter(filter.kind, $event)" />
+				<Button label="Clear" text size="small" class="pd-filters__clear" :disabled="!hasDashboardFilter(activeFilters)" @click="clear" />
 			</div>
 		</section>
 		<div v-if="loading && !data" class="pd-loading"><Skeleton height="96px" /><Skeleton height="160px" /><Skeleton height="420px" /></div>
@@ -46,21 +46,24 @@ import { formatQuantity } from "./dashboardFormat.js"
 import { dashboardOptions, dashboardTotals, emptyDashboardFilters, hasDashboardFilter, tileDrill } from "./dashboardRows.js"
 
 /** Factory-wide view of every open PPO and its lots; tiles, PPO and Lot links drill into PPO Tracking. */
-const emit = defineEmits(["drill"])
+const props = defineProps({ category: { type: Array, default: () => [] } })
+const emit = defineEmits(["drill", "update:category"])
 const FILTERS = [
 	{ kind: "ppo", label: "PPO", placeholder: "All PPOs" },
 	{ kind: "lot", label: "Lot", placeholder: "All lots" },
 	{ kind: "item", label: "Item", placeholder: "All items" },
+	{ kind: "product_category", label: "Product Category", placeholder: "All categories" },
 	{ kind: "status", label: "Status", placeholder: "All statuses" },
 ]
 const data = ref(null)
 const loading = ref(false)
 const error = ref("")
 const filters = reactive(emptyDashboardFilters())
+const activeFilters = computed(() => ({ ...filters, product_category: props.category }))
 
 const ppoTotal = computed(() => Object.keys(data.value?.ppos || {}).length)
-const totals = computed(() => dashboardTotals(data.value || { lots: [], ppos: {} }, filters))
-const options = computed(() => Object.fromEntries(FILTERS.map(({ kind }) => [kind, dashboardOptions(data.value?.lots || [], filters, kind, data.value?.ppos)])))
+const totals = computed(() => dashboardTotals(data.value || { lots: [], ppos: {} }, activeFilters.value))
+const options = computed(() => Object.fromEntries(FILTERS.map(({ kind }) => [kind, dashboardOptions(data.value?.lots || [], activeFilters.value, kind, data.value?.ppos)])))
 const tiles = computed(() => {
 	const value = totals.value
 	return [
@@ -86,8 +89,14 @@ async function load() {
 	}
 }
 
+function setFilter(kind, values) {
+	if (kind === "product_category") emit("update:category", values)
+	else filters[kind] = values
+}
+
 function clear() {
 	Object.assign(filters, emptyDashboardFilters())
+	if (props.category.length) emit("update:category", [])
 }
 
 function toggleStatus(status) {

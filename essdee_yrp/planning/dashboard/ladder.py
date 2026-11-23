@@ -14,7 +14,9 @@ LADDER = [
 	"Dispatched",
 ]
 NO_WORK_ORDER = "No Work Order yet"
-STATUS_ORDER = [NO_WORK_ORDER, *LADDER]
+PO_CREATED = "PO Created"
+MATERIAL_RECEIVED = "Yarn / Fabric Received"
+STATUS_ORDER = [NO_WORK_ORDER, PO_CREATED, MATERIAL_RECEIVED, *LADDER]
 CUTTING_PROCESS = "Cutting"
 CUT_STATUSES = ("Completed", "Cut Panel Dispatch Pending")
 CUTTING_PLAN_RANK = {
@@ -28,6 +30,7 @@ CUTTING_PLAN_RANK = {
 }
 DISPATCHED_SHARE = 0.9
 SEWN_SHARE = 0.9
+PURCHASE_RECEIVED_SHARE = 0.9
 
 
 def get_basis(planned, cut):
@@ -43,12 +46,34 @@ def get_best_cutting_status(statuses):
 	return max(statuses, key=lambda status: CUTTING_PLAN_RANK.get(status, 0)) if statuses else ""
 
 
+def get_purchase_status(ordered, received):
+	"""PO Created below 90% of the yarn / fabric PO quantity received, else Yarn / Fabric Received; "" with no such PO."""
+	if flt(ordered) <= 0:
+		return ""
+	return MATERIAL_RECEIVED if flt(received) / flt(ordered) >= PURCHASE_RECEIVED_SHARE else PO_CREATED
+
+
+def is_before_cutting(status):
+	"""Fabric not received or a fabric process name: the lot has Work Orders but no cut yet."""
+	return status == "Fabric not received" or status not in STATUS_ORDER
+
+
+def get_po_created_pieces(status, purchase_status, basis, ordered, moved):
+	"""Lot pieces still on PO for a lot already in a fabric stage: basis less the PO share moved into Work Orders."""
+	if purchase_status != PO_CREATED or not is_before_cutting(status):
+		return 0.0
+	return flt(basis) * max(0.0, 1 - flt(moved) / flt(ordered))
+
+
 def get_lot_status(facts):
-	"""First matching rung, top (Dispatched) to bottom (Fabric not received); a fabric process name sits below Waiting for cutting."""
+	"""First matching rung, top (Dispatched) to bottom (Fabric not received); a fabric process name sits below Waiting for cutting.
+
+	Pieces moved to an alternative lot count as dispatched.
+	"""
 	if not facts["has_work_order"] and not facts["has_cutting_plan"]:
-		return NO_WORK_ORDER
+		return facts["purchase_status"] or NO_WORK_ORDER
 	basis = get_basis(facts["planned"], facts["cut"])
-	dispatch = flt(facts["dispatch"])
+	dispatch = flt(facts["dispatch"]) + flt(facts["to_alternative"])
 	if basis and dispatch / basis > DISPATCHED_SHARE:
 		return "Dispatched"
 	if flt(facts["pack_delivered"]) > 0 or dispatch > 0:

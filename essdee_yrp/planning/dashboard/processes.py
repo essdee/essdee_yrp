@@ -141,6 +141,8 @@ class LotProcesses:
 			"last_grn": max(last_grns) if last_grns else None,
 			**{key: sum(row[key] for row in work_orders) for key in ("planned", "delivered", "received")},
 			"dispatch": self.metrics.dispatch.get(lot, 0.0) if is_packing else 0.0,
+			"to_alternative": self.metrics.get_alternative_quantity(lot) if is_packing else 0.0,
+			"alternatives": self.metrics.alternatives.get(lot, []) if is_packing else [],
 			"status": rules.step_status(orders),
 			"reason": ladder.get_status_reason(orders),
 			"finishing_plans": self.metrics.get_finishing_plans(lot) if is_packing else [],

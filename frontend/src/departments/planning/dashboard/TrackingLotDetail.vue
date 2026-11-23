@@ -1,7 +1,21 @@
 <template>
 	<div class="pd-drill">
 		<p class="pd-drill__note">{{ facts }}</p>
-		<div class="pd-drill__panel">
+		<div class="pd-po-summary" data-po-summary>
+			<b>Yarn / Fabric PO</b>
+			<template v-if="purchase.length">
+				<span v-for="unit in purchase" :key="unit.uom" :data-po-unit="unit.uom">
+					Ordered <b>{{ formatQuantity(unit.ordered) }}</b> {{ unit.uom }} · Received <b>{{ formatQuantity(unit.received) }}</b> {{ unit.uom }} · <b>{{ unit.percent.toFixed(1) }}%</b>
+				</span>
+				<span class="pd-muted">
+					<template v-for="(order, index) in row.purchase.purchase_orders" :key="order"><template v-if="index">, </template><router-link class="pd-link" :to="`/purchase/purchase-orders/${encodeURIComponent(order)}`">{{ order }}</router-link></template>
+				</span>
+			</template>
+			<span v-else class="pd-muted">No yarn / fabric PO</span>
+			<router-link class="pd-details" :to="lotPurchaseSummaryRoute(row.lot)" data-po-details title="Lot Purchase Summary report for this lot">Details</router-link>
+		</div>
+		<AlternativeTransfers class="pd-drill__alt" :transfers="row.alternatives || []" show-work-order />
+		<div v-if="row.processes.length" class="pd-drill__panel">
 			<table class="pd-process-table">
 				<thead>
 					<tr>
@@ -34,7 +48,9 @@
 							<template v-else>{{ formatQuantity(step.received) }}</template>
 						</td>
 						<td class="pd-number" data-percent>{{ processMeasure(row, step).percent.toFixed(1) }}%<small v-if="step.kind === 'cloth'" class="pd-sub">by Kg</small></td>
-						<td v-if="hasPacking" class="pd-number">{{ step.kind === "packing" ? formatQuantity(step.dispatch) : "" }}</td>
+						<td v-if="hasPacking" class="pd-number">
+							<template v-if="step.kind === 'packing'">{{ formatQuantity(step.dispatch) }}<small v-if="step.to_alternative" class="pd-sub" data-to-alternative>+{{ formatQuantity(step.to_alternative) }} to alternative</small></template>
+						</td>
 						<td :title="step.work_orders.map((order) => `${order.name}: ${order.status}`).join('\n')">
 							<span class="pd-state" :class="`pd-state--${step.status}`">{{ PROCESS_STATUS_LABELS[step.status] }}</span>
 							<small class="pd-sub">{{ step.reason }}</small>
@@ -57,12 +73,14 @@ import Menu from "primevue/menu"
 import { computed, ref } from "vue"
 
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
+import { lotPurchaseSummaryRoute } from "../../purchase/lot/lotPurchaseActions.js"
+import AlternativeTransfers from "./AlternativeTransfers.vue"
 import ProcessDetailDialog from "./ProcessDetailDialog.vue"
 import ProcessReportsPopover from "./ProcessReportsPopover.vue"
 import { formatQuantity } from "./dashboardFormat.js"
-import { PROCESS_STATUS_LABELS, processMeasure } from "./trackingRows.js"
+import { PROCESS_STATUS_LABELS, processMeasure, purchaseUnits } from "./trackingRows.js"
 
-/** A lot's processes in first-DC order with a Details menu: Size-wise, Colour-wise and Reports. */
+/** A lot's yarn / fabric PO totals, then its processes in first-DC order with a Details menu: Size-wise, Colour-wise and Reports. */
 const props = defineProps({
 	row: { type: Object, required: true },
 	reports: { type: Array, default: () => [] },
@@ -75,12 +93,14 @@ const dialogVisible = ref(false)
 const dialogStep = ref(null)
 const dialogMode = ref("size")
 
+const purchase = computed(() => purchaseUnits(props.row.purchase))
 const hasPacking = computed(() => props.row.processes.some((step) => step.kind === "packing"))
 const facts = computed(() => [
 	`Order ${formatQuantity(props.row.qty)} pcs`,
 	props.row.cut_pcs ? `Cut ${formatQuantity(props.row.cut_pcs)} pcs` : "Not cut yet",
-	`${props.row.processes.length} ${props.row.processes.length === 1 ? "process" : "processes"}, in order of first DC`,
-].join(" · "))
+	props.row.to_alternative ? `Dispatched ${formatQuantity(props.row.dispatch)} pcs + ${formatQuantity(props.row.to_alternative)} pcs moved to alternative` : "",
+	props.row.has_work_order ? `${props.row.processes.length} ${props.row.processes.length === 1 ? "process" : "processes"}, in order of first DC` : "No Work Order yet",
+].filter(Boolean).join(" · "))
 const menuItems = computed(() => [
 	{ label: "Size-wise", icon: "pi pi-th-large", disabled: activeStep.value?.kind === "cloth", command: () => openDialog("size") },
 	{ label: "Colour-wise", icon: "pi pi-palette", command: () => openDialog("colour") },

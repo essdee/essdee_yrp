@@ -90,12 +90,16 @@ export function getPlanningDashboard() {
 	return callRead(`${DASHBOARD_METHOD}.get_dashboard`)
 }
 
+export function getPlanningProcessStatus() {
+	return callRead(`${DASHBOARD_METHOD}.get_process_status`)
+}
+
 export function getPpoTrackingOptions() {
 	return callRead(`${DASHBOARD_METHOD}.get_tracking_options`)
 }
 
-export function getPpoTracking(ppos, lots) {
-	return callRead(`${DASHBOARD_METHOD}.get_tracking`, { ppos: ppos || [], lots: lots || [] })
+export function getPpoTracking(ppos, lots, productCategories) {
+	return callRead(`${DASHBOARD_METHOD}.get_tracking`, { ppos: ppos || [], lots: lots || [], product_categories: productCategories || [] })
 }
 
 export function getPpoProcessDetail(lot, process) {

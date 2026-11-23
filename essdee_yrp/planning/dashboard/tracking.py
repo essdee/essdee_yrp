@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import frappe
 from frappe import _
 from frappe.utils import flt, today
@@ -12,6 +14,7 @@ from essdee_yrp.planning.dashboard.production_orders import (
 	get_lots_with_work_orders,
 	get_ppo_details,
 	get_ppo_items,
+	get_product_categories,
 )
 from essdee_yrp.planning.reports.production_quantities import authorize_filter_values
 
@@ -28,6 +31,12 @@ def get_tracking_options():
 	items = get_ppo_items([row["name"] for row in production_orders])
 	lots = get_lots([row["name"] for row in production_orders])
 	started = get_lots_with_work_orders([row["name"] for row in lots])
+	tracked = get_tracked_lots(LotMetrics(lots, sewing_processes=[]), started)
+	categories = get_product_categories(row["item"] for row in lots)
+	ppo_categories = defaultdict(set)
+	for row in lots:
+		if categories.get(row["item"]):
+			ppo_categories[row["production_order"]].add(categories[row["item"]])
 	return {
 		"ppos": [
 			{
@@ -36,21 +45,52 @@ def get_tracking_options():
 				"item_name": items[row["name"]]["item_name"],
 				"status": row["status"],
 				"delivery": get_iso_date(row["delivery_date"]),
+				"product_categories": sorted(ppo_categories[row["name"]]),
 			}
 			for row in production_orders
 		],
 		"lots": [
-			{"name": row["name"], "item": row["item"], "ppo": row["production_order"]}
+			{
+				"name": row["name"],
+				"item": row["item"],
+				"ppo": row["production_order"],
+				"product_category": categories.get(row["item"]),
+			}
 			for row in lots
-			if row["name"] in started
+			if row["name"] in tracked
 		],
 	}
 
 
-def get_scope_production_orders(ppos, lots):
-	"""Selected open PPOs, or the open PPOs of the selected lots when no PPO is selected."""
+def get_tracked_lots(metrics, started):
+	"""Lots PPO Tracking shows: those with a submitted Work Order or a yarn / fabric PO."""
+	return started | set(metrics.purchase_totals)
+
+
+def get_category_values(values):
+	"""Product Category names of a filter; an empty list when none."""
+	if isinstance(values, str):
+		values = frappe.parse_json(values)
+	if not values:
+		return []
+	if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+		frappe.throw(_("Product Category filter values must be a list of names."))
+	return list(dict.fromkeys(values))
+
+
+def get_category_production_orders(categories):
+	"""Open PPOs with an open lot whose item is in one of the Product Categories."""
+	lots = get_lots(frappe.get_list(PPO, filters=OPEN_PPO_FILTERS, pluck="name", limit_page_length=0))
+	by_item = get_product_categories(row["item"] for row in lots)
+	return [row["production_order"] for row in lots if by_item.get(row["item"]) in categories]
+
+
+def get_scope_production_orders(ppos, lots, categories=None):
+	"""Selected open PPOs, else the open PPOs of the selected lots, else those with a lot in the categories."""
 	if ppos:
 		names = ppos
+	elif not lots:
+		names = get_category_production_orders(categories or [])
 	else:
 		names = frappe.get_list(
 			"SD YRP Lot",
@@ -67,33 +107,52 @@ def get_scope_production_orders(ppos, lots):
 	)
 
 
-def get_tracking_data(ppos=None, lots=None):
-	"""Lots of the selected PPOs or Lots with status, quantities and processes; one of the two is required."""
+def get_tracking_data(ppos=None, lots=None, product_categories=None):
+	"""Lots of the selected PPOs, Lots or Product Categories with status, quantities and processes; one is required."""
 	ppos = authorize_filter_values(PPO, ppos)
 	lots = authorize_filter_values("SD YRP Lot", lots)
-	if not ppos and not lots:
-		frappe.throw(_("Select a PPO or Lot to begin."))
-	production_orders = get_scope_production_orders(ppos, lots)
+	categories = get_category_values(product_categories)
+	if not ppos and not lots and not categories:
+		frappe.throw(_("Select a PPO, Lot or Product Category to begin."))
+	production_orders = get_scope_production_orders(ppos, lots, categories)
 	ppo_lots = get_lots([row["name"] for row in production_orders])
+	item_categories = get_product_categories(row["item"] for row in ppo_lots)
 	started = get_lots_with_work_orders([row["name"] for row in ppo_lots])
-	metrics = LotMetrics([row for row in ppo_lots if row["name"] in started])
-	summaries = {name: metrics.get_summary(name) for name in metrics.names}
+	metrics = LotMetrics(ppo_lots)
+	tracked = get_tracked_lots(metrics, started)
+	summaries = {name: metrics.get_summary(name) for name in tracked}
 	details = get_ppo_details(production_orders, ppo_lots)
 	for name, info in details.items():
 		info["lots"] = [
-			get_ppo_lot(row, row["name"] in started) for row in ppo_lots if row["production_order"] == name
+			{**get_ppo_lot(row, row["name"] in started), "product_category": item_categories.get(row["item"])}
+			for row in ppo_lots
+			if row["production_order"] == name
 		]
 		info["work_order_lots"] = [
 			get_work_order_lot(row, summaries[row["name"]])
 			for row in ppo_lots
 			if row["production_order"] == name and row["name"] in started
 		]
-	scope = [row for row in ppo_lots if row["name"] in started and (not lots or row["name"] in lots)]
+	scope = [
+		row
+		for row in ppo_lots
+		if row["name"] in tracked
+		and (not lots or row["name"] in lots)
+		and (not categories or item_categories.get(row["item"]) in categories)
+	]
 	processes = LotProcesses(metrics)
 	return {
 		"as_of": today(),
 		"ppos": details,
-		"lots": [get_lot_row(row, details, summaries[row["name"]], processes) for row in scope],
+		"lots": [
+			{
+				**get_lot_row(row, details, summaries[row["name"]], processes),
+				"has_work_order": row["name"] in started,
+				"purchase": metrics.get_purchase_summary(row["name"]),
+				"product_category": item_categories.get(row["item"]),
+			}
+			for row in scope
+		],
 	}
 
 
@@ -113,6 +172,7 @@ def get_work_order_lot(row, summary):
 		"qty": flt(row["total_order_quantity"]),
 		"cut_pcs": summary["cut"],
 		"dispatch": summary["dispatch"],
+		"to_alternative": summary["to_alternative"],
 	}
 
 
@@ -129,6 +189,8 @@ def get_lot_row(row, details, summary, processes):
 		"cut_pcs": summary["cut"],
 		"total": summary["total"],
 		"dispatch": summary["dispatch"],
+		"to_alternative": summary["to_alternative"],
+		"alternatives": summary["alternatives"],
 		"balance": summary["balance"],
 		"processes": processes.get_processes(row["name"]),
 	}
