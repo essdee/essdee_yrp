@@ -1,6 +1,5 @@
-from frappe.utils import now, strip_html_tags
-
 import frappe
+from frappe.utils import now, strip_html_tags
 
 FAILED_PREFIX = "Action Failed"
 

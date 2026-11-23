@@ -1,6 +1,5 @@
-from frappe.tests import IntegrationTestCase
-
 import frappe
+from frappe.tests import IntegrationTestCase
 
 
 def _insert_child(doctype, **values):

@@ -1,6 +1,6 @@
+import frappe
 from frappe.tests import IntegrationTestCase
 
-import frappe
 from essdee_yrp.api.rename import get_rename_status
 
 
