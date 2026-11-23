@@ -18,7 +18,7 @@
 				</dl>
 				<DocumentDeleteButton doctype="Item" :name="itemId" :docstatus="values.docstatus" :disabled="loading || acting" redirect-to="/purchase/items" />
 					<DocumentPrintButton doctype="Item" :name="itemId" :docstatus="values.docstatus" :disabled="loading || acting" />
-					<DocumentActionStrip class="erp-page-header__actions" v-if="actions.length" :actions="actions" />
+					<DocumentActionStrip class="erp-page-header__actions" :actions="actions" doctype="Item" :docname="workspace.values ? itemId : ''" />
 			</header>
 
 			<div v-if="loading" class="purchase-record__loading"><Skeleton height="180px" /><Skeleton height="300px" /></div>

@@ -1,5 +1,5 @@
 <template>
-	<div v-if="actions.length" class="document-action-strip" :class="{ 'document-action-strip--with-reason': reasonNotice }" role="group" aria-label="Available document actions">
+	<div v-if="stripActions.length" class="document-action-strip" :class="{ 'document-action-strip--with-reason': reasonNotice }" role="group" aria-label="Available document actions">
 		<slot v-if="primaryAction" name="primary" :action="primaryAction">
 			<Button
 				class="document-action-strip__primary"
@@ -68,6 +68,8 @@
 			@show="menuOpen = true"
 			@hide="menuOpen = false"
 		/>
+		<LinkedDocumentsDialog v-if="hasLinks" v-model:visible="linksVisible" :doctype="doctype" :docname="docname" />
+		<DocumentRenameDialog v-if="renameAction" v-model:visible="renameVisible" :doctype="doctype" :docname="docname" />
 		<span v-if="reasonNotice" id="document-action-disabled-reason" class="document-action-strip__reason" role="status">{{ reasonNotice }}</span>
 	</div>
 </template>
@@ -80,17 +82,28 @@ import { computed, inject, ref } from "vue"
 import { useDocumentShortcuts } from "../../composables/useDocumentShortcuts.js"
 import { withShortcutHint } from "../../utils/documentShortcuts.js"
 import { DOCUMENT_DELETED_KEY } from "../../utils/documentLiveState.js"
+import LinkedDocumentsDialog from "./LinkedDocumentsDialog.vue"
+import DocumentRenameDialog from "./DocumentRenameDialog.vue"
+import { useRenameAction } from "../../composables/useRenameAction.js"
 
 const props = defineProps({
 	actions: { type: Array, default: () => [] },
+	/** Doctype and saved name of the open document; together they add "Show Links" to the More menu. */
+	doctype: { type: String, default: "" },
+	docname: { type: String, default: "" },
 })
 
 const menu = ref(null)
 const menuOpen = ref(false)
 const activeOverflowActions = ref([])
 const reasonNotice = ref("")
-const primaryAction = computed(() => props.actions.find((action) => action.primary) || null)
-const secondaryActions = computed(() => props.actions.filter((action) => action !== primaryAction.value))
+const linksVisible = ref(false)
+const hasLinks = computed(() => Boolean(props.doctype && props.docname))
+const linksAction = { key: "show_links", label: "Show Links", icon: "pi pi-link", menuOnly: true, command: () => { linksVisible.value = true } }
+const { action: renameAction, visible: renameVisible } = useRenameAction(() => [props.doctype, props.docname])
+const stripActions = computed(() => [...props.actions, ...(hasLinks.value ? [linksAction] : []), ...(renameAction.value ? [renameAction.value] : [])])
+const primaryAction = computed(() => stripActions.value.find((action) => action.primary) || null)
+const secondaryActions = computed(() => stripActions.value.filter((action) => action !== primaryAction.value))
 const visibleActions = computed(() => secondaryActions.value.filter((action) => !action.menuOnly).slice(0, 2))
 const visibleActionKeys = computed(() => new Set(visibleActions.value.map((action) => action.key)))
 const desktopOverflowActions = computed(() => secondaryActions.value.filter((action) => action.menuOnly || !visibleActionKeys.value.has(action.key)))

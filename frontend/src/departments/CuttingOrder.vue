@@ -6,7 +6,7 @@
 				<template #document-actions="{ busy, dirty }">
 					<DocumentPrintButton doctype="SD YRP Cutting Order" :name="cuttingOrderId" :docstatus="record.docstatus" :disabled="busy" />
 					<DocumentDeleteButton doctype="SD YRP Cutting Order" :name="cuttingOrderId" :docstatus="record.docstatus" :disabled="busy || dirty" redirect-to="/cutting/orders" />
-					<DocumentActionStrip :actions="duplicateActions" />
+					<DocumentActionStrip :actions="duplicateActions" doctype="SD YRP Cutting Order" :docname="cuttingOrderId" />
 				</template>
 			</CuttingOrderEditor>
 		</div>
@@ -39,7 +39,7 @@
 						<DocumentShortcuts :busy="workspaceLoading || Boolean(lifecycleBusy)" :can-cancel="Boolean(workspace.permissions?.can_cancel)" cancel-confirms @cancel="changeStatus('cancel')" />
 						<DocumentPrintButton v-if="workspace.permissions?.can_print" doctype="SD YRP Cutting Order" :name="cuttingOrderId" :formats="workspace.print_formats || []" :disabled="workspaceLoading" />
 						<DocumentDeleteButton doctype="SD YRP Cutting Order" :name="cuttingOrderId" :docstatus="record.docstatus" :disabled="workspaceLoading || Boolean(lifecycleBusy)" redirect-to="/cutting/orders" />
-						<CuttingOrderActions v-if="record.name" :doc="record" :data="workspace" :extra-actions="duplicateActions" @refresh="loadWorkspace" />
+						<CuttingOrderActions v-if="record.name" :doc="record" :data="workspace" :extra-actions="viewActions" @refresh="loadWorkspace" />
 						<Button v-if="workspace.permissions?.can_cancel" label="Cancel" :title="withShortcutHint('Cancel', 'cancel')" icon="pi pi-ban" severity="danger" outlined :loading="lifecycleBusy === 'cancel'" @click="changeStatus('cancel')" />
 						<Button v-if="workspace.permissions?.can_amend" label="Amend" icon="pi pi-copy" :loading="lifecycleBusy === 'amend'" @click="changeStatus('amend')" />
 					</div>
@@ -59,6 +59,7 @@
 			/>
 		</div>
 		<DocumentErrorDialog :message="actionError" title="Cutting Order action failed" @dismiss="actionError = ''" />
+		<LinkedDocumentsDialog v-if="cuttingOrderId" v-model:visible="linksVisible" doctype="SD YRP Cutting Order" :docname="cuttingOrderId" />
 	</DepartmentPage>
 </template>
 
@@ -77,6 +78,7 @@ import DepartmentPage from "../components/DepartmentPage.vue"
 import WorkspaceLoadError from "../components/common/WorkspaceLoadError.vue"
 import DocumentActionStrip from "../components/documents/DocumentActionStrip.vue"
 import DocumentErrorDialog from "../components/documents/DocumentErrorDialog.vue"
+import LinkedDocumentsDialog from "../components/documents/LinkedDocumentsDialog.vue"
 import DocumentStatusBadge from "../components/documents/DocumentStatusBadge.vue"
 import InlinePageNavigation from "../components/navigation/InlinePageNavigation.vue"
 import { useDuplicateAction } from "../composables/useDuplicateAction.js"
@@ -117,6 +119,8 @@ const duplicateAction = useDuplicateAction({
 	router,
 })
 const duplicateActions = computed(() => duplicateAction.value ? [duplicateAction.value] : [])
+const linksVisible = ref(false)
+const viewActions = computed(() => [...duplicateActions.value, { key: "show_links", label: "Show Links", icon: "pi pi-link", command: () => { linksVisible.value = true } }])
 
 async function initialise() {
 	const sequence = ++initialiseSequence

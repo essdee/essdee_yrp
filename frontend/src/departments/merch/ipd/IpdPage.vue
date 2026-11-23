@@ -23,7 +23,7 @@
 						:heading-id="headingId"
 					/>
 				</template>
-				<template #header-actions><DocumentActionStrip class="ipd-actions" :actions="stripActions" /></template>
+				<template #header-actions><DocumentActionStrip class="ipd-actions" :actions="stripActions" doctype="YRP Item Production Detail" :docname="record.name || ipdId" /></template>
 				<template #matrix>
 					<IpdSections ref="frame" :tabs="IPD_TABS" :doc="values" readonly>
 						<template #before>

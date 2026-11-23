@@ -27,6 +27,8 @@
 				<DocumentActionStrip
 					class="lot-editor-actions"
 					:actions="editorActions"
+					doctype="SD YRP Lot"
+					:docname="lotId"
 				/>
 			</template>
 			<template #matrix>

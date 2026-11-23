@@ -29,7 +29,7 @@
 				</div>
 			</template>
 			<template v-else>
-				<DocumentActionStrip :actions="actions" />
+				<DocumentActionStrip :actions="actions" doctype="SD YRP Product" :docname="record.name || ''" />
 			</template>
 		</div>
 	</header>

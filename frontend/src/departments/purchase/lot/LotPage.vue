@@ -23,7 +23,7 @@
 				<template #header="{ headingId }">
 					<LotIdentity :name="workspace.name || lotId" :item="item" :delivery-date="deliveryDate" :status="workspace.status" :heading-id="headingId" />
 				</template>
-				<template #header-actions><DocumentActionStrip :actions="lotActions" /></template>
+				<template #header-actions><DocumentActionStrip :actions="lotActions" doctype="SD YRP Lot" :docname="lotId" /></template>
 				<template #matrix>
 					<Tabs v-model:value="activeTab" scrollable class="lot-tabs erp-tabs">
 						<TabList ref="tabList" class="lot-tablist">

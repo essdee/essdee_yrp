@@ -25,6 +25,7 @@
 				<div class="finishing-plan__actions">
 					<DocumentPrintButton v-if="workspace.permissions?.can_print" doctype="SD YRP Finishing Plan" :name="finishingPlanId" :formats="workspace.print_formats || []" :disabled="loading || busy" />
 					<DocumentDeleteButton doctype="SD YRP Finishing Plan" :name="record.name" :docstatus="record.docstatus" :disabled="loading || busy" :redirect-to="backTo" />
+					<DocumentActionStrip doctype="SD YRP Finishing Plan" :docname="record.name || ''" />
 					<FinishingPlanActions :workspace="workspace" :busy="busy" @command="(command) => runCommand(command)" @entry="openEntry" />
 				</div>
 			</header>
@@ -70,6 +71,7 @@
 import DocumentLink from "../../components/common/DocumentLink.vue"
 import DocumentNameCopy from "../../components/common/DocumentNameCopy.vue"
 import DocumentDeleteButton from "../../components/documents/DocumentDeleteButton.vue"
+import DocumentActionStrip from "../../components/documents/DocumentActionStrip.vue"
 import Toast from "primevue/toast"
 import Message from "primevue/message"
 import Skeleton from "primevue/skeleton"

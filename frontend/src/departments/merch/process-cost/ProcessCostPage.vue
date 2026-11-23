@@ -8,7 +8,7 @@
 						<DocumentStatusBadge :label="record.workflow_state" :docstatus="record.docstatus" />
 					</div>
 				</template>
-				<template #header-actions><DocumentActionStrip :actions="actions" /></template>
+				<template #header-actions><DocumentActionStrip :actions="actions" doctype="YRP Process Cost" :docname="workspace.record?.name || ''" /></template>
 				<template #matrix>
 					<Message v-if="workspace.waiting_note" severity="info" :closable="false">{{ workspace.waiting_note }}</Message>
 					<Tabs v-model:value="activeTab" scrollable class="lot-tabs erp-tabs">

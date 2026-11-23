@@ -28,7 +28,7 @@
 				</template>
 
 				<template #header-actions>
-					<DocumentActionStrip :actions="purchaseOrderActions" />
+					<DocumentActionStrip :actions="purchaseOrderActions" doctype="Purchase Order" :docname="workspace.record?.name || ''" />
 				</template>
 
 				<template #fields>

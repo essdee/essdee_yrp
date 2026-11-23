@@ -41,6 +41,11 @@ const sharedModules = {
 	"usePageTitle.js": { usePageTitle() {} },
 	// The activity footer loads its own data; tests that cover it pass the real component explicitly.
 	"DocumentActivity.vue": () => null,
+	// The Links dialog loads its own data; showLinks.test.js covers it.
+	"LinkedDocumentsDialog.vue": () => null,
+	// Rename loads DocType meta and permissions; documentRename.test.js covers it.
+	"DocumentRenameDialog.vue": () => null,
+	"useRenameAction.js": { useRenameAction: () => ({ action: Vue.computed(() => null), visible: Vue.ref(false) }) },
 	// Live document chrome needs a socket and dialogs; liveDocument.test.js covers it.
 	"DocumentLiveBar.vue": () => null,
 	"DocumentSaveState.vue": () => null,

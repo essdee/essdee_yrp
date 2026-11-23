@@ -29,7 +29,7 @@
 			</template>
 
 			<template #header-actions>
-				<DocumentActionStrip :actions="goodsReceivedNoteActions" />
+				<DocumentActionStrip :actions="goodsReceivedNoteActions" doctype="YRP Goods Received Note" :docname="workspace.record?.name || ''" />
 			</template>
 
 			<template #fields>

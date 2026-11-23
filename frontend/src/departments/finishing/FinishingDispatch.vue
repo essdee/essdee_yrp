@@ -21,6 +21,7 @@
 					<DocumentPrintButton v-if="dispatchId && record.name && permissions.can_print" doctype="SD YRP Finishing Plan Dispatch" :name="record.name" :formats="workspace.print_formats || []" :disabled="busy" />
 					<DocumentPrintButton v-if="dispatchId && record.stock_entry" doctype="YRP Stock Entry" :name="record.stock_entry" label="Print Stock Entry" :disabled="busy" />
 					<DocumentDeleteButton v-if="dispatchId && record.name" doctype="SD YRP Finishing Plan Dispatch" :name="record.name" :docstatus="record.docstatus" :disabled="busy || loading" :redirect-to="`${basePath}/dispatches`" />
+					<DocumentActionStrip doctype="SD YRP Finishing Plan Dispatch" :docname="record.name || ''" />
 					<template v-if="draft">
 						<Button label="Fetch Items" icon="pi pi-refresh" severity="secondary" outlined :disabled="busy" @click="confirmFetch" />
 						<DocumentSaveButton :saved="Boolean(record.name)" :dirty="dirty" :docstatus="Number(record.docstatus || 0)" :document-label="`Finishing Plan Dispatch ${record.name || ''}`.trim()" v-if="permissions.can_write" :show-submit="Boolean(permissions.can_submit)" :loading="busy" @save="save(false)" @submit="save(true)" />
@@ -77,6 +78,7 @@ import DocumentLink from "../../components/common/DocumentLink.vue"
 import DocumentNameCopy from "../../components/common/DocumentNameCopy.vue"
 import CustomPrintButtons from "../../components/documents/CustomPrintButtons.vue"
 import DocumentDeleteButton from "../../components/documents/DocumentDeleteButton.vue"
+import DocumentActionStrip from "../../components/documents/DocumentActionStrip.vue"
 import Button from "primevue/button"
 import Dialog from "primevue/dialog"
 import InputNumber from "primevue/inputnumber"

@@ -2,7 +2,7 @@
 	<section class="purchase-lot-frame planning-lot-frame">
 		<FabricDocumentWorkspace doctype="SD YRP Lot" title="Lot" :workspace="shellWorkspace" :loading="loading" :error="loadError || actionError" :dirty="isDirty" :acting="acting" :show-lifecycle-actions="false" :live-reload="refresh" @reload="reload">
 			<template #header="{ headingId }"><LotIdentity :name="record?.name || ''" :draft-name="form.lot_name || ''" :item="form.item || ''" :delivery-date="form.expected_delivery_date || ''" :status="form.status || 'Open'" :heading-id="headingId" editing /></template>
-			<template #header-actions><DocumentActionStrip class="lot-editor-actions" :actions="editorActions" /></template>
+			<template #header-actions><DocumentActionStrip class="lot-editor-actions" :actions="editorActions" doctype="SD YRP Lot" :docname="lotId" /></template>
 			<template #matrix>
 				<Tabs v-model:value="activeTab" scrollable class="lot-tabs erp-tabs">
 					<TabList class="lot-tablist"><Tab v-for="tab in tabs" :key="tab.key" :value="tab.key">{{ tab.label }}</Tab></TabList>

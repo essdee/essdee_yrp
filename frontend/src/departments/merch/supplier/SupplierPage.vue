@@ -5,6 +5,7 @@
 			@loaded="record = $event.doc" @saved="saved" @cancel="router.push(SUPPLIERS_PATH)">
 			<template #header-actions>
 				<DocumentDeleteButton v-if="supplierId" :doctype="SUPPLIER_DOCTYPE" :name="supplierId" :redirect-to="SUPPLIERS_PATH" />
+				<DocumentActionStrip :doctype="SUPPLIER_DOCTYPE" :docname="supplierId" />
 			</template>
 			<template #tab-end="{ tab, mode }">
 				<template v-if="tab.key === ADDRESS_CONTACT_GROUP && supplierId">
@@ -23,6 +24,7 @@ import { useRouter } from "vue-router"
 import DepartmentPage from "../../../components/DepartmentPage.vue"
 import FormView from "../../../components/common/FormView.vue"
 import DocumentDeleteButton from "../../../components/documents/DocumentDeleteButton.vue"
+import DocumentActionStrip from "../../../components/documents/DocumentActionStrip.vue"
 import { useDocumentPermissions } from "../../../composables/useDocumentPermissions.js"
 import { canCreateDoctype } from "../../../utils/linkTarget.js"
 import { MERCH_ROUTES } from "../merchRoutes.js"

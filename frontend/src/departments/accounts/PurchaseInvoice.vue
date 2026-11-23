@@ -25,7 +25,7 @@
 				</template>
 				<template #header-actions>
 					<div class="purchase-invoice-actions">
-						<DocumentActionStrip :actions="actions" />
+						<DocumentActionStrip :actions="actions" doctype="YRP Purchase Invoice" :docname="workspace.record?.name || ''" />
 					</div>
 				</template>
 				<template #fields>

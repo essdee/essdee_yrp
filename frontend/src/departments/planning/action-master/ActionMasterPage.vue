@@ -14,6 +14,7 @@
 					<Button v-if="canAmend" label="Amend" icon="pi pi-copy" severity="secondary" outlined :disabled="Boolean(acting)" @click="confirmAmend" />
 					<DocumentSaveButton v-if="editable" :saved="Boolean(doc.name)" :dirty="dirty" :docstatus="Number(doc.docstatus || 0)" :show-submit="isMaster && Boolean(permissions?.submit)"
 						:document-label="`${config.label} ${doc.name || ''}`" :loading="acting === 'save' || acting === 'submit'" :disabled="Boolean(acting)" @save="save" @submit="submit" />
+					<DocumentActionStrip :doctype="doctype" :docname="doc.name || ''" />
 				</div>
 			</header>
 			<WorkspaceLoadError v-if="loadError" :message="loadError" :loading="loading" @retry="load" />
@@ -47,6 +48,7 @@ import LinkField from "../../../components/common/LinkField.vue"
 import WorkspaceLoadError from "../../../components/common/WorkspaceLoadError.vue"
 import InlinePageNavigation from "../../../components/navigation/InlinePageNavigation.vue"
 import DocumentErrorDialog from "../../../components/documents/DocumentErrorDialog.vue"
+import DocumentActionStrip from "../../../components/documents/DocumentActionStrip.vue"
 import DocumentSaveButton from "../../../components/documents/DocumentSaveButton.vue"
 import DocumentStatusBadge from "../../../components/documents/DocumentStatusBadge.vue"
 import { useDocumentPermissions } from "../../../composables/useDocumentPermissions.js"
