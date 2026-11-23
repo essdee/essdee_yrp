@@ -122,6 +122,7 @@ fixtures = [
 					"YRP Process Cost-is_expired-read_only",
 					"YRP Process Cost-item-fetch_from",
 					"YRP Process Cost-item-fetch_if_empty",
+					"YRP Process Cost-lot-in_standard_filter",
 					"Purchase Order-naming_series-options",
 					"Purchase Order-naming_series-default",
 					"Purchase Order-status-options",

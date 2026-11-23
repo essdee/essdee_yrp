@@ -5,6 +5,7 @@ STANDARD_FILTERS = {
 	"YRP Delivery Challan": ("transfer_complete", "posting_date"),
 	"YRP Goods Received Note": ("transfer_complete", "lot", "posting_date"),
 	"YRP Stock Entry": ("posting_date",),
+	"YRP Process Cost": ("lot",),
 }
 
 
