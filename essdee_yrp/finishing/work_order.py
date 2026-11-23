@@ -330,6 +330,7 @@ def _transfer_alternative_stock(work_order, rows=None, source_plan=None):
 		work_order.db_set("reduce_stock_entry", issue)
 		work_order.db_set("update_stock_entry", receipt)
 	source_plan.set("finishing_plan_details", get_finishing_plan_list(plan_rows))
+	apply_auto_fp_status(source_plan)
 	source_plan.save(ignore_permissions=True)
 	return issue, receipt
 
@@ -392,6 +393,7 @@ def _reverse_alternative_stock(work_order):
 		if key in plan_rows:
 			plan_rows[key]["transferred_qty"] = max(flt(plan_rows[key]["transferred_qty"]) - flt(row.qty), 0)
 	source_plan.set("finishing_plan_details", get_finishing_plan_list(plan_rows))
+	apply_auto_fp_status(source_plan)
 	source_plan.save(ignore_permissions=True)
 
 

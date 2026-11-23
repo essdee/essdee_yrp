@@ -139,6 +139,8 @@ def get_configured_lot_problems(lot_doc):
 		problems.append(_("Items"))
 	if lot_doc.status == "Closed":
 		problems.append(_("Status is Closed"))
+	if lot_doc.get("is_folding_lot"):
+		problems.append(_("Folding Lot"))
 	return problems
 
 

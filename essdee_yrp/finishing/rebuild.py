@@ -6,6 +6,7 @@ from frappe.utils import flt
 from yrp import attribute_links as attribute_db
 from yrp.utils import get_variant_attr_details, update_if_string_instance
 
+from essdee_yrp.finishing.alternative_transfers import get_transferred_quantities
 from essdee_yrp.finishing.parsing import json_object
 from essdee_yrp.finishing.status import apply_auto_fp_status
 
@@ -126,6 +127,8 @@ def rebuild_finishing_plan(doc_name, *, check_permission=False):
 	_apply_lot_transfers(doc, items)
 	_apply_return_grns(doc, items, rework, default_type, rejected_type)
 	_apply_ironing_excess(doc, items)
+	for key, quantity in get_transferred_quantities(doc.lot, items).items():
+		items[key]["transferred_qty"] += quantity
 
 	detail_rows = []
 	rework_rows = []

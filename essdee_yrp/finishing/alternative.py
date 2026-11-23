@@ -47,6 +47,7 @@ def get_unconfigured_lots(doctype, txt, searchfield, start, page_len, filters):
 			  AND COALESCE(l.production_order, '') = ''
 			  AND COALESCE(l.item, '') = ''
 			  AND COALESCE(l.status, '') != 'Closed'
+			  AND COALESCE(l.is_folding_lot, 0) = 0
 			  AND (l.name LIKE %(txt)s OR l.lot_name LIKE %(txt)s)
 			  AND NOT EXISTS (
 				SELECT 1 FROM `tabSD YRP Lot Order Detail` lod WHERE lod.parent = l.name
