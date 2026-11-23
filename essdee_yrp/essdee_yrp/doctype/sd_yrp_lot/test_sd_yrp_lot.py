@@ -9,8 +9,13 @@ from unittest.mock import Mock, patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from essdee_yrp.essdee_yrp.doctype.sd_yrp_lot.sd_yrp_lot import (
+	Lot,
+	calculate_bom,
+	drop_non_bom_cloth_rows,
+	get_ocr_details,
+)
 from essdee_yrp.fabric_program import SERVER_OWNED_TABLES, refresh_server_owned_tables
-from essdee_yrp.essdee_yrp.doctype.sd_yrp_lot.sd_yrp_lot import Lot, calculate_bom, get_ocr_details
 
 
 class TestLot(FrappeTestCase):
@@ -104,6 +109,7 @@ class TestLot(FrappeTestCase):
 
 		with (
 			patch.object(frappe, "get_doc", return_value=lot),
+			patch.object(frappe, "get_cached_doc", return_value=frappe._dict(cloth_detail=[])),
 			patch(
 				"essdee_yrp.essdee_yrp.doctype.sd_yrp_lot.sd_yrp_lot.calculate_bom_for_variant_demands",
 				return_value=calculation,
@@ -137,6 +143,23 @@ class TestLot(FrappeTestCase):
 		summary_builder.assert_called_once_with(lot, calculation["accessories"])
 		self.assertEqual(lot.bom_summary_json["_Test Thread"][5], 0.5)
 		self.assertEqual(result["last_calculated_time"], "2026-08-14 12:00:00")
+
+	def test_lot_bom_drops_cloth_not_marked_bom_item(self):
+		ipd = frappe._dict(
+			cloth_detail=[
+				frappe._dict(cloth="BOM-CLOTH", is_bom_item=1),
+				frappe._dict(cloth="PLAIN-CLOTH", is_bom_item=0),
+			]
+		)
+		rows = [{"item_variant": "BOM-CLOTH-RED"}, {"item_variant": "PLAIN-CLOTH-RED"}]
+		templates = {"BOM-CLOTH-RED": "BOM-CLOTH", "PLAIN-CLOTH-RED": "PLAIN-CLOTH"}
+		with (
+			patch.object(frappe, "get_cached_doc", return_value=ipd),
+			patch.object(frappe.db, "get_value", side_effect=lambda _doctype, name, _field: templates[name]),
+		):
+			kept = drop_non_bom_cloth_rows("_Test IPD", rows)
+
+		self.assertEqual(kept, [{"item_variant": "BOM-CLOTH-RED"}])
 
 	def test_ocr_details_uses_migrated_cutting_and_finishing_plans(self):
 		def get_all(doctype, *args, **kwargs):

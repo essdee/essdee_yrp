@@ -1446,6 +1446,21 @@ def _get_lot_variant_demands(lot_doc):
 	]
 
 
+def drop_non_bom_cloth_rows(ipd_name, rows):
+	"""Keep Production API's Lot BOM rule: Cloth Detail rows not marked Is BOM Item stay out of the Lot BOM."""
+	cloth_detail = frappe.get_cached_doc("YRP Item Production Detail", ipd_name).get("cloth_detail") or []
+	bom_cloths = {row.cloth for row in cloth_detail if row.cloth and row.is_bom_item}
+	non_bom_cloths = {row.cloth for row in cloth_detail if row.cloth and not row.is_bom_item} - bom_cloths
+	if not non_bom_cloths:
+		return rows or []
+	return [
+		row
+		for row in rows or []
+		if (frappe.db.get_value("Item", row.get("item_variant"), "variant_of") or row.get("item_variant"))
+		not in non_bom_cloths
+	]
+
+
 def _build_lot_bom_rows(calculation):
 	"""Convert the generic YRP engine response into Essdee's Lot BOM rows."""
 	aggregated = {}
@@ -1550,6 +1565,9 @@ def calculate_bom(lot_name):
 		variant_demands,
 	)
 	calculation["accessories"] = essdee_accessories
+	calculation["major_deliverables"] = drop_non_bom_cloth_rows(
+		lot_doc.production_detail, calculation.get("major_deliverables")
+	)
 	bom_rows = _build_lot_bom_rows(calculation)
 	if not bom_rows:
 		frappe.throw("The IPD Process Matrix and Item BOM did not produce any BOM rows.")

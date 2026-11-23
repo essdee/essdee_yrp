@@ -82,7 +82,7 @@ const dirty = computed(() => !loading.value && JSON.stringify(form) !== cleanSig
 const detailFields = computed(() => PROCESS_COST_DETAILS.map((key) => {
 	const field = editor.value.fields?.find((field) => field.fieldname === key)
 	return { ...field, read_only: processCostReadOnly(key, context.value) ? 1 : 0,
-		link_filters: processCostLinkFilters(key),
+		link_filters: processCostLinkFilters(key, context.value),
 		description: key === "attribute" && (!form.lot || !form.process_name) ? "Select Lot and Process first" : "",
 	}
 }))

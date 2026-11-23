@@ -167,7 +167,7 @@ def get_process_cost_workspace(name):
 
 
 def _selection(lot, process_name=None, item=None, prefill_item=False):
-	"""Any enabled Item may be priced; only `prefill_item` fills an empty Item with the Lot Item."""
+	"""The Lot Item or a Lot fabric Item (any enabled Item on a Folding Lot); only `prefill_item` fills an empty Item."""
 	if not lot:
 		return {"item": None, "uom": None, "is_folding_lot": False}
 	lot_doc = frappe.get_doc("SD YRP Lot", lot)
@@ -175,9 +175,14 @@ def _selection(lot, process_name=None, item=None, prefill_item=False):
 	if process_name:
 		frappe.has_permission("YRP Process", ptype="read", doc=process_name, throw=True)
 	item = item or (lot_doc.item if prefill_item else None)
-	selection = {"item": item, "uom": _item_uom(item), "is_folding_lot": bool(lot_doc.get("is_folding_lot"))}
+	item_options = process_cost.get_lot_item_options(lot)
+	selection = {"item": item, "uom": _item_uom(item), "is_folding_lot": bool(lot_doc.get("is_folding_lot")),
+		"item_options": item_options}
 	if item and frappe.db.get_value("Item", item, "disabled") != 0:
 		return {**selection, "item": None, "uom": None, "field_errors": {"item": _("Select an enabled Item.")}}
+	if item and item_options is not None and item not in item_options:
+		message = _("Select the Lot Item or one of the Lot's fabric Items.")
+		return {**selection, "item": None, "uom": None, "field_errors": {"item": message}}
 	return selection
 
 
