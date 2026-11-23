@@ -36,8 +36,9 @@
 							<button v-else type="button" class="pd-link pd-ellipsis" :title="row.lot" @click="emit('drill', rowDrill(row, true))">{{ row.lot }}</button>
 						</td>
 						<td class="pd-item-cell" :title="row.isGroup && row.items.length > 1 ? row.items.join(', ') : row.item">{{ row.item }}</td>
+						<td class="pd-ellipsis-cell" :title="row.product_category || ''">{{ row.product_category || "" }}</td>
 						<td>
-							<span class="pd-status-mix" :title="row.isGroup ? row.breakdown : undefined"><LotStatusPill :status="row.status" /><em v-if="row.isGroup && row.otherStatuses">+{{ row.otherStatuses }}</em></span>
+							<span class="pd-status-mix" :title="row.isGroup ? row.breakdown : undefined"><LotStatusPill :status="row.status" /><LotStatusPill v-if="!row.isGroup && row.purchase_split" :status="row.purchase_split.status" :title="`${formatQuantity(row.purchase_split.pieces)} pcs still on PO`" /><em v-if="row.isGroup && row.otherStatuses">+{{ row.otherStatuses }}</em></span>
 						</td>
 						<td class="pd-number">{{ ppoQuantityText(row.ppo) }}<small v-if="!ppos[row.ppo]?.pieces" class="pd-unit">box</small></td>
 						<td v-for="field in SUMMED_FIELDS" :key="field" class="pd-number" :data-col="field">{{ formatQuantity(row[field]) }}</td>
@@ -72,6 +73,7 @@ const COLUMNS = [
 	{ key: "ppo", label: "PPO" },
 	{ key: "lot", label: "Lot" },
 	{ key: "item", label: "Item" },
+	{ key: "product_category", label: "Category", title: "Product Category of the lot's item (or its template)" },
 	{ key: "status", label: "Status" },
 	{ key: "ppoQty", label: "PPO Qty", isNumber: true, title: "PPO pcs = boxes × pieces per box; 'box' when the PPO has no single pieces per box. Repeated on every lot of the PPO" },
 	{ key: "qty", label: "Lot Qty", isNumber: true, title: "Lot order pcs (as Lot pcs in PPO Tracking)" },

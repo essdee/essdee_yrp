@@ -142,7 +142,7 @@ test('D13 Debits resolves only Link metadata and leaves Data and Check values pl
   ...debitDuplicateModules,
   '../../router/departmentLock.js':{isOutsideLayout:()=>false,getHomePath:()=>'/'},
   '../../api/frappe.js':{getDoc:async()=>({work_order:'WO/1',approved_by:'USER/1',amended_from:'DEBIT/0',debit_no:'Plain',inspection:1}),getMeta:async()=>[{name:'YRP Debit',fields}]},
-  ...Object.fromEntries(['../../components/DepartmentPage.vue','../../components/common/ListView.vue','../../components/documents/DocumentStatusBadge.vue','../../components/documents/DocumentErrorDialog.vue','primevue/button','primevue/dialog'].map(path=>[path,control])),
+  ...Object.fromEntries(['../../components/DepartmentPage.vue','../../components/common/ListView.vue','../../components/documents/DocumentStatusBadge.vue','../../components/documents/DocumentErrorDialog.vue','../../components/documents/DocumentActionStrip.vue','primevue/button','primevue/dialog'].map(path=>[path,control])),
  })
  const root = mountComponent(component,{})
  await new Promise(resolve=>setImmediate(resolve)); await Vue.nextTick()
@@ -165,7 +165,7 @@ test('D13b Debits outside the layout loads only the linked debit and closes to t
   '../../api/frappe.js':{getDoc:async()=>({debit_no:'Plain'}),getMeta:async()=>[{name:'YRP Debit',fields}]},
   '../../components/common/ListView.vue':named('listview'),
   'primevue/dialog':(props,{slots})=>{Object.assign(dialog,props);return Vue.h('dialog',props,slots.default?.())},
-  ...Object.fromEntries(['../../components/DepartmentPage.vue','../../components/documents/DocumentStatusBadge.vue','../../components/documents/DocumentErrorDialog.vue','primevue/button'].map(path=>[path,named('control')])),
+  ...Object.fromEntries(['../../components/DepartmentPage.vue','../../components/documents/DocumentStatusBadge.vue','../../components/documents/DocumentErrorDialog.vue','../../components/documents/DocumentActionStrip.vue','primevue/button'].map(path=>[path,named('control')])),
  })
  const root = mountComponent(component,{})
  await new Promise(resolve=>setImmediate(resolve)); await Vue.nextTick()

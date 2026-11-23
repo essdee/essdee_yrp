@@ -1,3 +1,4 @@
+import { rememberMessageLinks } from "./messageLinks.js"
 import { formatDatesInText } from "../utils/dateFormat.js"
 import { plainTextFromHtml } from "../utils/documentValues.js"
 
@@ -36,6 +37,7 @@ function tracebackMessage(value) {
 
 function cleanMessage(value, { traceback = false } = {}) {
 	if (traceback) return tracebackMessage(value)
+	rememberMessageLinks(value)
 	let message = plainTextFromHtml(value).trim()
 	if (!message) return ""
 	const exception = message.match(/^(?:[A-Za-z_][\w.]*\.)?([A-Za-z_][\w]*(?:Error|Exception|Warning)):\s*(.+)$/s)

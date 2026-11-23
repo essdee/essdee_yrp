@@ -1296,7 +1296,7 @@ def _project_receipt_buckets(
 	projected = []
 	unmatched = []
 	remaining_targets = dict(route_targets or {})
-	from essdee_yrp.api.work_order import _resolve_variant, _variant_attrs
+	from essdee_yrp.api.work_order import _variant_attrs
 	from essdee_yrp.fabric_substitution import resolve_process_conversion
 
 	for bucket in buckets:
@@ -1327,6 +1327,7 @@ def _project_receipt_buckets(
 		if not matches:
 			unmatched.append(_variant_label(bucket["item_variant"], variant))
 			continue
+		matches = _matches_with_known_conversion(matches, variant, bucket, conversion_index)
 
 		shared = len(matches) > 1
 		remaining_stock_qty = flt(bucket["available_stock_qty"], 6)
@@ -1358,12 +1359,7 @@ def _project_receipt_buckets(
 				continue
 
 			actual_attrs = variant.get("attrs") or {}
-			projected_attrs = project_output_attributes(
-				actual_attrs, spec.get("attrs") or {}, qty_row.get("out_attrs") or {}
-			)
-			output_item = qty_row.get("output_item") or spec.get("item")
-			planned_item = _resolve_variant(output_item, qty_row.get("out_attrs") or {})
-			projected_item = _resolve_variant(output_item, projected_attrs)
+			planned_item, projected_item = get_projected_items(variant, qty_row, spec)
 			projected_item = resolve_process_conversion(
 				conversion_index,
 				route_item=bucket.get("reference_item_variant"),
@@ -1414,6 +1410,43 @@ def _project_receipt_buckets(
 
 	qty_rows[:] = projected
 	return unmatched
+
+
+def get_projected_items(variant, qty_row, spec):
+	"""Return the (planned, projected) output Items for one source variant on one row."""
+	from essdee_yrp.api.work_order import _resolve_variant
+
+	planned_attrs = qty_row.get("out_attrs") or {}
+	projected_attrs = project_output_attributes(
+		variant.get("attrs") or {}, spec.get("attrs") or {}, planned_attrs
+	)
+	output_item = qty_row.get("output_item") or spec.get("item")
+	return (
+		_resolve_variant(output_item, planned_attrs),
+		_resolve_variant(output_item, projected_attrs),
+	)
+
+
+def _matches_with_known_conversion(matches, variant, bucket, conversion_index):
+	"""Drop dia-variance rows whose Lot conversion never produced this bucket's Item.
+
+	A 26 Dia receipt also variance-matches a planned 32 Dia row; the Lot conversion
+	says which planned row it belongs to. All-invalid keeps every match so the stale
+	conversion still fails loudly in resolve_process_conversion.
+	"""
+	from essdee_yrp.fabric_substitution import has_process_conversion
+
+	known = []
+	for match in matches:
+		planned_item, projected_item = get_projected_items(variant, match[0], match[2])
+		if has_process_conversion(
+			conversion_index,
+			route_item=bucket.get("reference_item_variant"),
+			planned_item=planned_item,
+			projected_item=projected_item,
+		):
+			known.append(match)
+	return known or matches
 
 
 def _label_actual_dia(row, planned_dia, actual_dia):

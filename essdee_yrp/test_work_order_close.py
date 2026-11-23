@@ -13,6 +13,13 @@ from essdee_yrp.work_order_close import (
 
 
 class TestWorkOrderClose(UnitTestCase):
+	def setUp(self):
+		# flt(..., precision) reads the rounding method; load it before tests mock frappe.db.sql.
+		frappe.get_system_settings("rounding_method")
+		precision = patch("essdee_yrp.work_order_close.get_stock_qty_precision", return_value=3)
+		precision.start()
+		self.addCleanup(precision.stop)
+
 	def _manager_close_doc(self):
 		row = frappe._dict(
 			name="WOD-1",
@@ -163,7 +170,8 @@ class TestWorkOrderClose(UnitTestCase):
 
 		manager.assert_not_called()
 
-	def test_manager_close_reduces_unreturned_excess_at_actual_fifo_value(self):
+	@patch("essdee_yrp.work_order_close.has_close_valuation", return_value=False)
+	def test_manager_close_reduces_unreturned_excess_at_actual_fifo_value(self, _has_close_valuation):
 		doc, row = self._manager_close_doc()
 		ledger_result = {
 			"entries": {
@@ -289,12 +297,30 @@ class TestWorkOrderClose(UnitTestCase):
 		make_entries.assert_not_called()
 		doc.save.assert_not_called()
 
-	def test_unconsumed_row_of_a_mapped_work_order_has_no_output_to_carry_value(self):
+	def test_unconsumed_accessory_is_allocated_to_every_received_output(self):
 		work_order = frappe._dict(name="WO-1")
-		deliverable = frappe._dict(name="WOD-UNSEWN", idx=4)
+		deliverable = frappe._dict(name="WOD-FOLDING-CLOTH", idx=25)
 		dimensions = {"lot": "LOT-1", "received_type": "Accepted"}
-		with patch.object(frappe.db, "sql", return_value=[]):
-			self.assertEqual(_get_excess_output_allocations(work_order, deliverable, dimensions), [])
+		outputs = [
+			frappe._dict(
+				output_receipt_sle=f"SLE-{size}",
+				output_voucher="GRN-1",
+				output_detail=f"GRN-ITEM-{size}",
+				output_item=f"GARMENT-{size}",
+				allocation_weight=qty,
+			)
+			for size, qty in (("M", 4), ("L", 5))
+		]
+		with patch.object(frappe.db, "sql", side_effect=[[], outputs]) as sql:
+			allocations = _get_excess_output_allocations(work_order, deliverable, dimensions)
+
+		self.assertIn("sle.qty AS allocation_weight", sql.call_args.args[0])
+		self.assertEqual(sql.call_args.args[1], ("WO-1",))
+		self.assertEqual(
+			[(row["output_receipt_sle"], row["allocation_weight"]) for row in allocations],
+			[("SLE-M", 4), ("SLE-L", 5)],
+		)
+		self.assertEqual(allocations[1]["output_detail"], "GRN-ITEM-L")
 
 	def test_linked_row_allocates_to_the_matching_grn_output(self):
 		work_order = frappe._dict(name="WO-1")
@@ -373,6 +399,7 @@ class TestWorkOrderClose(UnitTestCase):
 				("essdee_yrp.work_order_close._validate_internal_transfers_complete", {}),
 				("essdee_yrp.work_order_close._apply_close_details", {}),
 				("essdee_yrp.work_order_close._has_mapped_output_lineage", {"return_value": False}),
+				("essdee_yrp.work_order_close.has_close_valuation", {"return_value": False}),
 				(
 					"essdee_yrp.work_order_close._stock_dimension_values",
 					{"return_value": {"lot": "LOT-1", "received_type": "Accepted"}},
@@ -417,7 +444,7 @@ class TestWorkOrderClose(UnitTestCase):
 		self.assertIn("without cost allocation (migrated GRNs without lineage)", comment[1])
 		self.assertIn("INPUT-VARIANT", comment[1])
 
-	def test_close_consumes_unsewn_input_without_a_valuation_allocation(self):
+	def test_close_carries_unconsumed_accessory_value_into_every_received_output(self):
 		doc, row = self._manager_close_doc()
 		ledger_result = {"entries": {"wo-close:WOD-1": {"sle": "SLE-UNSEWN", "rate": 13, "value": 3900}}}
 
@@ -430,11 +457,11 @@ class TestWorkOrderClose(UnitTestCase):
 				("essdee_yrp.work_order_close._validate_wo_close", {}),
 				("essdee_yrp.work_order_close._validate_internal_transfers_complete", {}),
 				("essdee_yrp.work_order_close._apply_close_details", {}),
+				("essdee_yrp.work_order_close.has_close_valuation", {"return_value": False}),
 				(
 					"essdee_yrp.work_order_close._stock_dimension_values",
 					{"return_value": {"lot": "LOT-1", "received_type": "Accepted"}},
 				),
-				("essdee_yrp.work_order_close._get_excess_output_allocations", {"return_value": []}),
 				("essdee_yrp.work_order_close._record_excess_usage", {"side_effect": record_usage}),
 				(
 					"yrp.yrp.doctype.yrp_delivery_challan.yrp_delivery_challan._get_warehouse_for_supplier",
@@ -451,7 +478,8 @@ class TestWorkOrderClose(UnitTestCase):
 				("essdee_yrp.work_order_close.nowtime", {"return_value": "17:30:00"}),
 			):
 				stack.enter_context(patch(target, **kwargs))
-			stack.enter_context(patch.object(frappe.db, "sql"))
+			stack.enter_context(patch.object(frappe.db, "sql", side_effect=_unconsumed_accessory_sql))
+			stack.enter_context(patch.object(frappe.db, "get_value", side_effect=_output_receipt))
 			stack.enter_context(patch.object(frappe, "get_doc", return_value=doc))
 			make_entries = stack.enter_context(
 				patch("yrp.stock.stock_ledger.make_sl_entries", return_value=ledger_result)
@@ -464,8 +492,13 @@ class TestWorkOrderClose(UnitTestCase):
 		self.assertEqual(make_entries.call_args.args[0][0]["qty"], -300)
 		self.assertEqual(row.stock_update, 5500)
 		self.assertEqual(result, {"status": "Close", "deducted_qty": 300.0})
-		self.assertEqual(register_links.call_args.args[2], [])
-		self.assertEqual(create_adjustment.call_args.kwargs["allocations"], [])
+		links = register_links.call_args.args[2]
+		self.assertEqual([link["output_receipt_sle"] for link in links], ["SLE-M", "SLE-L"])
+		self.assertEqual([link["consumption_sle"] for link in links], ["SLE-UNSEWN"] * 2)
+		allocations = create_adjustment.call_args.kwargs["allocations"]
+		self.assertEqual([round(row["difference"], 2) for row in allocations], [1733.33, 2166.67])
+		self.assertAlmostEqual(sum(row["difference"] for row in allocations), 3900)
+		self.assertEqual([round(row["quantity"], 2) for row in allocations], [133.33, 166.67])
 
 	def test_close_leaves_pieces_the_packing_unit_holds_as_another_stage(self):
 		doc, row = self._manager_close_doc()
@@ -503,6 +536,47 @@ class TestWorkOrderClose(UnitTestCase):
 		self.assertEqual(make_entries.call_args.args[0], [])
 		self.assertEqual(row.stock_update, 5200)
 		self.assertEqual(result, {"status": "Close", "deducted_qty": 0})
+
+	def test_close_skips_float_residual_and_keeps_real_leftover(self):
+		doc, residual = self._manager_close_doc()
+		residual.update(qty=1.33, pending_quantity=0.13, stock_update=1.2)
+		leftover = frappe._dict(residual, name="WOD-2", idx=2, qty=1.0, pending_quantity=0, stock_update=0.9)
+		doc.deliverables = [residual, leftover]
+		with (
+			patch.object(frappe.db, "sql"),
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch("essdee_yrp.work_order_close._is_wo_close_manager", return_value=True),
+			patch("essdee_yrp.work_order_close._validate_wo_close"),
+			patch("essdee_yrp.work_order_close._validate_internal_transfers_complete"),
+			patch("essdee_yrp.work_order_close._apply_close_details"),
+			patch("essdee_yrp.work_order_close._has_mapped_output_lineage", return_value=True),
+			patch("essdee_yrp.work_order_close._get_excess_output_allocations", return_value=[]),
+			patch("essdee_yrp.work_order_close._stock_dimension_values", return_value={}),
+			patch(
+				"essdee_yrp.work_order_close.get_job_worker_stock_variant",
+				side_effect=lambda _doc, item: item,
+			),
+			patch("essdee_yrp.work_order_close._record_excess_usage"),
+			patch("essdee_yrp.work_order_close.has_close_valuation", return_value=True),
+			patch(
+				"yrp.yrp.doctype.yrp_delivery_challan.yrp_delivery_challan._get_warehouse_for_supplier",
+				return_value="WH-1",
+			),
+			patch("yrp.stock.utils.get_stock_balance", return_value=(10, 5)),
+			patch("yrp.stock.utils.get_conversion_factor", return_value={"conversion_factor": 1}),
+			patch(
+				"yrp.stock.stock_ledger.make_sl_entries",
+				return_value={"entries": {"wo-close:WOD-2": {"sle": "SLE-2", "value": 0.5}}},
+			) as make_entries,
+			patch("yrp.stock.stock_ledger.enqueue_voucher_repost"),
+			patch("yrp.stock.utils.close_voucher_reservations"),
+		):
+			close_work_order("WO-1", sd_close_reason="Cutting Shortage")
+
+		entries = make_entries.call_args.args[0]
+		self.assertEqual([entry["voucher_detail_no"] for entry in entries], ["WOD-2"])
+		self.assertEqual(entries[0]["qty"], -0.1)
+		self.assertEqual(residual.stock_update, 1.2)
 
 	def test_output_sle_must_be_an_active_receipt_owned_by_mapped_grn(self):
 		output = {
@@ -590,6 +664,27 @@ class TestWorkOrderClose(UnitTestCase):
 		doc.save.assert_not_called()
 
 
+def _unconsumed_accessory_sql(query, *args, **kwargs):
+	if "d.work_order_deliverable = %s" in query:
+		return []
+	if "sle.qty AS allocation_weight" in query:
+		return [
+			frappe._dict(
+				output_receipt_sle=f"SLE-{size}",
+				output_voucher="GRN-1",
+				output_detail=f"GRN-ITEM-{size}",
+				output_item=f"GARMENT-{size}",
+				allocation_weight=qty,
+			)
+			for size, qty in (("M", 4), ("L", 5))
+		]
+	return [["has-lineage"]]
+
+
+def _output_receipt(doctype, filters, *args, **kwargs):
+	return frappe._dict(item=filters["item"], qty={"SLE-M": 4, "SLE-L": 5}[filters["name"]], rate=50)
+
+
 def _record_excess_usage(_doc, plan):
 	plan["audit_row"] = frappe._dict(name=f"AUDIT-{plan['deliverable'].name}")
 	return plan["audit_row"]
@@ -615,10 +710,11 @@ def _work_order(rows):
 	return doc
 
 
-def _close_patches(doc, *, balance=(20, 20)):
+def _close_patches(doc, *, balance=(20, 20), has_close_valuation=False):
 	real_get_value = frappe.db.get_value
 	return (
 		patch.object(frappe.db, "sql"),
+		patch("essdee_yrp.work_order_close.has_close_valuation", return_value=has_close_valuation),
 		patch("essdee_yrp.work_order_close.frappe.get_doc", return_value=doc),
 		patch("essdee_yrp.work_order_close._is_wo_close_manager", return_value=True),
 		patch("essdee_yrp.work_order_close._validate_wo_close"),
@@ -665,6 +761,13 @@ def _close_patches(doc, *, balance=(20, 20)):
 
 
 class TestEssdeeWorkOrderClose(UnitTestCase):
+	def setUp(self):
+		# flt(..., precision) reads the rounding method; load it before tests mock frappe.db.sql.
+		frappe.get_system_settings("rounding_method")
+		precision = patch("essdee_yrp.work_order_close.get_stock_qty_precision", return_value=3)
+		precision.start()
+		self.addCleanup(precision.stop)
+
 	def test_close_fails_in_full_before_posting_when_duplicate_rows_exceed_stock(self):
 		rows = [
 			frappe._dict(
@@ -760,3 +863,38 @@ class TestEssdeeWorkOrderClose(UnitTestCase):
 		self.assertEqual(
 			create_adjustment.call_args.kwargs["idempotency_key"], "YRP Work Order:WO-TEST:close:SLE-EXCESS-1"
 		)
+
+	def test_close_after_reopen_posts_stock_but_keeps_the_first_close_valuation(self):
+		row = frappe._dict(
+			name="DEL-1",
+			idx=1,
+			item_variant="YARN-CONE",
+			qty=8,
+			pending_quantity=0,
+			stock_update=0,
+			uom="Cone",
+			valuation_rate=18,
+			rate=0,
+		)
+		doc = _work_order([row])
+		svc = "yrp.yrp_stock.doctype.yrp_stock_valuation_adjustment.yrp_stock_valuation_adjustment"
+		with ExitStack() as stack:
+			for context in _close_patches(doc, has_close_valuation=True):
+				stack.enter_context(context)
+			stack.enter_context(patch(
+				"yrp.stock.utils.get_conversion_factor",
+				return_value={"conversion_factor": 1, "stock_uom": "Cone"},
+			))
+			make_sl_entries = stack.enter_context(patch("yrp.stock.stock_ledger.make_sl_entries"))
+			register_links = stack.enter_context(patch(f"{svc}.register_production_links"))
+			create_adjustment = stack.enter_context(patch(f"{svc}.create_adjustment"))
+			make_sl_entries.return_value = {
+				"entries": {"wo-close:DEL-1": {"sle": "SLE-RECLOSE", "qty": 8, "value": 144, "rate": 18}}
+			}
+			result = close_work_order("WO-TEST", sd_close_reason="NA")
+
+		self.assertEqual(make_sl_entries.call_args.args[0][0]["qty"], -8)
+		self.assertEqual(row.stock_update, 8)
+		self.assertEqual(result, {"status": "Close", "deducted_qty": 8.0})
+		register_links.assert_not_called()
+		create_adjustment.assert_not_called()

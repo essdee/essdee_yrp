@@ -211,6 +211,24 @@ class WorkOrderBillingTest(unittest.TestCase):
 		):
 			self.assertEqual(_process_cost_rate(blank_attribute_cost, 10, "ITEM", "Panel"), 0)
 
+	def test_dependent_cost_without_attribute_bills_like_flat_cost(self):
+		def payload(depends_on_attribute, attribute):
+			fixture = self._fixture(grn_items=[self._grn_item(quantity=10)])
+			fixture[4].update(
+				depends_on_attribute=depends_on_attribute,
+				attribute=attribute,
+				process_cost_values=[frappe._dict(min_order_qty=0, price=2, attribute_value=None)],
+			)
+			return self._build(fixture, variant_attributes={"GARMENT-S": {"Size": "S", "Panel": None}})
+
+		flat = payload(0, None)
+		self.assertEqual(flat["commercial_items"][0]["source_rate"], 2)
+		self.assertAlmostEqual(flat["pre_tax_total"], 10 * 2)
+		for attribute in (None, ""):
+			dependent = payload(1, attribute)
+			self.assertEqual(dependent["commercial_items"], flat["commercial_items"])
+			self.assertEqual(dependent["pre_tax_total"], flat["pre_tax_total"])
+
 	def test_historical_process_cost_uses_fallback_filter_order(self):
 		work_order = frappe._dict(
 			process_name="Sewing",
@@ -574,6 +592,37 @@ class WorkOrderBillingTest(unittest.TestCase):
 		self.assertEqual(payload["pre_tax_total"], 0)
 		self.assertEqual(payload["warnings"], [])
 
+	def test_cutting_charge_is_spread_only_over_process_cost_item_rows(self):
+		fixture = self._fixture(
+			received_json=True,
+			grn_items=[
+				self._grn_item("PANEL-S", 4, idx=1),
+				self._grn_item("FOLDING-CLOTH", 1.1, idx=2),
+			],
+		)
+		work_order, cost = fixture[0], fixture[4]
+		cost.item = "garment"
+		work_order.receivables[1].cost = 0
+		variant_items = {"PANEL-S": "Garment", "FOLDING-CLOTH": "Cloth"}
+
+		with patch(
+			"essdee_yrp.work_order_billing.get_variant_items",
+			side_effect=lambda variants: {variant: variant_items[variant] for variant in variants},
+		):
+			payload = self._build(
+				fixture,
+				piece_quantities={("GARMENT-S", '{"major_colour":"Navy"}'): 2},
+			)
+
+		physical = {row["item"]: row for row in payload["items"]}
+		self.assertEqual(payload["pre_tax_total"], 10)
+		self.assertEqual((physical["PANEL-S"]["rate"], physical["PANEL-S"]["qty"]), (2.5, 4))
+		self.assertEqual(
+			(physical["FOLDING-CLOTH"]["rate"], physical["FOLDING-CLOTH"]["source_rate"]),
+			(0, 0),
+		)
+		self.assertIsNone(physical["FOLDING-CLOTH"]["essdee_group_key"])
+
 	def test_missing_process_cost_bills_quantity_at_zero_without_warning(self):
 		payload = self._build(self._fixture(process_cost=False))
 
@@ -854,6 +903,87 @@ class WorkOrderBillingTest(unittest.TestCase):
 		self.assertEqual(
 			[(row["item_variant"], row["quantity"]) for row in payload["wo_items"]],
 			[("GARMENT-S", 2), ("GARMENT-L", 0)],
+		)
+
+	def test_fabric_work_order_bills_received_kg_from_grn(self):
+		grn_items = [
+			self._grn_item("CLOTH-24-GREIGE", 1.2, colour=None, idx=1),
+			self._grn_item("CLOTH-30-GREIGE", 8.2, colour=None, idx=2),
+		]
+		for row in grn_items:
+			row.set_combination = None
+			row.uom = "Kg"
+		fixture = self._fixture(grn_items=grn_items)
+		work_order, _grn, _process, ipd, cost, _gstin = fixture
+		work_order.work_order_calculated_items = []
+		for receivable, planned, pending in zip(work_order.receivables, (1.2, 8.4), (0, 0.2), strict=True):
+			receivable.update(qty=planned, pending_quantity=pending)
+		ipd.update(is_cloth_item=1, cutting_process=None, stiching_in_stage=None)
+		cost.process_cost_values = [frappe._dict(min_order_qty=0, price=20)]
+		group_key = commercial_group_key("BILLING", "LOT-1", "Nos", 20, None)
+
+		payload = self._build(fixture, final_rates={group_key: 22})
+
+		self.assertEqual(payload["warnings"], [])
+		self.assertAlmostEqual(payload["total_quantity"], 9.4)
+		self.assertEqual(len(payload["commercial_items"]), 1)
+		self.assertEqual(payload["commercial_items"][0]["source_rate"], 20)
+		self.assertAlmostEqual(payload["pre_tax_total"], 9.4 * 22)
+		self.assertEqual(
+			[
+				(row["item_variant"], row["quantity"], round(row["total_received"], 6))
+				for row in payload["wo_items"]
+			],
+			[("CLOTH-24-GREIGE", 1.2, 1.2), ("CLOTH-30-GREIGE", 8.2, 8.2)],
+		)
+		self.assertEqual({row["rate"] for row in payload["items"]}, {22})
+
+	def test_fabric_actual_dia_row_bills_against_its_planned_receivable(self):
+		grn_items = [
+			self._grn_item("CLOTH-26-GREIGE", 1.1, colour=None, idx=1),
+			self._grn_item("CLOTH-32-GREIGE", 7.0, colour=None, idx=2),
+			self._grn_item("CLOTH-30-GREIGE", 1.0, colour=None, idx=3),
+		]
+		for row, receivable in zip(grn_items, ("RECEIVABLE-1", "RECEIVABLE-2", "RECEIVABLE-2"), strict=True):
+			row.update(
+				set_combination=None,
+				uom="Kg",
+				rate=336.27,
+				amount=flt(row.quantity) * 336.27,
+				ref_doctype="YRP Work Order Receivables",
+				ref_docname=receivable,
+			)
+		fixture = self._fixture(grn_items=grn_items)
+		work_order, _grn, _process, ipd, cost, _gstin = fixture
+		work_order.work_order_calculated_items = []
+		work_order.receivables = [
+			frappe._dict(
+				name="RECEIVABLE-1", item_variant="CLOTH-26-GREIGE", qty=1.2, pending_quantity=0.1, cost=20
+			),
+			frappe._dict(
+				name="RECEIVABLE-2", item_variant="CLOTH-32-GREIGE", qty=8.0, pending_quantity=0, cost=20
+			),
+		]
+		ipd.update(is_cloth_item=1, cutting_process=None, stiching_in_stage=None)
+		cost.process_cost_values = [frappe._dict(min_order_qty=0, price=20)]
+		group_key = commercial_group_key("BILLING", "LOT-1", "Nos", 20, None)
+
+		payload = self._build(fixture, final_rates={group_key: 22})
+
+		self.assertEqual(payload["warnings"], [])
+		self.assertAlmostEqual(payload["total_quantity"], 9.1)
+		self.assertAlmostEqual(payload["pre_tax_total"], 9.1 * 22)
+		self.assertEqual(
+			[(row["item_variant"], row["quantity"]) for row in payload["wo_items"]],
+			[("CLOTH-26-GREIGE", 1.1), ("CLOTH-32-GREIGE", 8.0)],
+		)
+		self.assertEqual(
+			{(row["item"], row["source_rate"], row["rate"], row["essdee_group_key"]) for row in payload["items"]},
+			{
+				("CLOTH-26-GREIGE", 20, 22, group_key),
+				("CLOTH-32-GREIGE", 20, 22, group_key),
+				("CLOTH-30-GREIGE", 20, 22, group_key),
+			},
 		)
 
 	def test_zero_quantity_tier_group_is_not_a_commercial_line(self):

@@ -29,7 +29,7 @@ const recordingRouter = () => { const pushes = []; return { pushes, push: locati
 
 test("Cutting Order offers Duplicate in its More menus only with create permission", () => {
 	const router = recordingRouter()
-	const state = setup("departments/CuttingOrder.vue", { useRoute: () => ({ params: { cuttingOrderId: "CO-1" } }), useRouter: () => router }, "workspace, editorProbe, duplicateActions")
+	const state = setup("departments/CuttingOrder.vue", { useRoute: () => ({ params: { cuttingOrderId: "CO-1" } }), useRouter: () => router }, "workspace, editorProbe, duplicateActions, viewActions, linksVisible")
 	state.editorProbe.value = { record: { name: "CO-1", docstatus: 0 }, permissions: { can_create: false } }
 	assert.deepEqual(state.duplicateActions.value, [])
 	state.editorProbe.value = { record: { name: "CO-1", docstatus: 0 }, permissions: { can_create: true } }
@@ -39,15 +39,19 @@ test("Cutting Order offers Duplicate in its More menus only with create permissi
 	action.command()
 	assert.deepEqual(router.pushes, [{ name: "cutting-order-new", query: { duplicate_from: "CO-1" } }])
 	const source = read("departments/CuttingOrder.vue")
-	assert.match(source, /<DocumentActionStrip :actions="duplicateActions" \/>/)
-	assert.match(source, /<CuttingOrderActions [^>]*:extra-actions="duplicateActions"/)
+	assert.match(source, /<DocumentActionStrip :actions="duplicateActions" doctype="SD YRP Cutting Order" :docname="cuttingOrderId" \/>/)
+	assert.match(source, /<CuttingOrderActions [^>]*:extra-actions="viewActions"/)
+	assert.deepEqual(state.viewActions.value.map((entry) => entry.label), ["Duplicate", "Show Links"])
+	state.viewActions.value[1].command()
+	assert.equal(state.linksVisible.value, true)
+	assert.match(source, /<LinkedDocumentsDialog v-if="cuttingOrderId" v-model:visible="linksVisible" doctype="SD YRP Cutting Order" :docname="cuttingOrderId" \/>/)
 	assert.match(read("departments/cutting/order/CuttingOrderActions.vue"), /\.\.\.props\.extraActions/)
 })
 
 test("Cutting Plan Duplicate opens the new editor of the current section", () => {
 	const router = recordingRouter()
 	const route = Vue.reactive({ name: "cutting-plan", params: { cuttingPlanId: "CP-1" } })
-	const state = setup("departments/CuttingPlan.vue", { useRoute: () => route, useRouter: () => router }, "editorProbe, duplicateActions")
+	const state = setup("departments/CuttingPlan.vue", { useRoute: () => route, useRouter: () => router }, "editorProbe, duplicateActions, viewActions, linksVisible")
 	assert.deepEqual(state.duplicateActions.value, [])
 	state.editorProbe.value = { record: { name: "CP-1", docstatus: 1 }, permissions: { can_create: true } }
 	state.duplicateActions.value[0].command()
@@ -58,8 +62,12 @@ test("Cutting Plan Duplicate opens the new editor of the current section", () =>
 		{ name: PLANNING_ROUTES.cuttingPlanNew, query: { duplicate_from: "CP-1" } },
 	])
 	const source = read("departments/CuttingPlan.vue")
-	assert.match(source, /<DocumentActionStrip :actions="duplicateActions" \/>/)
-	assert.match(source, /:extra-actions="duplicateActions"/)
+	assert.match(source, /<DocumentActionStrip :actions="duplicateActions" doctype="SD YRP Cutting Plan" :docname="cuttingPlanId" \/>/)
+	assert.match(source, /:extra-actions="viewActions"/)
+	assert.deepEqual(state.viewActions.value.map((entry) => entry.label), ["Duplicate", "Show Links"])
+	state.viewActions.value[1].command()
+	assert.equal(state.linksVisible.value, true)
+	assert.match(source, /<LinkedDocumentsDialog v-if="cuttingPlanId" v-model:visible="linksVisible" doctype="SD YRP Cutting Plan" :docname="cuttingPlanId" \/>/)
 	assert.match(read("departments/cutting/CuttingPlanActions.vue"), /props\.extraActions,/)
 })
 

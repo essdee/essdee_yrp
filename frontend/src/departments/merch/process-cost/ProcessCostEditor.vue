@@ -14,12 +14,7 @@
 					<h2>Details</h2>
 					<div class="process-cost-editor__fields">
 						<template v-for="field in detailFields" :key="field.fieldname">
-							<div v-if="field.fieldname === 'item' && context.is_cloth_process && !context.is_folding_lot" class="process-cost-editor__field">
-								<label for="process-cost-cloth-item">Item <span class="erp-required-mark">*</span></label>
-								<Select input-id="process-cost-cloth-item" :model-value="form.item" :options="context.item_options || []" option-label="item" option-value="item" :invalid="Boolean(errors.item)" :disabled="saving || contextLoading" fluid @update:model-value="change('item', $event)" />
-								<small v-if="errors.item || lookupErrors.item" class="process-cost-editor__error" role="alert">{{ errors.item || lookupErrors.item }}</small>
-							</div>
-							<div v-else-if="field.read_only" class="process-cost-editor__field">
+							<div v-if="field.read_only" class="process-cost-editor__field">
 								<span :id="`process-cost-${field.fieldname}-label`" class="erp-field-label">{{ field.label }} <span v-if="requiredFields.has(field.fieldname)" class="erp-required-mark">*</span></span>
 								<output :aria-labelledby="`process-cost-${field.fieldname}-label`" class="process-cost-editor__value">{{ form[field.fieldname] || '—' }}</output>
 								<small v-if="errors[field.fieldname]" class="process-cost-editor__error" role="alert">{{ errors[field.fieldname] }}</small>
@@ -42,7 +37,6 @@
 
 <script setup>
 import Button from "primevue/button"
-import Select from "primevue/select"
 import { computed, onBeforeUnmount, provide, reactive, ref, watch } from "vue"
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from "vue-router"
 import { getDoc } from "../../../api/frappe.js"
@@ -170,7 +164,7 @@ function cancelChange() { pendingChange.value = null; fieldResetVersion.value++ 
 function applyChange(key, value) {
 	form[key] = value
 	if (key !== "attribute") form.attribute = ""
-	if (["lot", "process_name"].includes(key)) form.item = null
+	if (key === "lot") form.item = null
 	errors.value = {}
 	lookupErrors.value = {}
 	gridErrors.value = {}

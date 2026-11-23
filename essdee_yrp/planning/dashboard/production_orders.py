@@ -63,6 +63,20 @@ def get_item_names(items):
 	)
 
 
+def get_product_categories(items):
+	"""{item: Product Category}; a variant without one takes its template's; items with none are left out."""
+	items = list({item for item in items if item})
+	if not items:
+		return {}
+	rows = frappe.db.sql(
+		"""select item.name, coalesce(nullif(item.product_category, ''), template.product_category)
+		from `tabItem` item left join `tabItem` template on template.name=item.variant_of
+		where item.name in %(items)s""",
+		{"items": tuple(items)},
+	)
+	return {name: category for name, category in rows if category}
+
+
 def get_ppo_items(production_orders):
 	"""{PPO: {boxes, item, item_name}} from YRP Production Order Detail; item codes are sorted."""
 	boxes, items = defaultdict(float), defaultdict(set)

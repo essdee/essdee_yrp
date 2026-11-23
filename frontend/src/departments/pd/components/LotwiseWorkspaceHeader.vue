@@ -9,7 +9,7 @@
 		</div>
 		<div class="lotwise-workspace__header-actions">
 			<DocumentPrintButton v-if="name" doctype="SD YRP Lotwise Item Profit" :name="name" :disabled="busy" />
-			<DocumentActionStrip :actions="actions" />
+			<DocumentActionStrip :actions="actions" doctype="SD YRP Lotwise Item Profit" :docname="name" />
 			<DocumentSaveButton v-if="canEdit" :loading="saving" :disabled="busy" @save="emit('save')" />
 		</div>
 	</header>

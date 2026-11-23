@@ -16,7 +16,7 @@
 					</div>
 				</template>
 				<template #header-actions>
-					<DocumentActionStrip :actions="actions">
+					<DocumentActionStrip :actions="actions" :doctype="INSPECTION_DOCTYPE" :docname="record.name || ''">
 						<template v-if="workspace.actions?.submit?.allowed" #primary>
 							<DocumentSaveButton class="document-action-strip__primary" saved :dirty="false" :show-save="false" show-submit
 								:docstatus="Number(record.docstatus)" :document-label="`Quality Inspection ${record.name}`" :disabled="Boolean(acting)" :loading="acting === 'submit'" @submit="submit" />

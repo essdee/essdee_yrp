@@ -30,8 +30,8 @@
 					<InputText v-model="search" size="small" :placeholder="searchPlaceholder" :aria-label="`Search ${label}`" fluid @keydown.enter.prevent="selectPasted" @keydown.space.stop />
 				</div>
 			</template>
-			<template #option="{ option }">
-				<span class="pd-filter__option"><strong>{{ option.value }}</strong><small v-if="option.hint">{{ option.hint }}</small></span>
+			<template #option="{ option, index }">
+				<span class="pd-filter__option" :class="{ 'is-first': index === 0 && search.trim() }"><strong>{{ option.value }}</strong><small v-if="option.hint">{{ option.hint }}</small></span>
 			</template>
 			<template #emptymessage>No matches</template>
 		</MultiSelect>
@@ -44,7 +44,9 @@ import InputText from "primevue/inputtext"
 import MultiSelect from "primevue/multiselect"
 import { computed, ref, useId } from "vue"
 
-/** Searchable multi-select; a pasted list (comma, semicolon or new line) plus Enter selects every match. */
+import { enterValues, searchOptions } from "./filterSearch.js"
+
+/** Searchable multi-select; Enter selects the highlighted first suggestion, or every match of a pasted list (comma, semicolon or new line). */
 const props = defineProps({
 	label: { type: String, required: true },
 	modelValue: { type: Array, default: () => [] },
@@ -58,24 +60,16 @@ const MAX_CHIPS = 8
 const labelId = `pd-filter-${useId()}`
 const search = ref("")
 
-const shownOptions = computed(() => {
-	const text = search.value.trim().toLowerCase()
-	const matching = text && !/[,;\n]/.test(text)
-		? props.options.filter((option) => `${option.value} ${option.hint || ""}`.toLowerCase().includes(text))
-		: props.options
-	const known = new Set(matching.map((option) => option.value))
-	return [...matching, ...props.modelValue.filter((value) => !known.has(value)).map((value) => ({ value, hint: "" }))]
-})
+const shownOptions = computed(() => searchOptions(props.options, search.value, props.modelValue))
 
 function remove(value) {
 	emit("update:modelValue", props.modelValue.filter((item) => item !== value))
 }
 
 function selectPasted() {
-	const wanted = new Set(search.value.split(/[,;\n]/).map((value) => value.trim().toLowerCase()).filter(Boolean))
-	const matches = props.options.map((option) => option.value).filter((value) => wanted.has(String(value).toLowerCase()))
-	if (!matches.length) return
-	emit("update:modelValue", [...new Set([...props.modelValue, ...matches])])
+	const values = enterValues(props.options, search.value, props.modelValue)
+	if (!values) return
+	emit("update:modelValue", values)
 	search.value = ""
 }
 </script>

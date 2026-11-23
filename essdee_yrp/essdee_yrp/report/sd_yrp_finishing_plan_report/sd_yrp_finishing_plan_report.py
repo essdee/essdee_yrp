@@ -450,7 +450,7 @@ def _read_get_data(filters):
 					+ set_dict[set_key]["old_lot"]
 					+ set_dict[set_key]["ironing_excess"]
 				)
-				if set_dict[set_key]["unaccountable"] != 0:
+				if set_dict[set_key]["unaccountable"] != 0 and val1:
 					x = set_dict[set_key]["unaccountable"]
 					if x < 0:
 						x = x * -1
@@ -536,7 +536,7 @@ def _read_get_data(filters):
 			sum2 = d["sewing_received"] + d["old_lot"] + d["ironing_excess"]
 			d["unaccountable"] = sum1 - sum2
 			val1 = d["cut_qty"] + d["old_lot"] + d["ironing_excess"]
-			if d["unaccountable"] != 0:
+			if d["unaccountable"] != 0 and val1:
 				x = d["unaccountable"]
 				if x < 0:
 					x = x * -1

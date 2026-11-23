@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 
-from essdee_yrp.planning.dashboard import dashboard, process_detail, tracking
+from essdee_yrp.planning.dashboard import dashboard, process_detail, process_status, tracking
 from essdee_yrp.planning.lot_workspace import get_plan_access
 from essdee_yrp.planning.reports.production_quantities import can_read
 
@@ -24,15 +24,21 @@ def get_dashboard() -> dict:
 
 
 @frappe.whitelist()
+def get_process_status() -> dict:
+	require_dashboard_access()
+	return process_status.get_process_status_data()
+
+
+@frappe.whitelist()
 def get_tracking_options() -> dict:
 	require_dashboard_access()
 	return tracking.get_tracking_options()
 
 
 @frappe.whitelist()
-def get_tracking(ppos=None, lots=None) -> dict:
+def get_tracking(ppos=None, lots=None, product_categories=None) -> dict:
 	require_dashboard_access()
-	return {**tracking.get_tracking_data(ppos, lots), "plan_access": get_plan_access()}
+	return {**tracking.get_tracking_data(ppos, lots, product_categories), "plan_access": get_plan_access()}
 
 
 @frappe.whitelist()

@@ -14,7 +14,7 @@
 				<div v-if="!loading" class="box-sticker-page__actions">
 					<DocumentDeleteButton v-if="record?.name" doctype="SD YRP Box Sticker Print" :name="record.name" :docstatus="record.docstatus" :disabled="busy" :redirect-to="backTo" @deleted="documentDeleted" />
 					<DocumentPrintButton v-if="record?.name" doctype="SD YRP Box Sticker Print" :name="record.name" :docstatus="record.docstatus" :disabled="busy" />
-					<DocumentActionStrip v-if="actions.length" class="erp-page-header__actions" :actions="actions" />
+					<DocumentActionStrip class="erp-page-header__actions" :actions="actions" doctype="SD YRP Box Sticker Print" :docname="record?.name || ''" />
 				</div>
 			</header>
 

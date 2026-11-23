@@ -8,6 +8,7 @@ def facts(**values):
 		"planned": 1000,
 		"cut": 0,
 		"dispatch": 0,
+		"to_alternative": 0,
 		"pack_delivered": 0,
 		"sewing_delivered": 0,
 		"sewing_received": 0,
@@ -19,6 +20,7 @@ def facts(**values):
 		"is_cutting_delivered": False,
 		"fabric_process": "",
 		"fabric_step": 0,
+		"purchase_status": "",
 		**values,
 	}
 
@@ -29,6 +31,10 @@ class TestLotStatusLadder(TestCase):
 
 	def test_dispatched_above_ninety_percent_of_basis(self):
 		self.assertEqual(self.status(dispatch=901), "Dispatched")
+
+	def test_pieces_moved_to_alternative_count_as_dispatched(self):
+		self.assertEqual(self.status(dispatch=550, to_alternative=400), "Dispatched")
+		self.assertEqual(self.status(to_alternative=400), "Packing in progress")
 
 	def test_exactly_ninety_percent_dispatched_is_not_dispatched(self):
 		self.assertEqual(self.status(dispatch=900), "Packing in progress")
@@ -79,6 +85,20 @@ class TestLotStatusLadder(TestCase):
 	def test_no_work_order_yet_without_work_order_or_cutting_plan(self):
 		self.assertEqual(self.status(has_work_order=False), ladder.NO_WORK_ORDER)
 
+	def test_po_created_without_work_order_while_receipts_are_below_ninety_percent(self):
+		self.assertEqual(self.status(has_work_order=False, purchase_status=ladder.PO_CREATED), "PO Created")
+
+	def test_material_received_without_work_order(self):
+		self.assertEqual(
+			self.status(has_work_order=False, purchase_status=ladder.MATERIAL_RECEIVED),
+			"Yarn / Fabric Received",
+		)
+
+	def test_work_order_outranks_purchase_status(self):
+		self.assertEqual(
+			self.status(purchase_status=ladder.PO_CREATED, fabric_process="Knitting"), "Knitting"
+		)
+
 	def test_fabric_not_received_otherwise(self):
 		self.assertEqual(self.status(), "Fabric not received")
 
@@ -106,6 +126,8 @@ class TestFabricProcess(TestCase):
 		rank = ladder.get_status_rank
 		ranks = [
 			rank(ladder.NO_WORK_ORDER, 0),
+			rank(ladder.PO_CREATED, 0),
+			rank(ladder.MATERIAL_RECEIVED, 0),
 			rank("Fabric not received", 0),
 			rank("Knitting", 0),
 			rank("Dyeing", 1),
@@ -114,6 +136,40 @@ class TestFabricProcess(TestCase):
 		]
 		self.assertEqual(ranks, sorted(ranks))
 		self.assertEqual(len(set(ranks)), len(ranks))
+
+
+class TestPurchaseStatus(TestCase):
+	def test_no_qualifying_purchase_order_is_empty(self):
+		self.assertEqual(ladder.get_purchase_status(0, 0), "")
+
+	def test_below_ninety_percent_received_is_po_created(self):
+		self.assertEqual(ladder.get_purchase_status(100, 89.9), ladder.PO_CREATED)
+
+	def test_ninety_percent_received_is_material_received(self):
+		self.assertEqual(ladder.get_purchase_status(100, 90), ladder.MATERIAL_RECEIVED)
+
+
+class TestPoCreatedPieces(TestCase):
+	def pieces(self, status="Knitting", purchase_status=ladder.PO_CREATED, moved=1200):
+		return ladder.get_po_created_pieces(status, purchase_status, basis=1000, ordered=3000, moved=moved)
+
+	def test_lot_pieces_less_the_share_moved_into_fabric_processes(self):
+		self.assertEqual(self.pieces(), 600)
+
+	def test_nothing_left_on_order_once_moved_covers_the_order(self):
+		self.assertEqual(self.pieces(moved=3500), 0)
+
+	def test_fabric_not_received_keeps_every_piece_on_order(self):
+		self.assertEqual(self.pieces(status="Fabric not received", moved=0), 1000)
+
+	def test_no_split_once_the_lot_reaches_cutting(self):
+		self.assertEqual(self.pieces(status="Waiting for cutting"), 0)
+
+	def test_no_split_once_receipts_reach_ninety_percent(self):
+		self.assertEqual(self.pieces(purchase_status=ladder.MATERIAL_RECEIVED), 0)
+
+	def test_no_split_for_a_lot_still_without_work_order(self):
+		self.assertEqual(self.pieces(status=ladder.PO_CREATED), 0)
 
 
 class TestCuttingStatus(TestCase):

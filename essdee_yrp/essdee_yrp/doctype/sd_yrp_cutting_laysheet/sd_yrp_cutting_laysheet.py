@@ -17,7 +17,7 @@ from yrp import attribute_links as attribute_db
 from yrp.attribute_links import value as _attribute_value
 from yrp.attribute_values import get_mapping_document
 from yrp.stock.stock_ledger import make_sl_entries
-from yrp.utils import update_if_string_instance
+from yrp.utils import get_variant_attr_details, update_if_string_instance
 from yrp.yrp.doctype.yrp_delivery_challan.yrp_delivery_challan import (
 	_get_warehouse_for_supplier,
 )
@@ -2650,10 +2650,12 @@ def _cutting_accessory_quantities(cls_doc):
 
 def _cutting_grn_consumed_rows(cls_doc):
 	quantities = {}
+	colours = {}
 	for row in cls_doc.cutting_laysheet_details:
 		quantities[row.cloth_item_variant] = quantities.get(row.cloth_item_variant, 0.0) + flt(
 			row.used_weight
 		)
+		colours.setdefault(row.cloth_item_variant, set()).add(_attribute_value(row.colour))
 	for row in cls_doc.cutting_laysheet_accessory_details:
 		quantities[row.cloth_item_variant] = quantities.get(row.cloth_item_variant, 0.0) + flt(row.weight)
 	rows = []
@@ -2666,6 +2668,7 @@ def _cutting_grn_consumed_rows(cls_doc):
 				"item_variant": variant,
 				"qty": quantity,
 				"uom": frappe.get_cached_value("Item", item, "stock_uom"),
+				"colours": colours.get(variant, set()),
 			}
 		)
 	return rows
@@ -2675,7 +2678,9 @@ def calculate_cutting_consumption_plan(grn):
 	"""Allocate weighed cloth/accessories across exact cutting output rows.
 
 	The physical input total is authoritative. Accessory inputs return to their
-	own receipt rows; the remaining cloth is distributed across panel quantities.
+	own receipt rows; the remaining cloth is distributed across the panel
+	quantities of the colours it was laid for, so each colour's panels carry
+	only that colour's cloth value.
 	The final panel receives the residual so rounding cannot lose cloth. Every output has
 	a deterministic production-value lineage without pretending that historical
 	multi-output GRNs can be reconstructed the same way after migration.
@@ -2707,6 +2712,13 @@ def calculate_cutting_consumption_plan(grn):
 		return []
 	accessory_quantities = _cutting_accessory_quantities(cls_doc)
 	panel_outputs = [row for row in outputs if row.item_variant not in accessory_quantities]
+	packing_attribute = frappe.get_cached_value(
+		"YRP Item Production Detail", work_order.production_detail, "packing_attribute"
+	)
+	panel_colours = {
+		row.item_variant: get_variant_attr_details(row.item_variant).get(packing_attribute)
+		for row in panel_outputs
+	}
 	plan = []
 	for consumed in _cutting_grn_consumed_rows(cls_doc):
 		candidates = deliverables.get((consumed["item_variant"], consumed.get("uom")), [])
@@ -2746,7 +2758,7 @@ def calculate_cutting_consumption_plan(grn):
 			input_stock_qty,
 			flt(accessory_quantities.get(source.item_variant)) * factor,
 			[row for row in outputs if row.item_variant == source.item_variant],
-			panel_outputs,
+			[row for row in panel_outputs if panel_colours[row.item_variant] in consumed["colours"]],
 		)
 		assigned_stock_qty = 0.0
 		for output, share in allocations:

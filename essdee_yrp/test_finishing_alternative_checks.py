@@ -2,12 +2,29 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from essdee_yrp.finishing.alternative import create_alternative_fp
-from essdee_yrp.finishing.alternative_checks import throw_alternative_plan_issues
+from essdee_yrp.finishing.alternative_checks import get_configured_lot_problems, throw_alternative_plan_issues
 
-FINISHING_PLAN = "FP-2526-00237"
 ALTERNATIVE_ITEM = "Casual Designer Vest - 4"
 PRODUCTION_DETAIL = "Casual Designer Vest - 4-18"
 LOT_NAME = "E2E-ALT-CHECKS"
+
+
+def find_plan_with_rows():
+	"""Latest live plan of another item whose Lot has a Production Order and colour/size rows."""
+	for name in frappe.get_all(
+		"SD YRP Finishing Plan",
+		filters={"item": ["!=", ALTERNATIVE_ITEM]},
+		pluck="name",
+		order_by="creation desc",
+		limit=20,
+	):
+		plan = frappe.get_doc("SD YRP Finishing Plan", name)
+		if not frappe.db.get_value("SD YRP Lot", plan.lot, "production_order"):
+			continue
+		data = plan.get_finishing_plans()["finishing_qty"]["data"]
+		if data:
+			return plan, data
+	return None, None
 
 
 class TestAlternativePlanChecks(FrappeTestCase):
@@ -21,24 +38,31 @@ class TestAlternativePlanChecks(FrappeTestCase):
 		)
 		throw_alternative_plan_issues([])
 
+	def test_folding_lot_cannot_become_an_alternative_lot(self):
+		lot = frappe.new_doc("SD YRP Lot")
+		lot.is_folding_lot = 1
+		self.assertEqual(get_configured_lot_problems(lot), ["Folding Lot"])
+
 	def test_every_missing_prerequisite_is_listed_in_one_error(self):
 		"""An E2E plan whose alternative lacks several prerequisites reports all of them at once."""
-		if not frappe.db.exists("SD YRP Finishing Plan", FINISHING_PLAN) or not frappe.db.exists(
-			"YRP Item Production Detail", PRODUCTION_DETAIL
-		):
-			self.skipTest("E2E Finishing Plan or alternative Item Production Detail is unavailable")
-		source_item = frappe.db.get_value("SD YRP Finishing Plan", FINISHING_PLAN, "item")
-		balance = frappe.get_doc("SD YRP Finishing Plan", FINISHING_PLAN).get_finishing_plans()
-		available = balance["finishing_qty"]["data"]["Liver"]["values"]["S"]["balance"]
+		if not frappe.db.exists("YRP Item Production Detail", PRODUCTION_DETAIL):
+			self.skipTest("Alternative Item Production Detail is unavailable")
+		plan, data = find_plan_with_rows()
+		if not plan:
+			self.skipTest("No live Finishing Plan has rows")
+		colour = next(iter(data))
+		size = next(iter(data[colour]["values"]))
+		available = data[colour]["values"][size]["balance"]
+		converting = max(available, 0) + 5
 		quantities = {
-			"Liver": {"check_value": 1, "values": {"S": {"conversion_qty": available + 5}}},
-			"Cool Grey": {"check_value": 1, "values": {"S": {"conversion_qty": 1}}},
+			colour: {"check_value": 1, "values": {size: {"conversion_qty": converting}}},
+			"Cool Grey": {"check_value": 1, "values": {size: {"conversion_qty": 1}}},
 		}
 		frappe.clear_messages()
 
 		with self.assertRaises(frappe.ValidationError) as raised:
 			create_alternative_fp(
-				doc_name=FINISHING_PLAN,
+				doc_name=plan.name,
 				alternative_item=ALTERNATIVE_ITEM,
 				production_detail=PRODUCTION_DETAIL,
 				lot_name=LOT_NAME,
@@ -47,10 +71,9 @@ class TestAlternativePlanChecks(FrappeTestCase):
 
 		message = str(raised.exception)
 		for expected in (
-			f"• Liver / S: converting {available + 5:g}, but only {available:g} is available",
+			f"• {colour} / {size}: converting {converting:g}, but only {available:g} is available",
 			f"• Colour Cool Grey is not in Item Production Detail {PRODUCTION_DETAIL}",
-			f"• Colour Liver is not in Item Production Detail {PRODUCTION_DETAIL}",
-			f"• Item {ALTERNATIVE_ITEM} is not configured as an alternative of {source_item}",
+			f"• Item {ALTERNATIVE_ITEM} is not configured as an alternative of {plan.item}",
 		):
 			self.assertIn(expected, message)
 		self.assertEqual(len([row for row in frappe.message_log if row]), 1)

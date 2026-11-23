@@ -5,6 +5,7 @@ from frappe.utils import flt, now
 from yrp.attribute_links import value as _attribute_value
 from yrp.utils import get_variant_attr_details
 
+from essdee_yrp.finishing.alternative_transfers import get_alternative_quantities
 from essdee_yrp.finishing.ocr import get_ocr_details, get_unaccountable_balance
 from essdee_yrp.finishing.packing import get_finishing_packing_summary
 
@@ -164,6 +165,8 @@ def compute_received_status(finishing_doc):
 	total_received = sum(flt(row.delivered_quantity) for row in rows)
 	total_dc_qty = sum(flt(row.dc_qty) for row in rows)
 	total_dispatched = get_finishing_dispatch_totals(finishing_doc).total_dispatched_pieces
+	# Pieces moved to an alternative lot count as dispatched.
+	total_dispatched += get_alternative_quantities([finishing_doc.lot]).get(finishing_doc.lot, 0)
 	settings = frappe.get_cached_doc("SD YRP MRP Settings")
 
 	if total_dispatched > 0:

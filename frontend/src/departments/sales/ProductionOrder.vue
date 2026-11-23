@@ -10,7 +10,7 @@
 				</template>
 				<template #header-actions>
 					<CustomPrintButtons v-if="workspace.record?.name" doctype="YRP Production Order" :record="workspace.record" :permissions="workspace.permissions" :disabled="Boolean(acting)" />
-					<DocumentActionStrip :actions="actions" />
+					<DocumentActionStrip :actions="actions" doctype="YRP Production Order" :docname="workspace.record?.name || ''" />
 				</template>
 				<template #fields>
 					<Tabs v-model:value="activeTab" class="ppo-tabs erp-tabs">

@@ -46,7 +46,7 @@
 							<i class="pi pi-arrow-up-right" aria-hidden="true" />
 							<span>Open Product</span>
 						</RouterLink>
-						<DocumentActionStrip :actions="documentActions" />
+						<DocumentActionStrip :actions="documentActions" doctype="SD YRP Product Release" :docname="record.name || ''" />
 						<CustomPrintButtons v-if="record?.name" doctype="SD YRP Product Release" :record="record" :permissions="permissions" :disabled="deleting" />
 						<DocumentPrintButton
 							v-if="permissions.can_print"

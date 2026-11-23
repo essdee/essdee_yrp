@@ -22,7 +22,7 @@
 				</template>
 
 				<template #header-actions>
-					<DocumentActionStrip :actions="workOrderActions" />
+					<DocumentActionStrip :actions="workOrderActions" doctype="YRP Work Order" :docname="workspace.record?.name || ''" />
 				</template>
 
 				<template #matrix>

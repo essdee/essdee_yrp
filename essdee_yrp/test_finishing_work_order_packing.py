@@ -192,6 +192,7 @@ class TestFinishingWorkOrderPacking(FrappeTestCase):
 				"production_order": ["in", [None, ""]],
 				"item": ["in", [None, ""]],
 				"status": ["!=", "Closed"],
+				"is_folding_lot": 0,
 			},
 			"name",
 		)

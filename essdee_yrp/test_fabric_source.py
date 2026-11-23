@@ -1574,3 +1574,118 @@ class TestMergedFabricSources(TestCase):
 				merged = _merge_source_context(first, second)
 				self.assertTrue(merged["unavailable"])
 				self.assertEqual(merged["available"], 8)
+
+
+def _cloth_row(key, dia, in_colour, out_colour):
+	return {
+		"key": key,
+		"matrix_key": key,
+		"label": f"{dia}: {in_colour} → {out_colour}",
+		"output_item": "CLOTH",
+		"output_qty": 1,
+		"input_specs": [{
+			"item": "CLOTH",
+			"attrs": {"Dia": dia, "Colour": in_colour},
+			"qty": 1,
+			"uom": "Kg",
+		}],
+		"out_attrs": {"Dia": dia, "Colour": out_colour},
+	}
+
+
+def _cloth_bucket(variant, qty):
+	return {
+		"key": f"SRC-{variant}",
+		"source_grn": "GRN-1",
+		"source_grn_item": f"GRNI-{variant}",
+		"item_variant": variant,
+		"available_stock_qty": qty,
+		"received_stock_qty": qty,
+	}
+
+
+def _cloth_info(*variants):
+	return {
+		variant: {
+			"item": "CLOTH",
+			"attrs": {"Dia": variant.split("|")[0], "Colour": variant.split("|")[1]},
+		}
+		for variant in variants
+	}
+
+
+class TestActualDiaConversionRouting(TestCase):
+	"""A dia-variance bucket only feeds the planned rows its Lot conversion allows."""
+
+	def _project(self, rows, buckets, info, index):
+		def resolve(_item, attrs):
+			return f"{attrs.get('Dia')}|{attrs.get('Colour')}"
+
+		def attrs(variant):
+			dia, colour = variant.split("|")
+			return {"Dia": dia, "Colour": colour}
+
+		with (
+			patch("essdee_yrp.api.work_order._resolve_variant", side_effect=resolve),
+			patch("essdee_yrp.api.work_order._variant_attrs", side_effect=attrs),
+			patch("essdee_yrp.fabric_source._conversion_factor", return_value=1),
+			patch("essdee_yrp.fabric_source.get_dia_attribute", return_value="Dia"),
+		):
+			return fabric_source._project_receipt_buckets(
+				rows, buckets, info, conversion_index=index
+			)
+
+	def test_identity_process_keeps_each_received_dia(self):
+		rows = [
+			_cloth_row("identity:0", "26 Dia", "Black", "Black"),
+			_cloth_row("identity:1", "32 Dia", "Black", "Black"),
+		]
+		buckets = [
+			_cloth_bucket("26 Dia|Black", 1.1),
+			_cloth_bucket("30 Dia|Black", 1.0),
+			_cloth_bucket("32 Dia|Black", 7.0),
+		]
+		index = {
+			("", "26 Dia|Black"): {"26 Dia|Black": 1.1},
+			("", "32 Dia|Black"): {"30 Dia|Black": 1.0, "32 Dia|Black": 7.0},
+		}
+
+		unmatched = self._project(
+			rows, buckets, _cloth_info("26 Dia|Black", "30 Dia|Black", "32 Dia|Black"), index
+		)
+
+		self.assertEqual(unmatched, [])
+		self.assertEqual(
+			[
+				(row["matrix_key"], row["source_item_variant"], row["projected_item_variant"], row["prefill"])
+				for row in rows
+			],
+			[
+				("identity:0", "26 Dia|Black", "26 Dia|Black", 1.1),
+				("identity:1", "30 Dia|Black", "30 Dia|Black", 1.0),
+				("identity:1", "32 Dia|Black", "32 Dia|Black", 7.0),
+			],
+		)
+		self.assertEqual(rows[1]["label"], "30 Dia (actual, for 32 Dia): Black → Black")
+
+	def test_dyeing_actual_dia_still_projects_through_planned_row(self):
+		rows = [_cloth_row("BLACK", "32 Dia", "Greige", "Black")]
+		index = {("", "32 Dia|Black"): {"30 Dia|Black": 1.0, "32 Dia|Black": 7.0}}
+
+		unmatched = self._project(
+			rows, [_cloth_bucket("30 Dia|Greige", 1.0)], _cloth_info("30 Dia|Greige"), index
+		)
+
+		self.assertEqual(unmatched, [])
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(rows[0]["projected_item_variant"], "30 Dia|Black")
+		self.assertEqual(rows[0]["prefill"], 1.0)
+
+	def test_stale_conversion_still_fails_loudly(self):
+		rows = [_cloth_row("identity:1", "32 Dia", "Black", "Black")]
+		index = {("", "32 Dia|Black"): {"32 Dia|Black": 7.0}}
+
+		with self.assertRaisesRegex(frappe.ValidationError, "out of date"):
+			self._project(
+				rows, [_cloth_bucket("30 Dia|Black", 1.0)], _cloth_info("30 Dia|Black"), index
+			)

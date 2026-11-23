@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 
 import {
 	NO_WORK_ORDER,
+	PO_CREATED,
 	dashboardCsv,
 	dashboardOptions,
 	dashboardTotals,
@@ -84,6 +85,25 @@ test("fabric process statuses order by rank between Fabric not received and Wait
 	assert.deepEqual(["Knitting", "In cutting", NO_WORK_ORDER].map(statusTone), ["process", "amber", "neutral"])
 })
 
+test("PO Created and Yarn / Fabric Received sit before fabric processes and a split lot counts in both cards", () => {
+	const split = { status: PO_CREATED, status_rank: 100, pieces: 600 }
+	const purchaseRows = [
+		lot({ lot: "S-1", ppo: "PPO-3", item: "C", status: "Knitting", status_rank: 301, total: 1000, qty: 1000, purchase_split: split }),
+		{ lot: "S-2", ppo: "PPO-3", item: "C", status: PO_CREATED, status_rank: 100, has_work_order: false, qty: 500, total: 0 },
+		{ lot: "S-3", ppo: "PPO-3", item: "C", status: "Yarn / Fabric Received", status_rank: 200, has_work_order: false, qty: 300, total: 0 },
+		{ lot: "S-4", ppo: "PPO-3", item: "C", status: NO_WORK_ORDER, status_rank: 0, has_work_order: false, qty: 50, total: 0 },
+	]
+	assert.deepEqual(statusCards(purchaseRows).map((card) => [card.status, card.count, card.pieces]), [
+		[PO_CREATED, 2, 1100], ["Yarn / Fabric Received", 1, 300], ["Knitting", 1, 400], [NO_WORK_ORDER, 1, 50],
+	])
+	assert.deepEqual(filterDashboardRows(purchaseRows, { ...empty, status: [PO_CREATED] }).map((row) => row.lot), ["S-1", "S-2"])
+	assert.deepEqual(dashboardOptions(purchaseRows, empty, "status", ppos).map((option) => [option.value, option.hint]), [
+		[PO_CREATED, "2 lots"], ["Yarn / Fabric Received", "1 lot"], ["Knitting", "1 lot"], [NO_WORK_ORDER, "1 lot"],
+	])
+	assert.equal(groupDashboardRows(purchaseRows.slice(0, 3))[0].breakdown, "PO Created: 2\nYarn / Fabric Received: 1\nKnitting: 1")
+	assert.deepEqual([PO_CREATED, "Yarn / Fabric Received"].map(statusTone), ["amber", "blue"])
+})
+
 test("group by PPO sums lots, keeps PPO qty once and shows the furthest-behind open status", () => {
 	const groups = groupDashboardRows(rows)
 	const first = groups.find((row) => row.ppo === "PPO-1")
@@ -110,9 +130,9 @@ test("sorting is numeric-aware and reversible, paging is 50 rows", () => {
 test("CSV writes every row with the PPO qty unit", () => {
 	const text = dashboardCsv(sortDashboardRows(rows, { key: "ppo", direction: 1 }, ppos), false, ppos)
 	const lines = text.split("\n")
-	assert.equal(lines[0], "#,PPO,Lot,Item,Status,PPO Qty,PPO Qty unit,Lot Qty,Cut Qty,Stitching Qty,Packed Qty,Dispatched Qty")
+	assert.equal(lines[0], "#,PPO,Lot,Item,Product Category,Status,PPO Qty,PPO Qty unit,Lot Qty,Cut Qty,Stitching Qty,Packed Qty,Dispatched Qty")
 	assert.equal(lines.length, 5)
-	assert.ok(lines.some((line) => line.includes("PPO-2,L-10,B,Fabric not received,50.5,box")))
+	assert.ok(lines.some((line) => line.includes("PPO-2,L-10,B,,Fabric not received,50.5,box")))
 	const grouped = dashboardCsv(groupDashboardRows(rows), true, ppos).split("\n")
 	assert.equal(grouped[0].split(",")[2], "Lots")
 	assert.ok(grouped[1].includes('"L-2, L-1, L-3"'))

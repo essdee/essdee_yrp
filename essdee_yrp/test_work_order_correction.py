@@ -6,6 +6,7 @@ from frappe.tests import IntegrationTestCase
 from yrp.stock.save_stock_items import group_items_for_ui
 
 from essdee_yrp.work_order_correction import (
+	_delivered_correction_rows,
 	create_work_order_correction,
 	get_work_order_correction_context,
 	is_correction_supported,
@@ -36,10 +37,8 @@ class TestWorkOrderCorrectionHook(TestCase):
 
 
 class TestCorrectionCloseWriteOff(TestCase):
-	def make_work_order(self, changed=True):
-		doc = frappe._dict(doctype="YRP Work Order", name="WO-1", supplier="SUP", open_status="Close")
-		doc.has_value_changed = lambda fieldname: changed
-		return doc
+	def make_work_order(self, open_status="Close"):
+		return frappe._dict(doctype="YRP Work Order", name="WO-1", supplier="SUP", open_status=open_status)
 
 	def test_close_writes_off_delivered_correction_stock_capped_at_balance(self):
 		rows = [
@@ -84,10 +83,36 @@ class TestCorrectionCloseWriteOff(TestCase):
 			all(e["voucher_type"] == "YRP Work Order" and e["voucher_no"] == "WO-1" for e in entries)
 		)
 
-	def test_only_runs_when_the_work_order_becomes_closed(self):
+	def test_float_residual_is_not_outstanding_correction_stock(self):
+		residual = frappe._dict(name="ROW-1", qty=1.33, pending_quantity=0.13)
+		leftover = frappe._dict(name="ROW-2", qty=1.0, pending_quantity=0)
+		close_entries = [
+			frappe._dict(voucher_detail_no="ROW-1", qty=-1.2),
+			frappe._dict(voucher_detail_no="ROW-2", qty=-0.9),
+		]
+		correction = frappe._dict(deliverables=[residual, leftover])
+		with (
+			patch("essdee_yrp.work_order_reopen.get_unreversed_close_entries", return_value=close_entries),
+			patch(f"{MODULE}.frappe.get_all", return_value=["CORR-1"]),
+			patch(f"{MODULE}.frappe.get_doc", return_value=correction),
+			patch(f"{MODULE}.get_stock_qty_precision", return_value=3),
+		):
+			rows = _delivered_correction_rows("WO-1")
+		self.assertEqual([(row.name, row.outstanding_qty) for row in rows], [("ROW-2", 0.1)])
+
+	def test_skips_a_work_order_that_is_not_closed(self):
 		with patch(f"{MODULE}._delivered_correction_rows") as rows:
-			write_off_correction_stock(self.make_work_order(changed=False))
+			write_off_correction_stock(self.make_work_order(open_status="Close Request"))
 		rows.assert_not_called()
+
+	def test_close_owns_the_write_off_instead_of_a_generic_hook(self):
+		import inspect
+
+		from essdee_yrp import hooks
+		from essdee_yrp.work_order_close import close_work_order
+
+		self.assertNotIn("on_update_after_submit", hooks.doc_events["YRP Work Order"])
+		self.assertIn("write_off_correction_stock(doc)", inspect.getsource(close_work_order))
 
 
 MODULE = "essdee_yrp.work_order_correction"

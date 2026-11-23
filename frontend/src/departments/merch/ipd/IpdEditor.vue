@@ -28,7 +28,7 @@
 					editing
 				/>
 			</template>
-			<template #header-actions><DocumentActionStrip class="ipd-actions" :actions="stripActions" /></template>
+			<template #header-actions><DocumentActionStrip class="ipd-actions" :actions="stripActions" doctype="YRP Item Production Detail" :docname="ipdId" /></template>
 			<template #matrix>
 				<IpdSections
 					ref="frame"

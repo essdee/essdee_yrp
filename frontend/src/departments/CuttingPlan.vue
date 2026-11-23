@@ -25,7 +25,7 @@
 				<template #document-actions="{ busy, dirty }">
 					<DocumentPrintButton doctype="SD YRP Cutting Plan" :name="cuttingPlanId" :docstatus="editorProbe?.record?.docstatus" :disabled="busy" />
 					<DocumentDeleteButton doctype="SD YRP Cutting Plan" document-label="Cutting Plan" :name="cuttingPlanId" :docstatus="editorProbe?.record?.docstatus" :disabled="busy || dirty" :redirect-to="backTo" />
-					<DocumentActionStrip :actions="duplicateActions" />
+					<DocumentActionStrip :actions="duplicateActions" doctype="SD YRP Cutting Plan" :docname="cuttingPlanId" />
 				</template>
 			</CuttingPlanEditor>
 		</div>
@@ -88,7 +88,7 @@
 					<CuttingPlanActions
 						:doc="doc"
 						:data="workspaceData"
-						:extra-actions="duplicateActions"
+						:extra-actions="viewActions"
 						@refresh="refreshPage"
 						@lot-transfer-created="openLotTransfer"
 					/>
@@ -132,6 +132,7 @@
 		</div>
 		<DocumentConfirmationDialog v-model:visible="lifecycleConfirmVisible" :title="pendingLifecycleCommand === 'cancel' ? 'Cancel Cutting Plan?' : 'Amend Cutting Plan?'" :message="pendingLifecycleCommand === 'cancel' ? `Cancel ${cuttingPlanId}? This keeps the document for audit and reverses its submitted effect.` : `Create a new draft amendment from ${cuttingPlanId}?`" :confirm-label="pendingLifecycleCommand === 'cancel' ? 'Cancel Cutting Plan' : 'Create Amendment'" :busy="Boolean(lifecycleBusy)" @confirm="confirmLifecycleAction" />
 		<DocumentErrorDialog :message="lifecycleError" title="Cutting Plan action failed" @dismiss="lifecycleError = ''" />
+		<LinkedDocumentsDialog v-if="cuttingPlanId" v-model:visible="linksVisible" doctype="SD YRP Cutting Plan" :docname="cuttingPlanId" />
 	</DepartmentPage>
 </template>
 
@@ -152,6 +153,7 @@ import WorkspaceLoadError from "../components/common/WorkspaceLoadError.vue"
 import DocumentActionStrip from "../components/documents/DocumentActionStrip.vue"
 import DocumentConfirmationDialog from "../components/documents/DocumentConfirmationDialog.vue"
 import DocumentErrorDialog from "../components/documents/DocumentErrorDialog.vue"
+import LinkedDocumentsDialog from "../components/documents/LinkedDocumentsDialog.vue"
 import { useDuplicateAction } from "../composables/useDuplicateAction.js"
 import DocumentShortcuts from "../components/documents/DocumentShortcuts.vue"
 import { withShortcutHint } from "../utils/documentShortcuts.js"
@@ -216,6 +218,8 @@ const canPrintCcr = computed(() => Boolean(
 	&& (workspaceData.value.print_formats || []).some((option) => option.format === CCR_PRINT_FORMAT),
 ))
 const duplicateActions = computed(() => duplicateAction.value ? [duplicateAction.value] : [])
+const linksVisible = ref(false)
+const viewActions = computed(() => [...duplicateActions.value, { key: "show_links", label: "Show Links", icon: "pi pi-link", command: () => { linksVisible.value = true } }])
 const showSidebar = computed(() => Boolean(
 	workspaceLoading.value
 	|| workspaceData.value.permissions?.can_read_marker

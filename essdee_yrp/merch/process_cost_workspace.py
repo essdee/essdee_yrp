@@ -10,7 +10,6 @@ from yrp.stock.dimensions import append_production_group_filters
 
 from essdee_yrp import process_cost
 from essdee_yrp.api.duplicate import build_duplicate_values
-from essdee_yrp.api.work_order import get_work_order_selection_context
 from essdee_yrp.purchase.lot_documents import DOCUMENT_SECTIONS
 from essdee_yrp.web_common import action, assert_expected_modified, parse_mapping, permission_flags
 
@@ -168,57 +167,27 @@ def get_process_cost_workspace(name):
 
 
 def _selection(lot, process_name=None, item=None):
+	"""Any enabled Item may be priced; an empty Item falls back to the Lot Item."""
 	if not lot:
-		return {"item": None, "uom": None, "item_options": [], "is_cloth_process": False}
+		return {"item": None, "uom": None, "is_folding_lot": False}
 	lot_doc = frappe.get_doc("SD YRP Lot", lot)
 	lot_doc.check_permission("read")
-	options = []
-	is_cloth = bool(process_name and frappe.db.get_value("YRP Process", process_name, "is_cloth_process"))
 	if process_name:
 		frappe.has_permission("YRP Process", ptype="read", doc=process_name, throw=True)
-	if lot_doc.get("is_folding_lot"):
-		return _folding_selection(item, is_cloth)
-	if is_cloth:
-		return _cloth_selection(lot_doc, process_name, item)
-	item = lot_doc.item
-	return {"item": item, "uom": _item_uom(item), "item_options": options, "is_cloth_process": False}
-
-
-def _folding_selection(item, is_cloth):
-	"""A Folding Lot's Process Cost may use any enabled Item, template or variant."""
-	selection = {"item": item, "uom": _item_uom(item), "item_options": [],
-		"is_cloth_process": is_cloth, "is_folding_lot": True}
+	item = item or lot_doc.item
+	selection = {"item": item, "uom": _item_uom(item), "is_folding_lot": bool(lot_doc.get("is_folding_lot"))}
 	if item and frappe.db.get_value("Item", item, "disabled") != 0:
-		return {**selection, "item": None, "uom": None,
-			"field_errors": {"item": _("Select an enabled Item.")}}
+		return {**selection, "item": None, "uom": None, "field_errors": {"item": _("Select an enabled Item.")}}
 	return selection
 
 
 def _lookup_permission_error(fieldname, sources):
-	purpose = _("price by Attribute") if fieldname == "attribute" else _("select a cloth Item")
 	for doctype, name in sources:
 		if name and not frappe.has_permission(doctype, ptype="read", doc=name):
-			message = _("You cannot read {0} {1} needed to {2}.").format(doctype, name, purpose)
+			message = _("You cannot read {0} {1} needed to price by Attribute.").format(doctype, name)
 			return {"field_errors": {fieldname: message}}
-	message = _("You cannot read Item or YRP Item Production Detail needed to {0}.").format(purpose)
+	message = _("You cannot read Item or YRP Item Production Detail needed to price by Attribute.")
 	return {"field_errors": {fieldname: message}}
-
-
-def _cloth_selection(lot_doc, process_name, item):
-	try:
-		options = get_work_order_selection_context(lot_doc.name, process_name)["options"]
-		item = item if item in {row["item"] for row in options} else None
-		if len(options) == 1:
-			item = options[0]["item"]
-		if item:
-			frappe.has_permission("Item", ptype="read", doc=item, throw=True)
-	except frappe.PermissionError:
-		fabrics = lot_doc.get("lot_fabric_details") or []
-		sources = [("YRP Item Production Detail", row.production_detail) for row in fabrics]
-		sources.extend(("Item", row.cloth_item) for row in fabrics)
-		return {"item": None, "uom": None, "item_options": [], "is_cloth_process": True,
-			**_lookup_permission_error("item", sources)}
-	return {"item": item, "uom": _item_uom(item), "item_options": options, "is_cloth_process": True}
 
 
 def _item_uom(item):
@@ -345,9 +314,6 @@ def _apply_values(doc, values):
 	context = get_process_cost_grid(doc.lot, doc.process_name, doc.item, doc.attribute)
 	for fieldname, message in context.get("field_errors", {}).items():
 		_field_error(fieldname, message)
-	is_lot_cloth = context["is_cloth_process"] and not context.get("is_folding_lot")
-	if is_lot_cloth and doc.item not in {row["item"] for row in context["item_options"]}:
-		_field_error("item", _("Select a cloth Item configured for this Lot and Process."))
 	doc.item, doc.uom = context["item"], context["uom"]
 	_require_fields(doc)
 	doc.supplier_name = frappe.db.get_value("Supplier", doc.supplier, "supplier_name")

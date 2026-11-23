@@ -15,7 +15,7 @@
 				</template>
 
 				<template #header-actions>
-					<DocumentActionStrip v-if="actions.length" :actions="actions" />
+					<DocumentActionStrip :actions="actions" doctype="YRP Item Price" :docname="workspace.record?.name || ''" />
 				</template>
 
 				<template #fields>

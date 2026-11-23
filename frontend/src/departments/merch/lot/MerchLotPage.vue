@@ -29,7 +29,7 @@
 					/>
 				</template>
 				<template #header-actions>
-					<DocumentActionStrip :actions="actions" />
+					<DocumentActionStrip :actions="actions" doctype="SD YRP Lot" :docname="lotId" />
 				</template>
 				<template #matrix>
 					<Message

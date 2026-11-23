@@ -8,7 +8,7 @@
 				<Button v-if="record.docstatus === 0 && permissions?.submit" label="Submit" icon="pi pi-check" :loading="acting === 'submit'" @click="submitDebit" />
 				<Button v-if="record.docstatus === 1 && permissions?.cancel" label="Cancel" icon="pi pi-ban" severity="danger" outlined :loading="acting === 'cancel'" @click="confirmCancel" />
 				<Button v-if="record.docstatus === 2 && permissions?.amend" label="Amend" icon="pi pi-copy" severity="secondary" outlined @click="confirmAmend" />
-				<Button v-if="record.work_order" label="Open Work Order" severity="secondary" @click="openWorkOrder" /><Button v-if="permissions?.create" label="Duplicate" icon="pi pi-clone" severity="secondary" outlined @click="duplicateDebit" /></div><DocumentActivity doctype="YRP Debit" :name="record.name" :record="record" /></template>
+				<Button v-if="record.work_order" label="Open Work Order" severity="secondary" @click="openWorkOrder" /><Button v-if="permissions?.create" label="Duplicate" icon="pi pi-clone" severity="secondary" outlined @click="duplicateDebit" /><DocumentActionStrip doctype="YRP Debit" :docname="record.name" /></div><DocumentActivity doctype="YRP Debit" :name="record.name" :record="record" /></template>
 		</Dialog>
 		<Dialog :visible="Boolean(draftSource)" modal :header="amendFrom ? 'Amend Debit' : 'New Debit'" class="erp-dialog--md" @update:visible="closeDuplicate">
 			<div v-if="!draft">Loading debit…</div>
@@ -32,6 +32,7 @@ import FormView from "../../components/common/FormView.vue"
 import ListView from "../../components/common/ListView.vue"
 import { useDocumentPermissions } from "../../composables/useDocumentPermissions.js"
 import { loadDuplicateValues } from "../../composables/useDuplicateAction.js"
+import DocumentActionStrip from "../../components/documents/DocumentActionStrip.vue"
 import DocumentActivity from "../../components/documents/DocumentActivity.vue"
 import DocumentErrorDialog from "../../components/documents/DocumentErrorDialog.vue"
 import DocumentStatusBadge from "../../components/documents/DocumentStatusBadge.vue"

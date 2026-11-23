@@ -56,6 +56,12 @@ class TestProcessCostCustomization(FrappeTestCase):
 			["Navy", "Black"],
 		)
 
+	def test_desk_allows_a_flat_cost_without_attribute(self):
+		source = (Path(frappe.get_app_path("essdee_yrp")) / "public/js/process_cost.js").read_text(
+			encoding="utf-8"
+		)
+		self.assertIn('grid.toggle_reqd("attribute_value", Boolean(frm.doc.attribute))', source)
+
 	def test_generic_base_callback_is_neutralized_and_desk_adapter_is_loaded(self):
 		self.assertIsNone(get_pc_attribute_values(item="ITEM", attribute="Colour"))
 		self.assertEqual(hooks.doctype_js["YRP Process Cost"], "public/js/process_cost.js")

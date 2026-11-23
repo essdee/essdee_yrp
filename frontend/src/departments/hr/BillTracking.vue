@@ -36,7 +36,7 @@
 					</div>
 				</template>
 				<template #header-actions>
-					<DocumentActionStrip :actions="actions" />
+					<DocumentActionStrip :actions="actions" doctype="YRP Bill Tracking" :docname="workspace.record?.name || ''" />
 				</template>
 				<template #fields>
 					<div class="bill-tracking-body">

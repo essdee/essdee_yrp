@@ -344,6 +344,21 @@ export function getDuplicateValues(doctype, name) {
 	return callMethod("essdee_yrp.api.duplicate.get_duplicate_values", { doctype, name })
 }
 
+/** Queues the rename like Desk (`enqueue: 1`); poll getRenameStatus for the result. */
+export function renameDoc(doctype, name, newName, merge = false) {
+	return callMethod("frappe.model.rename_doc.update_document_title", { doctype, docname: name, name: newName, merge: merge ? 1 : 0, enqueue: 1 })
+}
+
+/** `{ status: "running" | "done" | "failed", name?, error?, checked_at }` for a queued rename. */
+export function getRenameStatus(doctype, name, newName, since = null) {
+	return callRead("essdee_yrp.api.rename.get_rename_status", { doctype, old_name: name, new_name: newName, since })
+}
+
+/** Desk's Links data: `{ doctype: { docs, hidden_count } }`, limited to what the user may read. */
+export function getLinkedDocuments(doctype, name) {
+	return callRead("frappe.desk.form.linked_with.get", { doctype, docname: name })
+}
+
 export async function getList(
 	doctype,
 	{ fields = ["name"], filters = [], orderBy = "modified desc", start = 0, pageLength = 20, groupBy } = {},

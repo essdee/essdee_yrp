@@ -8,18 +8,20 @@ const sum = (rows, pick) => rows.reduce((total, row) => total + (Number(pick(row
 const isDispatched = (row) => row.status === "Dispatched"
 
 export function emptyTrackingFilters() {
-	return { ppo: [], lot: [], process: [] }
+	return { ppo: [], lot: [], process: [], category: [] }
 }
 
 export function hasTrackingScope(filters) {
-	return Boolean(filters.ppo.length || filters.lot.length)
+	return Boolean(filters.ppo.length || filters.lot.length || filters.category?.length)
 }
 
-/** Lots with only the selected processes; lots left with no process are dropped. */
+const inCategory = (filters, category) => !filters.category?.length || filters.category.includes(category)
+
+/** Lots with only the selected processes; lots left with no process are dropped, except PO-only lots while no Process is picked. */
 export function matchingTrackingLots(lots, filters) {
 	return lots
 		.map((row) => ({ ...row, processes: row.processes.filter((step) => !filters.process.length || filters.process.includes(step.name)) }))
-		.filter((row) => row.processes.length)
+		.filter((row) => row.processes.length || (!row.has_work_order && !filters.process.length))
 }
 
 export function visibleTrackingLots(matching, showDispatched) {
@@ -32,10 +34,12 @@ export function hiddenDispatchedCount(matching) {
 
 /** Selection tiles: PPO and Lot filters set the scope; the Process filter and Show dispatched are ignored. */
 export function trackingSummary(data, filters) {
-	const lots = data.lots || []
-	const ppoNames = filters.ppo.length ? filters.ppo.filter((name) => data.ppos?.[name]) : [...new Set(lots.map((row) => row.ppo))]
+	const lots = (data.lots || []).filter((row) => row.has_work_order)
+	const ppoNames = filters.ppo.length ? filters.ppo.filter((name) => data.ppos?.[name]) : [...new Set((data.lots || []).map((row) => row.ppo))]
 	const ppos = ppoNames.map((name) => data.ppos?.[name] || {})
-	const notStarted = filters.lot.length ? [] : ppos.flatMap((ppo) => (ppo.lots || []).filter((row) => !row.has_work_order))
+	const notStarted = filters.lot.length
+		? (data.lots || []).filter((row) => !row.has_work_order).map((row) => ({ planned: row.qty }))
+		: ppos.flatMap((ppo) => (ppo.lots || []).filter((row) => !row.has_work_order && inCategory(filters, row.product_category)))
 	const open = lots.filter((row) => !isDispatched(row))
 	return {
 		ppoCount: ppoNames.length,
@@ -46,9 +50,9 @@ export function trackingSummary(data, filters) {
 		ppoBoxes: sum(ppos, (ppo) => ppo.boxes),
 		ppoPieces: sum(ppos, (ppo) => ppo.pieces),
 		dispatched: sum(lots, (row) => row.dispatch),
-		workInProgress: sum(open, (row) => Math.max(row.total - row.dispatch, 0)),
+		workInProgress: sum(open, (row) => Math.max(row.total - row.dispatch - (row.to_alternative || 0), 0)),
 		notStarted: sum(notStarted, (row) => row.planned),
-		isLotsOnly: !filters.ppo.length,
+		isLotsOnly: !filters.ppo.length && Boolean(filters.lot.length),
 	}
 }
 
@@ -79,6 +83,16 @@ export function groupLotsByPpo(lots) {
 	const groups = new Map()
 	lots.forEach((row) => groups.set(row.ppo, [...(groups.get(row.ppo) || []), row]))
 	return [...groups.entries()]
+}
+
+/** Quantity a Work Order still has to receive against its plan. */
+export function pendingQuantity(order) {
+	return Math.max((Number(order.planned) || 0) - (Number(order.received) || 0), 0)
+}
+
+/** Yarn / fabric PO totals of a lot, one entry per unit, with received %. */
+export function purchaseUnits(purchase) {
+	return (purchase?.units || []).map((unit) => ({ ...unit, percent: percentOf(unit.received, unit.ordered) }))
 }
 
 /** Row values of one process: % = received of planned; packing uses lot order pcs. */
@@ -112,23 +126,30 @@ function ppoOption(row) {
 	return { value: row.name, hint }
 }
 
-/** PPO options (searchable by item), Lot options narrowed by PPO, Process options from the loaded lots. */
+function categoryOptions(ppos) {
+	const counts = new Map()
+	ppos.flatMap((row) => row.product_categories || []).forEach((value) => counts.set(value, (counts.get(value) || 0) + 1))
+	return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([value, count]) => ({ value, hint: plural(count, "PPO") }))
+}
+
+/** PPO and Lot options narrowed by Product Category (Lots also by PPO), Process options from the loaded lots. */
 export function trackingFilterOptions(options, lots, filters) {
 	const inPpo = (row) => !filters.ppo.length || filters.ppo.includes(row.ppo)
 	const counts = new Map()
 	lots.filter((row) => inPpo(row) && (!filters.lot.length || filters.lot.includes(row.lot)))
 		.forEach((row) => row.processes.forEach((step) => counts.set(step.name, (counts.get(step.name) || 0) + 1)))
 	return {
-		ppo: (options.ppos || []).map(ppoOption),
-		lot: (options.lots || []).filter(inPpo).map((row) => ({ value: row.name, hint: row.item || "" })),
+		ppo: (options.ppos || []).filter((row) => !filters.category?.length || (row.product_categories || []).some((value) => filters.category.includes(value))).map(ppoOption),
+		lot: (options.lots || []).filter((row) => inPpo(row) && inCategory(filters, row.product_category)).map((row) => ({ value: row.name, hint: row.item || "" })),
 		process: [...counts.entries()].map(([value, count]) => ({ value, hint: plural(count, "lot") })),
+		category: categoryOptions((options.ppos || []).filter((row) => !filters.ppo.length || filters.ppo.includes(row.name))),
 	}
 }
 
 /** Drop Lot and Process picks that are no longer among the options. */
 export function pruneTrackingFilters(filters, options) {
 	const keep = (values, list) => values.filter((value) => list.some((option) => option.value === value))
-	return { ppo: filters.ppo, lot: keep(filters.lot, options.lot), process: keep(filters.process, options.process) }
+	return { ppo: filters.ppo, lot: keep(filters.lot, options.lot), process: keep(filters.process, options.process), category: filters.category || [] }
 }
 
 function visibleProcesses(lots) {

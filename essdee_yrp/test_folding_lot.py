@@ -396,6 +396,22 @@ class TestFoldingDocumentDefaults(TestFoldingWorkOrder):
 		self.assertEqual(get_delivery_challan_defaults(work_order.name)["lot"], self.lot)
 		self.assertEqual(get_goods_received_note_defaults(work_order.name)["lot"], self.lot)
 
+	def test_store_user_without_folding_role_gets_dc_and_grn_once_submitted(self):
+		from essdee_yrp.fabric_store.web_workspace import get_work_order_workspace
+		from essdee_yrp.work_order_actions import get_work_order_action_context
+
+		store_user = _ensure_user("folding-lot-store@example.com", ["Store User", "Stock User", "Desk User"])
+		draft = self.make_work_order()
+		submitted = self.make_work_order(submit=True)
+		frappe.set_user(store_user)
+		self.assertFalse(get_work_order_action_context(draft.name)["can_make_delivery_challan"])
+		context = get_work_order_action_context(submitted.name)
+		self.assertTrue(context["can_make_delivery_challan"])
+		self.assertTrue(context["can_make_goods_received_note"])
+		capabilities = get_work_order_workspace(submitted.name)["capabilities"]
+		self.assertIn("create_delivery_challan", capabilities)
+		self.assertIn("create_goods_received_note", capabilities)
+
 
 class TestFoldingProcessCost(TestFoldingWorkOrder):
 	def test_process_cost_keeps_the_chosen_item_for_a_folding_lot(self):
@@ -437,7 +453,7 @@ class TestFoldingProcessCost(TestFoldingWorkOrder):
 		with self.assertRaisesRegex(frappe.ValidationError, "enabled Item"):
 			before_validate(doc)
 
-	def test_regular_lot_still_forces_the_lot_item(self):
+	def test_regular_lot_keeps_the_chosen_item(self):
 		from essdee_yrp.process_cost import before_validate
 
 		template, _attribute = self.template_item()
@@ -447,7 +463,10 @@ class TestFoldingProcessCost(TestFoldingWorkOrder):
 		process = frappe.db.get_value("YRP Process", {"is_cloth_process": 0}, "name")
 		doc = frappe._dict(lot=lot[0], process_name=process, item=template, uom=None)
 		before_validate(doc)
-		self.assertEqual(doc.item, lot[1])
+		self.assertEqual(doc.item, template)
+		empty = frappe._dict(lot=lot[0], process_name=process, item=None, uom=None)
+		before_validate(empty)
+		self.assertEqual(empty.item, lot[1])
 
 	def test_template_item_attributes_and_values_come_from_the_item(self):
 		from essdee_yrp.process_cost import get_item_attributes, get_pc_attribute_values

@@ -7,6 +7,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 from yrp.attribute_links import value as _attribute_value
+from yrp.yrp.doctype.yrp_process_cost.yrp_process_cost import is_flat_process_cost
 from yrp.yrp.doctype.yrp_work_order.yrp_work_order import (
 	WorkOrder,
 	get_process_cost_rate,
@@ -103,30 +104,36 @@ class EssdeeWorkOrder(WorkOrder):
 			)
 		)
 
-	def apply_receivable_process_costs(self, process_cost):
-		if apply_garment_panel_process_costs(self, process_cost):
+	def apply_item_receivable_process_costs(self, process_cost, receivables):
+		if apply_garment_panel_process_costs(self, process_cost, receivables):
 			return
-		super().apply_receivable_process_costs(process_cost)
+		super().apply_item_receivable_process_costs(process_cost, receivables)
+		divide_cutting_panel_rates(self, process_cost, receivables)
 
 
-def apply_garment_panel_process_costs(work_order, process_cost):
+def apply_garment_panel_process_costs(work_order, process_cost, receivables):
 	"""Allocate a finished-garment rate equally across its panel types.
 
 	A panel type receives one equal share of the garment process rate.  The
 	stored receivable rate is per physical stock unit, so a panel needed twice
-	per garment receives half the per-unit rate of a panel needed once.
+	per garment receives half the per-unit rate of a panel needed once.  A flat
+	rate (no attribute) is also a garment rate, as billing charges it per garment.
+	Panel and Stage prices are per output row and keep the direct YRP rate.
+	For a set item, a Part price covers that part's panels, while a flat rate is
+	a set rate spread over every panel type of the set.
 	"""
-	attribute = process_cost.get("attribute") if process_cost.get("depends_on_attribute") else None
+	attribute = None if is_flat_process_cost(process_cost) else process_cost.attribute
 	calculated_items = work_order.get("work_order_calculated_items") or []
-	receivables = work_order.get("receivables") or []
-	if not attribute or not calculated_items or not receivables or not work_order.get("production_detail"):
+	if not calculated_items or not receivables or not work_order.get("production_detail"):
 		return False
 
 	ipd = frappe.get_cached_doc("YRP Item Production Detail", work_order.production_detail)
 	panel_attribute = ipd.get("stiching_attribute")
-	if not panel_attribute or attribute == panel_attribute:
+	if not panel_attribute or (attribute and attribute in (panel_attribute, ipd.get("dependent_attribute"))):
 		return False
 
+	set_attribute = ipd.get("set_item_attribute") if ipd.get("is_set_item") else None
+	panel_details = get_panel_details(ipd)
 	attribute_cache = {}
 
 	def attributes(item_variant):
@@ -138,8 +145,8 @@ def apply_garment_panel_process_costs(work_order, process_cost):
 	attribute_quantities = defaultdict(float)
 	for demand in calculated_items:
 		demand_attributes = attributes(demand.item_variant)
-		attribute_value = demand_attributes.get(attribute)
-		if not attribute_value:
+		attribute_value = demand_attributes.get(attribute) if attribute else None
+		if attribute and not attribute_value:
 			return False
 		data = {
 			"row": demand,
@@ -153,8 +160,12 @@ def apply_garment_panel_process_costs(work_order, process_cost):
 
 	for receivable in receivables:
 		receivable_attributes = attributes(receivable.item_variant)
-		if not receivable_attributes.get(panel_attribute):
+		panel = receivable_attributes.get(panel_attribute)
+		if not panel:
 			return False
+		if set_attribute and not receivable_attributes.get(set_attribute):
+			part = panel_details.get(panel, {}).get("part")
+			receivable_attributes = {**receivable_attributes, set_attribute: part}
 		matches = [
 			demand
 			for demand in demand_data
@@ -171,6 +182,7 @@ def apply_garment_panel_process_costs(work_order, process_cost):
 
 	if any(not demand["receivables"] for demand in demand_data):
 		return False
+	set_panel_types = len({panel for demand in demand_data for _row, panel in demand["receivables"]})
 
 	for demand in demand_data:
 		calculated_qty = flt(demand["row"].quantity)
@@ -187,7 +199,10 @@ def apply_garment_panel_process_costs(work_order, process_cost):
 		if not panel_groups:
 			return False
 
-		panel_type_value = flt(finished_item_rate) * calculated_qty / len(panel_groups)
+		panel_types = len(panel_groups)
+		if set_attribute and not attribute:
+			panel_types = set_panel_types
+		panel_type_value = flt(finished_item_rate) * calculated_qty / panel_types
 		for panel_rows in panel_groups.values():
 			panel_quantity = sum(get_receivable_stock_quantity(row) for row in panel_rows)
 			if panel_quantity <= 0:
@@ -197,6 +212,36 @@ def apply_garment_panel_process_costs(work_order, process_cost):
 				set_receivable_process_cost(row, process_cost.name, unit_rate)
 
 	return True
+
+
+def divide_cutting_panel_rates(work_order, process_cost, receivables):
+	"""On cutting, a Panel or Stage price covers all pieces of that panel in one garment."""
+	attribute = None if is_flat_process_cost(process_cost) else process_cost.attribute
+	if not attribute or not work_order.get("production_detail"):
+		return
+	ipd = frappe.get_cached_doc("YRP Item Production Detail", work_order.production_detail)
+	panel_attribute = ipd.get("stiching_attribute")
+	if ipd.get("cutting_process") != work_order.get("process_name"):
+		return
+	if attribute not in (panel_attribute, ipd.get("dependent_attribute")):
+		return
+	panel_details = get_panel_details(ipd)
+	for row in receivables:
+		panel = get_variant_attributes(row.item_variant).get(panel_attribute)
+		quantity = flt(panel_details.get(panel, {}).get("quantity"))
+		if quantity > 1:
+			set_receivable_process_cost(row, process_cost.name, flt(row.cost) / quantity)
+
+
+def get_panel_details(ipd):
+	"""Map each IPD panel to its set part and its quantity per garment."""
+	return {
+		_attribute_value(row.stiching_attribute_value): {
+			"part": _attribute_value(row.get("set_item_attribute_value")),
+			"quantity": flt(row.get("quantity")) or 1,
+		}
+		for row in ipd.get("stiching_item_details") or []
+	}
 
 
 def _matches_garment_demand(demand, receivable, receivable_attributes, ipd):

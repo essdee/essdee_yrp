@@ -122,6 +122,7 @@ fixtures = [
 					"YRP Process Cost-is_expired-read_only",
 					"YRP Process Cost-item-fetch_from",
 					"YRP Process Cost-item-fetch_if_empty",
+					"YRP Process Cost-lot-in_standard_filter",
 					"Purchase Order-naming_series-options",
 					"Purchase Order-naming_series-default",
 					"Purchase Order-status-options",
@@ -551,7 +552,6 @@ doc_events = {
 		"onload": "essdee_yrp.work_order_hooks.onload",
 		"validate": "essdee_yrp.work_order_hooks.validate",
 		"before_update_after_submit": "essdee_yrp.work_order_hooks.before_update_after_submit",
-		"on_update_after_submit": "essdee_yrp.work_order_correction.write_off_correction_stock",
 		"before_cancel": "essdee_yrp.sewing.plan.before_work_order_cancel",
 		"on_submit": [
 			"essdee_yrp.finishing.work_order.on_submit",
@@ -681,6 +681,21 @@ doc_events = {
 			"essdee_yrp.finishing.old_lot.on_lot_transfer_cancel",
 			"essdee_yrp.essdee_yrp.doctype.sd_yrp_cutting_bulk_lay_sheets.sd_yrp_cutting_bulk_lay_sheets.refresh_linked_bulk_status",
 		],
+	},
+}
+
+# JSON fields that store stock-dimension values by name (see yrp.stock.dimension_rename).
+stock_dimension_json_fields = {
+	"SD YRP GRN Deliverable": ["stock_dimensions"],
+	"SD YRP Lot Transfer Item": ["stock_dimensions"],
+	"SD YRP Finishing Plan Dispatch": ["finishing_items", "dispatch_colour_details"],
+	"YRP Goods Received Note": ["items_json"],
+}
+
+stock_dimension_keyed_json_fields = {
+	"received_type": {
+		"SD YRP Finishing Plan Detail": ["received_type_json"],
+		"YRP Goods Received Note": ["items_json"],
 	},
 }
 
