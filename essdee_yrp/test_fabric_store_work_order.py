@@ -812,3 +812,30 @@ class TestFabricStoreWorkOrderControllerSave(IntegrationTestCase):
 		cleared = frappe.get_doc("YRP Work Order", name)
 		self.assertEqual(cleared.deliverables, [])
 		self.assertEqual(cleared.receivables, [])
+
+	def test_editor_save_refreshes_stale_party_names(self):
+		name = frappe.db.get_value(
+			"YRP Work Order",
+			{"docstatus": 0, "supplier": ["is", "set"], "delivery_location": ["is", "set"]},
+			"name",
+		)
+		if not name:
+			self.skipTest("No Draft Work Order with a supplier and delivery location")
+		frappe.db.set_value(
+			"YRP Work Order",
+			name,
+			{"supplier_name": "STALE SUPPLIER", "delivery_location_name": "STALE LOCATION"},
+			update_modified=False,
+		)
+		doc = frappe.get_doc("YRP Work Order", name)
+
+		save_work_order_document({}, name=name, expected_modified=doc.modified)
+
+		saved = frappe.get_doc("YRP Work Order", name)
+		self.assertEqual(
+			saved.supplier_name, frappe.db.get_value("Supplier", saved.supplier, "supplier_name")
+		)
+		self.assertEqual(
+			saved.delivery_location_name,
+			frappe.db.get_value("Supplier", saved.delivery_location, "supplier_name"),
+		)
