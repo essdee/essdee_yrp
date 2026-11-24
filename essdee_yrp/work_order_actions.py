@@ -8,14 +8,11 @@ Every mutating endpoint reloads the Work Order and rechecks permission/state.
 
 from __future__ import annotations
 
-from collections import defaultdict
-
 import frappe
 from frappe import _
 from frappe.utils import flt
-from yrp.attribute_links import value as _attribute_value
 from yrp.stock.save_stock_items import group_items_for_ui
-from yrp.utils import get_variant_attr_details, update_if_string_instance
+from yrp.utils import get_variant_attr_details
 
 from essdee_yrp.work_order_correction import can_create_correction
 
@@ -39,6 +36,12 @@ def _open_submitted_work_order(work_order: str, permission: str = "read"):
 
 def _can_create(doctype: str) -> bool:
 	return bool(frappe.has_permission(doctype, ptype="create"))
+
+
+def _can_recalculate_deliverables(doc, processes, ipd) -> bool:
+	from essdee_yrp.work_order_recalculate import can_recalculate_deliverables
+
+	return can_recalculate_deliverables(doc, processes, ipd)
 
 
 @frappe.whitelist()
@@ -86,6 +89,7 @@ def get_work_order_action_context(work_order: str) -> dict:
 		"can_change_item": bool(
 			is_open and can_write and not doc.get("is_rework") and item_bom_processes.intersection(processes)
 		),
+		"can_recalculate_deliverables": bool(can_write and _can_recalculate_deliverables(doc, processes, ipd)),
 		"can_make_material_issue": is_open and _can_create("YRP Stock Entry"),
 		"material_issue_warehouse": material_issue_warehouse,
 		"can_make_cutting_plan": is_open and is_cutting and _can_create("SD YRP Cutting Plan"),
@@ -237,19 +241,6 @@ def get_wo_recut_defaults(work_order: str) -> dict:
 	}
 
 
-def _item_bom_rows(doc, ipd, processes):
-	return [row for row in ipd.get("item_bom") or [] if row.process_name in processes]
-
-
-def _variant_identity(item_variant: str) -> tuple[str, str]:
-	variant = frappe.get_cached_doc("Item", item_variant)
-	attributes = ", ".join(
-		f"{row.attribute}: {_attribute_value(row.attribute_value)}"
-		for row in sorted(variant.get("attributes") or [], key=lambda row: row.attribute)
-	)
-	return (variant.variant_of or variant.name), attributes
-
-
 def _row_reference_reason(row_name: str) -> str | None:
 	dc = frappe.db.sql(
 		"""
@@ -318,210 +309,16 @@ def _work_order_demands(doc) -> list[dict]:
 
 
 def _expected_accessories(doc, ipd, processes) -> list[dict]:
-	from essdee_yrp.garment_work_order import _accessory_rows, _aggregate_rows
+	"""Return the accessory deliverables ``Calculate Items`` would build for this Work Order today."""
+	from essdee_yrp.garment_work_order import (
+		_accessory_rows,
+		_aggregate_rows,
+		_stitching_cloth_accessory_deliverables,
+	)
 
 	lot = frappe.get_cached_doc("SD YRP Lot", doc.lot)
-	return _aggregate_rows(_accessory_rows(ipd, lot, _work_order_demands(doc), processes))
-
-
-def _change_item_context(doc, selected=None) -> dict:
-	processes = _processes(doc.process_name)
-	ipd = frappe.get_cached_doc("YRP Item Production Detail", doc.production_detail)
-	bom_rows = _item_bom_rows(doc, ipd, processes)
-	bom_by_name = {row.name: row for row in bom_rows}
-	selected = set(selected or bom_by_name)
-	unknown = sorted(selected.difference(bom_by_name))
-	selected_templates = {bom_by_name[name].item for name in selected if name in bom_by_name}
-	selection_by_template = defaultdict(list)
-	for name in selected:
-		if name in bom_by_name:
-			selection_by_template[bom_by_name[name].item].append(name)
-
-	cloth_templates = {row.cloth for row in ipd.get("cloth_detail") or [] if row.cloth}
-	current_by_template = defaultdict(list)
-	for row in doc.get("deliverables") or []:
-		if not row.get("is_calculated") or not row.item_variant:
-			continue
-		if update_if_string_instance(row.get("set_combination")):
-			continue
-		template, attributes = _variant_identity(row.item_variant)
-		if template == doc.item or template in cloth_templates:
-			continue
-		if template not in selected_templates:
-			continue
-		eligible, reason = _row_eligibility(row)
-		current_by_template[template].append(
-			{
-				"row_name": row.name,
-				"old_variant": row.item_variant,
-				"old_qty": flt(row.qty, 3),
-				"old_uom": row.uom,
-				"attributes": attributes,
-				"eligible": eligible,
-				"reason": reason,
-			}
-		)
-
-	expected_by_template = defaultdict(list)
-	for row in _expected_accessories(doc, ipd, processes):
-		template, attributes = _variant_identity(row["item_variant"])
-		if template in selected_templates:
-			expected_by_template[template].append(
-				{
-					"new_variant": row["item_variant"],
-					"new_qty": flt(row["qty"], 3),
-					"new_uom": row.get("uom"),
-					"attributes": attributes,
-				}
-			)
-
-	changes = []
-	for template in sorted(selected_templates):
-		current = current_by_template.get(template, [])
-		expected = expected_by_template.get(template, [])
-		selection_id = (selection_by_template.get(template) or [None])[0]
-		expected_by_variant = {row["new_variant"]: row for row in expected}
-		matching_variants = {row["old_variant"] for row in current}.intersection(expected_by_variant)
-		for old in current:
-			if old["old_variant"] not in matching_variants:
-				continue
-			changes.append(
-				{
-					**old,
-					**expected_by_variant[old["old_variant"]],
-					"selection_id": selection_id,
-					"item": template,
-					"action": "unchanged",
-					"eligible": False,
-					"reason": _("already matches recalculation"),
-				}
-			)
-
-		remaining_current = [row for row in current if row["old_variant"] not in matching_variants]
-		remaining_expected = [
-			row for variant, row in expected_by_variant.items() if variant not in matching_variants
-		]
-		remaining_current_variants = {row["old_variant"] for row in remaining_current}
-		if len(remaining_current_variants) == len(remaining_expected) == 1:
-			new = remaining_expected[0]
-			for old in remaining_current:
-				changes.append(
-					{
-						**old,
-						**new,
-						"selection_id": selection_id,
-						"item": template,
-						"action": "replace" if old["eligible"] else "blocked",
-					}
-				)
-			continue
-		if not remaining_current and not remaining_expected:
-			continue
-
-		reason = (
-			_("No existing Work Order row was found.")
-			if not remaining_current
-			else _("No recalculated Item BOM row was found.")
-			if not remaining_expected
-			else _("Multiple rows are ambiguous; recalculate this Work Order in draft instead.")
-		)
-		for old in remaining_current or [
-			{"row_name": selection_id, "old_variant": "", "old_qty": 0, "old_uom": ""}
-		]:
-			changes.append(
-				{
-					**old,
-					"selection_id": selection_id,
-					"item": template,
-					"new_variant": "",
-					"new_qty": 0,
-					"new_uom": "",
-					"action": "blocked",
-					"eligible": False,
-					"reason": old.get("reason") or reason,
-				}
-			)
-
-	return {
-		"supported": bool(bom_rows),
-		"changes": changes,
-		"skipped": [
-			{"row_name": name, "reason": _("not an Item BOM row for this Work Order process")}
-			for name in unknown
-		],
-		"bom_rows": bom_rows,
-	}
-
-
-@frappe.whitelist()
-def get_wo_bom_accessory_items(work_order: str) -> dict:
-	doc = _open_submitted_work_order(work_order, "write")
-	if doc.get("is_rework"):
-		frappe.throw(_("Change Item is not available on a rework Work Order."))
-	context = _change_item_context(doc, selected=[])
-	if not context["supported"]:
-		return {
-			"supported": False,
-			"message": _("This Work Order's process has no recalculable Item BOM rows."),
-			"items": [],
-		}
-	return {
-		"supported": True,
-		"items": [
-			{
-				"row_name": row.name,
-				"branch": row.process_name,
-				"item": row.item,
-				"item_variant": row.item,
-				"attributes": _("Attribute Mapping") if row.based_on_attribute_mapping else "",
-				"qty": flt(row.qty_of_bom_item, 3),
-				"uom": row.uom,
-				"eligible": True,
-				"reason": None,
-			}
-			for row in context["bom_rows"]
-		],
-	}
-
-
-@frappe.whitelist()
-def get_wo_bom_accessory_change_preview(work_order: str, selected) -> dict:
-	doc = _open_submitted_work_order(work_order, "write")
-	selected = frappe.parse_json(selected) if isinstance(selected, str) else selected
-	return _change_item_context(doc, selected=selected or [])
-
-
-@frappe.whitelist()
-def apply_bom_accessory_changes(work_order: str, selected) -> dict:
-	doc = _open_submitted_work_order(work_order, "write")
-	selected = frappe.parse_json(selected) if isinstance(selected, str) else selected
-	selected = set(selected or [])
-	context = _change_item_context(doc, selected=selected)
-	applied = []
-	skipped = list(context.get("skipped") or [])
-	for change in context.get("changes") or []:
-		if change.get("selection_id") not in selected:
-			continue
-		if change.get("action") != "replace" or not change.get("eligible"):
-			skipped.append(
-				{
-					"row_name": change.get("row_name"),
-					"old_variant": change.get("old_variant"),
-					"reason": change.get("reason"),
-				}
-			)
-			continue
-		frappe.db.set_value(
-			"YRP Work Order Deliverables",
-			change["row_name"],
-			"item_variant",
-			change["new_variant"],
-		)
-		doc.add_comment(
-			"Comment",
-			_("Change Item: {0} → {1} (quantity retained: {2})").format(
-				change["old_variant"], change["new_variant"], change["old_qty"]
-			),
-		)
-		applied.append(change)
-	return {"applied": applied, "skipped": skipped}
+	demands = _work_order_demands(doc)
+	rows = _accessory_rows(ipd, lot, demands, processes)
+	if processes[:1] == [ipd.stiching_process]:
+		rows += _stitching_cloth_accessory_deliverables(ipd, demands)
+	return _aggregate_rows(rows)

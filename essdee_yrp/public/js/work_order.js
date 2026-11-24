@@ -129,6 +129,7 @@ const ESSDEE_WORK_ORDER_ACTIONS = [
 	"Create Recut",
 	"Change Delivery Date",
 	"Change Item",
+	"Recalculate Deliverables",
 	"Create Sewing Plan",
 	"Open Sewing Plan",
 	"Calculate Pieces",
@@ -180,6 +181,11 @@ function setup_essdee_work_order_actions(frm) {
 			if (context.can_change_item) {
 				frm.add_custom_button(__("Change Item"), () => {
 					open_change_item_dialog(frm);
+				});
+			}
+			if (context.can_recalculate_deliverables) {
+				frm.add_custom_button(__("Recalculate Deliverables"), () => {
+					essdee_yrp.work_order.open_recalculate_deliverables_dialog(frm);
 				});
 			}
 			if (context.can_create_sewing_plan) {
@@ -498,7 +504,7 @@ function create_sewing_plan(frm) {
 
 function open_change_item_dialog(frm) {
 	frappe.call({
-		method: "essdee_yrp.work_order_actions.get_wo_bom_accessory_items",
+		method: "essdee_yrp.work_order_change_item.get_wo_bom_accessory_items",
 		args: { work_order: frm.doc.name },
 		freeze: true,
 		freeze_message: __("Loading Item BOM rows..."),
@@ -538,7 +544,7 @@ function open_change_item_dialog(frm) {
 
 function open_change_item_preview(frm, selected) {
 	frappe.call({
-		method: "essdee_yrp.work_order_actions.get_wo_bom_accessory_change_preview",
+		method: "essdee_yrp.work_order_change_item.get_wo_bom_accessory_change_preview",
 		args: { work_order: frm.doc.name, selected },
 		freeze: true,
 		freeze_message: __("Recalculating selected Item BOM rows..."),
@@ -555,7 +561,7 @@ function open_change_item_preview(frm, selected) {
 				primary_action() {
 					if (!approvable.length) return;
 					frappe.call({
-						method: "essdee_yrp.work_order_actions.apply_bom_accessory_changes",
+						method: "essdee_yrp.work_order_change_item.apply_bom_accessory_changes",
 						args: { work_order: frm.doc.name, selected },
 						freeze: true,
 						freeze_message: __("Updating selected Item BOM rows..."),
@@ -563,7 +569,9 @@ function open_change_item_preview(frm, selected) {
 							const output = res.message || {};
 							frappe.msgprint({
 								title: __("Change Item"),
-								message: __("Updated {0} Item BOM row(s).", [(output.applied || []).length]),
+								message: [__("Updated {0} Item BOM row(s).", [(output.applied || []).length])]
+									.concat((output.skipped || []).map((row) => `&bull; ${frappe.utils.escape_html(`${row.old_variant || row.row_name || ""}: ${row.reason || ""}`)}`))
+									.join("<br>"),
 								indicator: (output.applied || []).length ? "green" : "orange",
 							});
 							d.hide();
@@ -599,14 +607,14 @@ function render_change_item_preview(changes) {
 	if (!changes.length) return `<p class="text-muted">${__("No recalculated changes were found.")}</p>`;
 	const rows = changes.map((change) => {
 		let status = change.eligible
-			? `<span class="text-success">${__("Ready")}</span>`
+			? `<span class="text-success">${change.note ? `${__("Ready")} — ${escape(change.note)}` : __("Ready")}</span>`
 			: `<span class="text-danger">${escape(change.reason || __("Not eligible"))}</span>`;
 		if (change.action === "unchanged") status = `<span class="text-muted">${__("No change")}</span>`;
 		return `<tr class="${change.eligible ? "" : "text-muted"}">
 			<td>${escape(change.item || "")}</td>
 			<td>${escape(change.old_variant || "")}<br><span class="text-muted">${__("Qty")}: ${flt(change.old_qty, 3)} ${escape(change.old_uom || "")}</span></td>
 			<td class="text-center">&rarr;</td>
-			<td>${escape(change.new_variant || "")}<br><span class="text-muted">${__("Calculated Qty")}: ${flt(change.new_qty, 3)} ${escape(change.new_uom || "")}</span></td>
+			<td>${escape(change.new_variant || "")}<br><span class="text-muted">${__("Qty")}: ${flt(change.new_qty, 3)} ${escape(change.new_uom || "")} · ${__("Calculated")}: ${flt(change.calculated_qty, 3)} ${escape(change.calculated_uom || "")}</span></td>
 			<td>${status}</td>
 		</tr>`;
 	}).join("");

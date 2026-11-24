@@ -60,6 +60,7 @@
 
 		<WorkOrderActionPanel v-model:visible="actionVisible" :mode="actionMode" :work-order="workspace.record || {}" :editor="actionEditor" @changed="actionChanged" />
 		<WorkOrderCorrectionDialog v-model:visible="correctionVisible" :work-order="workspace.record || {}" @changed="actionChanged" />
+		<WorkOrderRecalculateDialog v-model:visible="recalculateVisible" :work-order="workspace.record || {}" @changed="actionChanged" />
 		<RelatedDocumentWorkspaceDialog v-model:visible="relatedVisible" :doctype="relatedDoctype" :name="relatedName" :source-context="relatedSourceContext" @changed="relatedChanged" @closed="relatedClosed" />
 		<DocumentConfirmationDialog v-model:visible="lifecycleConfirmVisible" :title="lifecycleConfirmTitle" :message="lifecycleConfirmMessage" :confirm-label="lifecycleConfirmLabel" :busy="Boolean(acting)" @confirm="confirmLifecycleAction" />
 		<FabricStockOperationDialog v-model:visible="materialIssueVisible" operation="stock_entry" :source-context="materialIssueContext" @changed="materialIssueChanged" />
@@ -105,6 +106,7 @@ import RelatedDocumentWorkspaceDialog from "./fabric-store/RelatedDocumentWorksp
 import WorkOrderActionPanel from "./fabric-store/WorkOrderActionPanel.vue"
 import WorkOrderActivityRail from "./fabric-store/WorkOrderActivityRail.vue"
 import WorkOrderCorrectionDialog from "./fabric-store/WorkOrderCorrectionDialog.vue"
+import WorkOrderRecalculateDialog from "./fabric-store/WorkOrderRecalculateDialog.vue"
 import WorkOrderDetails from "./fabric-store/WorkOrderDetails.vue"
 import WorkOrderOverview from "./fabric-store/WorkOrderOverview.vue"
 import WorkOrderSummary from "./fabric-store/WorkOrderSummary.vue"
@@ -132,6 +134,7 @@ const workspace = ref({})
 const canCreateQualityInspection = ref(false)
 const actionVisible = ref(false)
 const correctionVisible = ref(false)
+const recalculateVisible = ref(false)
 const actionMode = ref("")
 const actionEditor = ref({})
 const actionSourceId = ref("")
@@ -229,6 +232,7 @@ const workOrderActions = computed(() => {
 	add("calculate_pieces", "Calculate Pieces", "pi pi-calculator", () => openAction("calculate_pieces"), { menuOnly: true })
 	add("change_delivery_date", "Change Delivery Date", "pi pi-calendar", () => openAction("change_delivery_date"), { menuOnly: true })
 	add("change_item", "Change Item", "pi pi-sync", () => openAction("change_item"), { menuOnly: true })
+	add("recalculate_deliverables", "Recalculate Deliverables", "pi pi-refresh", () => { recalculateVisible.value = true }, { menuOnly: true })
 	add("request_close", "Request Close", "pi pi-lock", () => openAction("request_close"), { menuOnly: true })
 	add("close", "Close", "pi pi-lock", () => openAction("close"), { menuOnly: true })
 	add("approve_close", "Approve Close", "pi pi-check-circle", () => openAction("approve_close"), { menuOnly: true })
@@ -261,6 +265,7 @@ async function loadWorkspace(refresh = false) {
 		acting.value = ""
 		actionVisible.value = false
 		correctionVisible.value = false
+		recalculateVisible.value = false
 		actionSourceId.value = ""
 		relatedVisible.value = false
 		relatedName.value = ""
