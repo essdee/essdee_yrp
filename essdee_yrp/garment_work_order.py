@@ -210,23 +210,7 @@ def calculate_garment_work_order(work_order, rows, modified=None):
 
 	wo.set("deliverables", [])
 	for index, row in enumerate(deliverables):
-		qty = flt(row["qty"], 3)
-		wo.append(
-			"deliverables",
-			_filter_child_fields(
-				"YRP Work Order Deliverables",
-				{
-					**row,
-					"qty": qty,
-					"pending_quantity": qty,
-					"received_type": default_received_type,
-					"is_calculated": 1,
-					"lot": lot.name,
-					"table_index": row.get("table_index", index),
-					"row_index": cstr(row.get("row_index", index)),
-				},
-			),
-		)
+		wo.append("deliverables", get_deliverable_row_values(row, index, lot.name, default_received_type))
 
 	wo.set("receivables", [])
 	for index, row in enumerate(receivables):
@@ -284,6 +268,24 @@ def calculate_garment_work_order(work_order, rows, modified=None):
 		"receivables": len(receivables),
 		"calculated_items": len(demands),
 	}
+
+
+def get_deliverable_row_values(row, index, lot_name, received_type):
+	"""Return a calculated Work Order Deliverables row for one IPD output row."""
+	qty = flt(row["qty"], 3)
+	return _filter_child_fields(
+		"YRP Work Order Deliverables",
+		{
+			**row,
+			"qty": qty,
+			"pending_quantity": qty,
+			"received_type": received_type,
+			"is_calculated": 1,
+			"lot": lot_name,
+			"table_index": row.get("table_index", index),
+			"row_index": cstr(row.get("row_index", index)),
+		},
+	)
 
 
 def calculate_garment_process_rows(ipd, lot, process_name, demands):

@@ -43,13 +43,15 @@ from essdee_yrp.garment_work_order import (
 from essdee_yrp.rework_work_order import get_rework_source_rows
 from essdee_yrp.time_and_action.tracking import update_expected_date
 from essdee_yrp.work_order_actions import (
-	apply_bom_accessory_changes,
 	get_delivery_challan_defaults,
 	get_goods_received_note_defaults,
-	get_wo_bom_accessory_change_preview,
-	get_wo_bom_accessory_items,
 	get_wo_recut_defaults,
 	get_work_order_action_context,
+)
+from essdee_yrp.work_order_change_item import (
+	apply_bom_accessory_changes,
+	get_wo_bom_accessory_change_preview,
+	get_wo_bom_accessory_items,
 )
 from essdee_yrp.work_order_close import SD_CLOSE_REASONS, close_work_order
 from essdee_yrp.work_order_correction import (
@@ -453,6 +455,10 @@ def _capability_candidates(
 		"change_item": {
 			"label": _("Change Item"),
 			"eligible": bool(action_context.get("can_change_item")),
+		},
+		"recalculate_deliverables": {
+			"label": _("Recalculate Deliverables"),
+			"eligible": bool(action_context.get("can_recalculate_deliverables")),
 		},
 		"create_delivery_challan": {
 			"label": _("Make DC"),

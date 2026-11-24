@@ -140,7 +140,7 @@
 			<template v-else-if="mode === 'change_item'">
 				<Message v-if="changeItemContext.message" severity="secondary" :closable="false">{{ changeItemContext.message }}</Message>
 				<div class="work-order-change-items"><label v-for="item in changeItemContext.items || []" :key="item.row_name"><Checkbox v-model="draft.selected" :value="item.row_name" @change="changeItemPreview = {}" /><span><strong>{{ item.item_variant || item.item }}</strong><small>{{ item.branch }} · {{ number(item.qty) }} {{ item.uom }}</small></span></label></div>
-				<section v-if="changeItemPreview.changes?.length" class="work-order-action-panel__existing"><h3>Preview</h3><div v-for="change in changeItemPreview.changes" :key="change.selection_id"><span>{{ change.old_variant }}</span><strong>{{ change.new_variant || change.reason }}</strong></div></section>
+				<WorkOrderChangeItemPreview v-if="changeItemPreview.changes" :changes="changeItemPreview.changes" />
 			</template>
 
 			<template v-else-if="mode === 'calculate_pieces'">
@@ -181,6 +181,7 @@ import DocumentLink from "../../components/common/DocumentLink.vue"
 import DebitEntryFields from "./DebitEntryFields.vue"
 import WorkOrderDebitTable from "./WorkOrderDebitTable.vue"
 import WorkOrderItemMatrix from "./WorkOrderItemMatrix.vue"
+import WorkOrderChangeItemPreview from "./WorkOrderChangeItemPreview.vue"
 import { pendingWorkOrderGroups } from "./workOrderClose.js"
 import { fabricClothTotal, recutGroupTotals, recutPieces, reworkTotals } from "./workOrderTotals.js"
 import DateField from "../../components/common/DateField.vue"
