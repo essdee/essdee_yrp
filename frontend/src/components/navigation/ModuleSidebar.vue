@@ -1,7 +1,7 @@
 <template>
-	<aside v-if="department && !isLanding" id="module-sidebar" class="module-sidebar" :class="{ 'is-visible': cards.length > 1, 'is-open': isDrawerOpen }">
+	<aside v-if="department && !isLanding" id="module-sidebar" class="module-sidebar" :class="{ 'is-visible': cards.length > 1, 'is-open': isDrawerOpen, 'is-pinned': isAvailable && isPinned && !isDrawer }">
 		<div hidden aria-hidden="true"><component :is="landing" :key="department.key" /></div>
-		<CollapsibleNavList v-if="cards.length > 1" :items="cards" :label="`${department.label} workspaces`" :selected-key="selectedKey" :search-placeholder="`Search ${department.label}`" :pinned="isDrawer" />
+		<CollapsibleNavList v-if="cards.length > 1" :items="cards" :label="`${department.label} workspaces`" :selected-key="selectedKey" :search-placeholder="`Search ${department.label}`" :pinned="isDrawer || isPinned" />
 	</aside>
 	<div v-if="isDrawerOpen" class="module-sidebar__backdrop" aria-hidden="true" @click="emit('update:open', false)" />
 </template>
@@ -11,9 +11,10 @@ import { computed, defineAsyncComponent, onBeforeUnmount, provide, ref, shallowR
 import { useRoute } from "vue-router"
 
 import CollapsibleNavList from "./CollapsibleNavList.vue"
-import { DRAWER_MEDIA_QUERY, getSelectedCardKey, workspaceCardsSinkKey } from "./moduleSidebar.js"
+import { DRAWER_MEDIA_QUERY, getSelectedCardKey, isSidebarPinned, saveSidebarPinned, workspaceCardsSinkKey } from "./moduleSidebar.js"
+import { getSessionUser } from "./sessionUser.js"
 
-/** Left rail of the active department's other workspace cards, loaded through the department's own launcher; an off-canvas drawer on tablets and phones. */
+/** Left rail of the active department's other workspace cards, loaded through the department's own launcher; kept open per user on desktop, an off-canvas drawer on tablets and phones. */
 const props = defineProps({
 	department: { type: Object, default: null },
 	open: { type: Boolean, default: false },
@@ -29,6 +30,17 @@ const isAvailable = computed(() => Boolean(props.department) && !isLanding.value
 const drawerMedia = globalThis.window?.matchMedia?.(DRAWER_MEDIA_QUERY)
 const isDrawer = ref(Boolean(drawerMedia?.matches))
 const isDrawerOpen = computed(() => isDrawer.value && isAvailable.value && props.open)
+const user = getSessionUser().id
+const isPinned = ref(isSidebarPinned(user))
+const isExpanded = computed(() => (isDrawer.value ? isDrawerOpen.value : isPinned.value))
+
+/** Top-bar toggle: opens the drawer on tablets and phones, keeps the rail open on desktop. */
+function toggle() {
+	if (isDrawer.value) return emit("update:open", !props.open)
+	isPinned.value = !isPinned.value
+	saveSidebarPinned(user, isPinned.value)
+}
+
 function onMediaChange(event) {
 	isDrawer.value = event.matches
 	if (!event.matches) emit("update:open", false)
@@ -46,6 +58,7 @@ onBeforeUnmount(() => {
 watch(() => props.department?.key, () => { cards.value = [] })
 watch(isAvailable, (available) => emit("availability", available), { immediate: true })
 provide(workspaceCardsSinkKey, (items) => { cards.value = items })
+defineExpose({ toggle, isExpanded })
 </script>
 
 <style scoped>
@@ -57,6 +70,9 @@ provide(workspaceCardsSinkKey, (items) => { cards.value = items })
 	left: var(--erp-space-2);
 	--collapsible-nav-height: 100%;
 }
+
+.module-sidebar.is-pinned { width: 248px; }
+.module-sidebar.is-pinned :deep(.collapsible-nav) { height: 100%; }
 
 .module-sidebar__backdrop {
 	position: fixed;

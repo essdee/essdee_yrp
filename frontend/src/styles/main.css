@@ -154,7 +154,7 @@ a {
 }
 
 .app-nav-toggle.app-theme-toggle {
-	display: none;
+	display: inline-flex;
 	justify-content: center;
 	flex: 0 0 auto;
 }
@@ -361,6 +361,9 @@ a {
 @media (min-width: 901px) and (hover: hover) {
 	.app-shell:has(.module-sidebar.is-visible) .app-main {
 		padding-left: calc(44px + var(--erp-space-2));
+	}
+	.app-shell:has(.module-sidebar.is-pinned) .app-main {
+		padding-left: calc(248px + var(--erp-space-2));
 	}
 }
 
@@ -716,12 +719,6 @@ a {
 	.app-brand {
 		min-width: 44px;
 		min-height: 44px;
-	}
-}
-
-@media (max-width: 900px), (hover: none) {
-	.app-nav-toggle.app-theme-toggle {
-		display: inline-flex;
 	}
 }
 

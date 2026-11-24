@@ -11,10 +11,10 @@
 				aria-label="Workspace menu"
 				title="Workspace menu"
 				aria-controls="module-sidebar"
-				:aria-expanded="isModuleNavigationOpen"
-				@click="isModuleNavigationOpen = !isModuleNavigationOpen"
+				:aria-expanded="moduleSidebar?.isExpanded"
+				@click="moduleSidebar?.toggle()"
 			>
-				<i :class="isModuleNavigationOpen ? 'pi pi-times' : 'pi pi-bars'" aria-hidden="true" />
+				<i :class="moduleSidebar?.isExpanded ? 'pi pi-times' : 'pi pi-bars'" aria-hidden="true" />
 			</button>
 			<RouterLink class="app-brand" :to="getHomePath()" aria-label="Essdee YRP administrator home">
 				<img v-if="appLogo && !isLogoBroken" class="app-brand__logo" :src="appLogo" alt="" @error="isLogoBroken = true" />
@@ -49,7 +49,7 @@
 			</nav>
 		</header>
 
-		<ModuleSidebar v-model:open="isModuleNavigationOpen" :department="activeDepartment" @availability="hasModuleNavigation = $event" />
+		<ModuleSidebar ref="moduleSidebar" v-model:open="isModuleNavigationOpen" :department="activeDepartment" @availability="hasModuleNavigation = $event" />
 
 		<div id="app-main" class="app-main" tabindex="-1">
 			<RouterView v-slot="{ Component }">
@@ -90,6 +90,7 @@ const isNavigating = ref(false)
 const isDarkTheme = ref(currentTheme() === "dark")
 const hasModuleNavigation = ref(false)
 const isModuleNavigationOpen = ref(false)
+const moduleSidebar = ref(null)
 const themeToggleLabel = computed(() => isDarkTheme.value ? "Switch to light theme" : "Switch to dark theme")
 
 function switchTheme() {

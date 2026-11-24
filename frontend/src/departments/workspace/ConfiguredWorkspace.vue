@@ -15,19 +15,18 @@
 
 <script setup>
 import { onMounted, ref } from "vue"
-import { useRoute } from "vue-router"
 
 import { getDepartmentCapabilities } from "../../api/departmentSearch.js"
 import DepartmentPage from "../../components/DepartmentPage.vue"
 import WorkspaceLauncher from "../../components/common/WorkspaceLauncher.vue"
 import WorkspaceLoadError from "../../components/common/WorkspaceLoadError.vue"
-import { WORKSPACE_HOME_PATH } from "../../router/departmentLock.js"
 import { getReadableSections, getWorkspaceView } from "./workspaceSections.js"
 
-const route = useRoute()
-const view = getWorkspaceView(route.path)
+/** `departmentKey` is set for an overridden department landing; without it this is the user's /workspace home. */
+const props = defineProps({ departmentKey: { type: String, default: "" } })
+const view = getWorkspaceView(props.departmentKey)
 const title = view.title
-const eyebrow = route.path === WORKSPACE_HOME_PATH ? "Your workspace" : "Department workspace"
+const eyebrow = props.departmentKey ? "Department workspace" : "Your workspace"
 const cardCount = Math.max(1, view.sections.reduce((count, section) => count + section.cards.length, 0))
 const loading = ref(true)
 const loadError = ref("")
