@@ -7,7 +7,7 @@ frappe.provide("essdee_yrp.work_order");
 		added: __("Added"),
 		updated: __("Updated"),
 		removed: __("Removed"),
-		kept: __("Kept (delivered)"),
+		kept: __("Kept"),
 		unchanged: __("No change"),
 	};
 	const COLOURS = { added: "green", updated: "green", removed: "red", kept: "orange", unchanged: "gray" };
@@ -19,7 +19,7 @@ frappe.provide("essdee_yrp.work_order");
 
 	function counts_text(plan) {
 		const count = (kind) => (plan[kind] || []).length;
-		return __("{0} added, {1} updated, {2} removed, {3} delivered row(s) kept.", [
+		return __("{0} added, {1} updated, {2} removed, {3} row(s) kept.", [
 			count("added"),
 			count("updated"),
 			count("removed"),
@@ -42,7 +42,9 @@ frappe.provide("essdee_yrp.work_order");
 		}
 		const intro = plan.has_changes
 			? counts_text(plan)
-			: __("Deliverables already match the Item Production Detail.");
+			: (plan.kept || []).length
+				? __("No changes to apply. {0} row(s) kept.", [(plan.kept || []).length])
+				: __("Deliverables already match the Item Production Detail.");
 		return `<p class="text-muted">${intro}</p>
 			<div style="max-height: 55vh; overflow: auto;">
 				<table class="table table-bordered table-condensed">
@@ -93,7 +95,7 @@ frappe.provide("essdee_yrp.work_order");
 							fieldtype: "HTML",
 							fieldname: "intro",
 							options: `<p>${__(
-								"Accessory deliverables are rebuilt from the current Item Production Detail. Delivered items stay unchanged. Sewing Plan and Quality Inspection entries are not affected."
+								"Accessory deliverables are rebuilt from the current Item Production Detail. Delivered items stay unchanged; for a delivered item whose variant changed, use Change Item. Sewing Plan and Quality Inspection entries are not affected."
 							)}</p>`,
 						},
 						{ fieldtype: "HTML", fieldname: "plan", options: render_plan(plan) },

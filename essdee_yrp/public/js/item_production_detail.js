@@ -480,7 +480,7 @@ frappe.ui.form.on("YRP Item Production Detail", {
 				let allowed = settings || [];
 				if (allowed.some(role => frappe.user_roles.includes(role))) {
 					if (frm.doc.approval_status !== "Approved") {
-						frm.add_custom_button(__("Approve"), () => {
+						frm.add_custom_button(__("Approve"), () => essdee_yrp.ipd.show_approve_dialog(frm, () => {
 							frappe.call({
 								method: "essdee_yrp.ipd_ui.approve_ipd",
 								args: { doc_name: frm.doc.name, approval_type: "Approved" },
@@ -489,7 +489,7 @@ frappe.ui.form.on("YRP Item Production Detail", {
 									frm.reload_doc();
 								}
 							});
-						});
+						}));
 						frm.change_custom_button_type(__("Approve"), null, "success");
 					}
 					if (frm.doc.approval_status && frm.doc.approval_status !== "Not Approved") {

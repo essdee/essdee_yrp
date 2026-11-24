@@ -16,7 +16,6 @@ from essdee_yrp.work_order_actions import (
 	_expected_accessories,
 	_open_submitted_work_order,
 	_processes,
-	_row_eligibility,
 )
 
 DELIVERABLES_DOCTYPE = "YRP Work Order Deliverables"
@@ -31,8 +30,14 @@ def can_recalculate_deliverables(doc, processes, ipd) -> bool:
 	return bool({row.process_name for row in ipd.get("item_bom") or []}.intersection(processes))
 
 
-def plan_deliverable_recalculation(current, expected, locked) -> dict:
-	"""Compare stored accessory rows with recalculated rows; ``locked`` maps a delivered variant to its reason."""
+def plan_deliverable_recalculation(current, expected, locked, referenced=None) -> dict:
+	"""Compare stored accessory rows with recalculated rows.
+
+	``locked`` maps a delivered variant to its reason; ``referenced`` maps a row that a
+	submitted GRN points to (so it must not be deleted) to its reason. Rows and expected
+	rows may carry ``template``; an item whose variant changed while delivered is left alone.
+	"""
+	referenced = referenced or {}
 	plan = {key: [] for key in PLAN_KEYS}
 	expected_by_variant = {}
 	for row in expected:
@@ -41,29 +46,62 @@ def plan_deliverable_recalculation(current, expected, locked) -> dict:
 	current_by_variant = defaultdict(list)
 	for row in current:
 		current_by_variant[row["item_variant"]].append(row)
+	frozen = _get_changed_delivered_templates(current, expected_by_variant, locked)
 
 	for variant, rows in current_by_variant.items():
 		new = expected_by_variant.get(variant)
-		if variant in locked:
+		template = _template(rows[0])
+		if template in frozen:
+			plan["kept"].extend(_change(row, new, reason=frozen[template]) for row in rows)
+		elif variant in locked:
 			plan["kept"].extend(_change(row, new, reason=locked[variant]) for row in rows)
-			continue
-		if not new:
+		elif any(row["name"] in referenced for row in rows) and _needs_new_row(rows, new):
+			reason = next(referenced[row["name"]] for row in rows if row["name"] in referenced)
+			plan["kept"].extend(_change(row, new, reason=reason) for row in rows)
+		elif not new:
 			plan["removed"].extend(_change(row, None) for row in rows)
-			continue
-		first, extra = rows[0], rows[1:]
-		if first.get("uom") != new.get("uom"):
+		elif rows[0].get("uom") != new.get("uom"):
 			plan["removed"].extend(_change(row, None) for row in rows)
 			plan["added"].append(_change(None, new))
-			continue
-		old_qty = flt(sum(flt(row["qty"]) for row in rows), 3)
-		bucket = "updated" if extra or flt(first["qty"], 3) != new["qty"] else "unchanged"
-		plan[bucket].append({**_change(first, new), "old_qty": old_qty})
-		plan["removed"].extend({**_change(row, None), "merged": True} for row in extra)
+		else:
+			first, extra = rows[0], rows[1:]
+			old_qty = flt(sum(flt(row["qty"]) for row in rows), 3)
+			bucket = "updated" if extra or flt(first["qty"], 3) != new["qty"] else "unchanged"
+			plan[bucket].append({**_change(first, new), "old_qty": old_qty})
+			plan["removed"].extend({**_change(row, None), "merged": True} for row in extra)
 
 	for variant, new in expected_by_variant.items():
-		if variant not in current_by_variant:
+		if variant not in current_by_variant and _template(new) not in frozen:
 			plan["added"].append(_change(None, new))
 	return plan
+
+
+def _template(row):
+	return row.get("template") or row["item_variant"]
+
+
+def _needs_new_row(rows, new) -> bool:
+	"""True when the plan would delete a stored row: removed item, unit change, or merged duplicate."""
+	return not new or rows[0].get("uom") != new.get("uom") or len(rows) > 1
+
+
+def _get_changed_delivered_templates(current, expected_by_variant, locked) -> dict:
+	"""Map each delivered item whose IPD variants changed to a 'use Change Item' reason."""
+	current_variants = defaultdict(set)
+	for row in current:
+		current_variants[_template(row)].add(row["item_variant"])
+	expected_variants = defaultdict(set)
+	for row in expected_by_variant.values():
+		expected_variants[_template(row)].add(row["item_variant"])
+	frozen = {}
+	for template, variants in current_variants.items():
+		delivered = variants.intersection(locked)
+		new_variants = expected_variants.get(template, set()) - variants
+		if delivered and new_variants:
+			frozen[template] = _("Kept (delivered) — use Change Item. IPD now uses {0}; {1} is {2}.").format(
+				", ".join(sorted(new_variants)), sorted(delivered)[0], locked[sorted(delivered)[0]]
+			)
+	return frozen
 
 
 def _change(old, new, reason=None) -> dict:
@@ -83,8 +121,7 @@ def is_accessory_deliverable(row, excluded_templates) -> bool:
 		return False
 	if update_if_string_instance(row.get("set_combination")):
 		return False
-	template = frappe.get_cached_value("Item", row.item_variant, "variant_of") or row.item_variant
-	return template not in excluded_templates
+	return _variant_template(row.item_variant) not in excluded_templates
 
 
 def get_delivered_variants(work_order) -> dict:
@@ -103,6 +140,35 @@ def get_delivered_variants(work_order) -> dict:
 	return {row.item_variant: row.delivery_challan for row in rows}
 
 
+def get_grn_referenced_rows(row_names) -> dict:
+	"""Map each deliverable row a submitted GRN item points to, to that GRN."""
+	if not row_names:
+		return {}
+	rows = frappe.db.sql(
+		"""
+		SELECT item.ref_docname, MIN(grn.name) AS goods_received_note
+		FROM `tabYRP Goods Received Note Item` item
+		INNER JOIN `tabYRP Goods Received Note` grn ON grn.name = item.parent
+		WHERE item.ref_doctype = 'YRP Work Order Deliverables'
+		  AND item.ref_docname IN %(row_names)s
+		  AND grn.docstatus = 1
+		GROUP BY item.ref_docname
+		""",
+		{"row_names": tuple(row_names)},
+		as_dict=True,
+	)
+	return {
+		row.ref_docname: _("referenced by Goods Received Note {0}, so it is kept").format(
+			row.goods_received_note
+		)
+		for row in rows
+	}
+
+
+def _variant_template(item_variant) -> str:
+	return frappe.get_cached_value("Item", item_variant, "variant_of") or item_variant
+
+
 def get_recalculation_plan(doc) -> dict:
 	_validate_garment_work_order(doc)
 	processes = _processes(doc.process_name)
@@ -119,16 +185,30 @@ def get_recalculation_plan(doc) -> dict:
 		for variant, challan in get_delivered_variants(doc.name).items()
 	}
 	for row in current:
-		eligible, reason = _row_eligibility(row)
-		if not eligible:
-			locked.setdefault(row.item_variant, reason)
+		if round(flt(row.qty), 3) != round(flt(row.pending_quantity), 3):
+			locked.setdefault(
+				row.item_variant,
+				_("already delivered (pending {0} of {1})").format(
+					flt(row.pending_quantity, 3), flt(row.qty, 3)
+				),
+			)
 	plan = plan_deliverable_recalculation(
 		[
-			{"name": row.name, "item_variant": row.item_variant, "qty": row.qty, "uom": row.uom}
+			{
+				"name": row.name,
+				"item_variant": row.item_variant,
+				"template": _variant_template(row.item_variant),
+				"qty": row.qty,
+				"uom": row.uom,
+			}
 			for row in current
 		],
-		_expected_accessories(doc, ipd, processes),
+		[
+			{**row, "template": _variant_template(row["item_variant"])}
+			for row in _expected_accessories(doc, ipd, processes)
+		],
 		locked,
+		get_grn_referenced_rows([row.name for row in current]),
 	)
 	plan["has_changes"] = bool(plan["added"] or plan["updated"] or plan["removed"])
 	return plan

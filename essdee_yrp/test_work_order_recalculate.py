@@ -68,6 +68,34 @@ class TestPlanDeliverableRecalculation(TestCase):
 		)
 		self.assertEqual([(row["item_variant"], row["new_qty"]) for row in plan["added"]], [("A", 3.75)])
 
+	def test_delivered_item_with_changed_variant_is_left_for_change_item(self):
+		plan = plan_deliverable_recalculation(
+			current=[
+				{**_row("r1", "Label-S", 10), "template": "Label"},
+				{**_row("r2", "Label-M", 10), "template": "Label"},
+			],
+			expected=[
+				{**_expected("Label New-S", 10), "template": "Label"},
+				{**_expected("Label New-M", 12), "template": "Label"},
+			],
+			locked={"Label-S": "delivered in Delivery Challan DC-1"},
+		)
+		self.assertEqual([row["row_name"] for row in plan["kept"]], ["r1", "r2"])
+		self.assertIn("use Change Item", plan["kept"][0]["reason"])
+		self.assertIn("Label New-M", plan["kept"][0]["reason"])
+		self.assertFalse(plan["added"] or plan["removed"] or plan["updated"])
+
+	def test_grn_referenced_row_is_kept_instead_of_removed_but_still_updated(self):
+		plan = plan_deliverable_recalculation(
+			current=[_row("r1", "A", 10), _row("r2", "B", 5), _row("r3", "C", 1, "Meter")],
+			expected=[_expected("A", 12), _expected("C", 1, "Nos")],
+			locked={},
+			referenced={name: f"referenced by Goods Received Note GRN-{name}" for name in ("r1", "r2", "r3")},
+		)
+		self.assertEqual([(row["row_name"], row["new_qty"]) for row in plan["updated"]], [("r1", 12)])
+		self.assertEqual([row["row_name"] for row in plan["kept"]], ["r2", "r3"])
+		self.assertFalse(plan["removed"] or plan["added"])
+
 
 class TestRecalculateDeliverablesOnWorkOrder(IntegrationTestCase):
 	"""Exercise a submitted Stitching Work Order with no Delivery Challan."""

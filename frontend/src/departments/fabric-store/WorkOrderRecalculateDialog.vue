@@ -1,7 +1,7 @@
 <template>
 	<Dialog :visible="visible" modal :dismissable-mask="false" header="Recalculate Deliverables" class="fabric-action-dialog erp-dialog--lg work-order-recalculate-dialog" @update:visible="close">
 		<div class="work-order-recalculate">
-			<Message v-if="!applied" severity="secondary" :closable="false">Accessory deliverables of {{ workOrder.name }} are rebuilt from the current Item Production Detail. Delivered items stay unchanged. Sewing Plan and Quality Inspection entries are not affected.</Message>
+			<Message v-if="!applied" severity="secondary" :closable="false">Accessory deliverables of {{ workOrder.name }} are rebuilt from the current Item Production Detail. Delivered items stay unchanged; for a delivered item whose variant changed, use Change Item. Sewing Plan and Quality Inspection entries are not affected.</Message>
 			<Message v-else severity="success" :closable="false">{{ appliedMessage }}</Message>
 			<Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 			<Skeleton v-if="loading" height="160px" />
@@ -41,7 +41,7 @@ import { callMethod } from "../../api/frappe.js"
 
 const METHOD = "essdee_yrp.work_order_recalculate"
 const KINDS = ["added", "updated", "removed", "kept", "unchanged"]
-const LABELS = { added: "Added", updated: "Updated", removed: "Removed", kept: "Kept (delivered)", unchanged: "No change" }
+const LABELS = { added: "Added", updated: "Updated", removed: "Removed", kept: "Kept", unchanged: "No change" }
 
 const props = defineProps({
 	visible: { type: Boolean, default: false },
@@ -58,8 +58,8 @@ const rows = computed(() => KINDS.flatMap((kind) => (plan.value[kind] || []).map
 const counts = computed(() => Object.fromEntries(KINDS.map((kind) => [kind, (plan.value[kind] || []).length])))
 const summary = computed(() => {
 	const { added, updated, removed, kept } = counts.value
-	if (!plan.value.has_changes) return `Deliverables already match the Item Production Detail.${kept ? ` ${kept} delivered row(s) kept.` : ""}`
-	return `${added} to add, ${updated} to update, ${removed} to remove, ${kept} delivered row(s) kept.`
+	if (!plan.value.has_changes) return kept ? `No changes to apply. ${kept} row(s) kept.` : "Deliverables already match the Item Production Detail."
+	return `${added} to add, ${updated} to update, ${removed} to remove, ${kept} row(s) kept.`
 })
 const appliedMessage = computed(() => {
 	const { added, updated, removed } = counts.value

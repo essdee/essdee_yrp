@@ -278,7 +278,7 @@ app_include_css = ["assets/essdee_yrp/node_modules/frappe-gantt/dist/frappe-gant
 # include js in doctype views
 doctype_js = {
 	"Item": "public/js/item.js",
-	"YRP Item Production Detail": "public/js/item_production_detail.js",
+	"YRP Item Production Detail": ["public/js/item_production_detail.js", "public/js/ipd_approve_dialog.js"],
 	"YRP Production Order": [
 		"public/js/production_order.js",
 		"public/js/production_order_workflow.js",
@@ -544,6 +544,7 @@ doc_events = {
 			"essdee_yrp.fabric_ipd.sync_fabric_process_matrices",
 			# order matters: the plan solver reads the matrices rebuilt above
 			"essdee_yrp.fabric_plan.on_ipd_update",
+			"essdee_yrp.merch.ipd.change_log.on_update",
 		],
 		"on_trash": "essdee_yrp.ipd_validations.on_trash",
 	},
