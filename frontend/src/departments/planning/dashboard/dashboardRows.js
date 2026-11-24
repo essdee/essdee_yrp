@@ -8,7 +8,7 @@ export const LADDER_TONE = {
 	"Waiting for sewing": "blue", "In sewing": "blue", "Ready for packing": "blue",
 	"Packing in progress": "amber", Dispatched: "green",
 }
-export const SUMMED_FIELDS = ["qty", "cut", "stitch", "packed", "dispatch", "balance"]
+export const SUMMED_FIELDS = ["ppo_qty", "qty", "cut", "stitch", "packed", "dispatch", "balance"]
 export const DASHBOARD_FILTERS = ["ppo", "lot", "item", "product_category", "status"]
 
 const sum = (rows, pick) => rows.reduce((total, row) => total + (Number(pick(row)) || 0), 0)
@@ -21,9 +21,9 @@ export function statusTone(status) {
 	return LADDER_TONE[status] || (status === NO_WORK_ORDER ? "neutral" : "process")
 }
 
-/** `{ status, status_rank, pieces }` a lot counts under: its status, plus its PO Created share while still on PO. */
+/** `{ status, status_rank, pieces }` a lot counts under (Cut pieces, else Lot Qty): its status, plus its PO Created share while still on PO. */
 export function rowBuckets(row) {
-	const pieces = row.has_work_order ? row.total : row.qty
+	const pieces = Number(row.cut) || Number(row.qty) || 0
 	const own = { status: row.status, status_rank: row.status_rank, pieces }
 	const split = row.purchase_split
 	return split ? [split, { ...own, pieces: Math.max((Number(pieces) || 0) - split.pieces, 0) }] : [own]
@@ -65,30 +65,41 @@ export function dashboardOptions(rows, filters, kind, ppos = {}) {
 	return entries.map(([value, count]) => ({ value, hint: plural(count, "lot") }))
 }
 
-/** Cut, Dispatched, Moved and Balance summed over `rows`; Balance is split into lots with and without Cut. */
+/** {PPO: {ppoQty, lotQty}} of `rows`, each PPO's share summed over its lots in `rows`. */
+function byPpo(rows) {
+	const groups = new Map()
+	rows.forEach((row) => {
+		const group = groups.get(row.ppo) || { ppoQty: 0, lotQty: 0 }
+		group.ppoQty += Number(row.ppo_qty) || 0
+		group.lotQty += Number(row.qty) || 0
+		groups.set(row.ppo, group)
+	})
+	return groups
+}
+
+/** Card figures summed over `rows`; Not Planned is PPO Qty − Lot Qty per PPO, floored at 0, with the PPOs over plan listed. */
 export function quantityTotals(rows, cutField = "cut") {
-	const cutLots = rows.filter((row) => Number(row[cutField]) > 0)
-	const uncut = rows.filter((row) => !(Number(row[cutField]) > 0))
+	const groups = [...byPpo(rows).entries()]
 	return {
+		ppoQty: sum(rows, (row) => row.ppo_qty),
+		lotQty: sum(rows, (row) => row.qty),
+		notPlanned: groups.reduce((total, [, group]) => total + Math.max(group.ppoQty - group.lotQty, 0), 0),
+		overPlanned: groups.filter(([, group]) => group.lotQty - group.ppoQty >= 1).map(([name, group]) => ({ name, over: group.lotQty - group.ppoQty })),
 		cut: sum(rows, (row) => row[cutField]),
 		dispatched: sum(rows, (row) => row.dispatch),
 		moved: sum(rows, (row) => row.to_alternative),
 		balance: sum(rows, (row) => row.balance),
-		cutLots: cutLots.length,
-		cutDispatched: sum(cutLots, (row) => row.dispatch),
-		cutMoved: sum(cutLots, (row) => row.to_alternative),
-		uncutLots: uncut.length,
-		uncutDispatched: sum(uncut, (row) => Number(row.dispatch || 0) + Number(row.to_alternative || 0)),
+		setLots: rows.filter((row) => row.is_set).length,
 	}
 }
 
-/** PPO pieces once per PPO in `names`; PPOs with no single pieces per box are listed, not counted. */
-export function ppoQuantityTotals(names, ppos = {}) {
+/** PPOs among `names` the cards cannot convert to pieces, and those converted other than by their Packing Combo. */
+export function ppoConversions(names, ppos = {}) {
 	const known = names.map((name) => ({ name, ...(ppos[name] || {}) }))
-	const missing = known.filter((ppo) => !ppo.pieces)
 	return {
-		ppoPieces: sum(known, (ppo) => ppo.pieces),
-		withoutPieces: missing.map((ppo) => ({ name: ppo.name, boxes: Number(ppo.boxes) || 0 })),
+		withoutPieces: known.filter((ppo) => ppo.pieces == null).map((ppo) => ({ name: ppo.name, boxes: Number(ppo.boxes) || 0 })),
+		inferred: known.filter((ppo) => ppo.pieces != null && ppo.conversion && ppo.conversion !== "packing combo")
+			.map((ppo) => ({ name: ppo.name, boxes: Number(ppo.boxes) || 0, pieces: ppo.pieces, conversion: ppo.conversion })),
 	}
 }
 
@@ -103,8 +114,7 @@ export function dashboardTotals(data, filters) {
 		allPpoCount: Object.keys(data.ppos || {}).length,
 		ppoCount: ppoNames.length,
 		ppoWithWorkOrders: new Set(lots.map((row) => row.ppo)).size,
-		...ppoQuantityTotals(ppoNames, data.ppos),
-		lotQty: sum(rows, (row) => row.qty),
+		...ppoConversions(ppoNames, data.ppos),
 		...quantityTotals(rows),
 		late: open.filter((row) => row.delivery && row.delivery < data.as_of),
 		notStarted: rows.filter((row) => !row.has_work_order),
@@ -118,10 +128,6 @@ export function statusCards(rows) {
 		const matching = buckets.filter((bucket) => bucket.status === status)
 		return { status, isNoWorkOrder: status === NO_WORK_ORDER, count: matching.length, pieces: sum(matching, (bucket) => bucket.pieces) }
 	})
-}
-
-export function ppoQuantityValue(ppo = {}) {
-	return ppo.pieces ?? ppo.boxes ?? 0
 }
 
 function furthestBehind(lots) {
@@ -143,6 +149,7 @@ export function groupDashboardRows(rows) {
 		const sums = Object.fromEntries([...SUMMED_FIELDS, "to_alternative"].map((field) => [field, sum(lots, (row) => row[field])]))
 		return {
 			ppo, isGroup: true, lots, items, mix, status, status_rank, ...sums,
+			is_set: lots.some((row) => row.is_set),
 			lot: lots.map((row) => row.lot).join(", "),
 			lotCount: lots.length,
 			item: items.length === 1 ? items[0] : `${items.length} items`,
@@ -160,7 +167,7 @@ const SORT_VALUES = {
 	item: (row) => row.item,
 	product_category: (row) => row.product_category,
 	status: (row) => displayRank(row.status, row.status_rank),
-	ppoQty: (row, ppos) => ppoQuantityValue(ppos[row.ppo]),
+	ppo_qty: (row) => row.ppo_qty,
 	qty: (row) => row.qty,
 	cut: (row) => row.cut,
 	stitch: (row) => row.stitch,
@@ -182,9 +189,9 @@ export function sortDashboardRows(rows, sort, ppos = {}) {
 }
 
 export function dashboardCsv(rows, grouped, ppos = {}) {
-	const header = ["#", "PPO", grouped ? "Lots" : "Lot", "Item", "Product Category", "Status", "PPO Qty", "PPO Qty unit", "Lot Qty", "Cut Qty", "Stitching Qty", "Packed Qty", "Dispatched Qty", "Moved to alternative", "Balance"]
+	const header = ["#", "PPO", grouped ? "Lots" : "Lot", "Item", "Product Category", "Status", "PPO Qty", "Lot Qty", "Cut Qty", "Stitching Qty", "Packed Qty", "Dispatched Qty", "Moved to alternative", "Balance"]
 	const lines = rows.map((row, index) => [
-		index + 1, row.ppo, row.lot, row.item, row.product_category || "", row.status, ppoQuantityValue(ppos[row.ppo]), ppos[row.ppo]?.pieces ? "pcs" : "box",
+		index + 1, row.ppo, row.lot, row.item, row.product_category || "", row.status, row.ppo_qty,
 		row.qty, row.cut, row.stitch, row.packed, row.dispatch, row.to_alternative || 0, row.balance,
 	])
 	return csvText([header, ...lines])
@@ -198,6 +205,8 @@ export function tileDrill(key, totals) {
 		ppos: { ppo: totals.ppoNames },
 		lots: { lot: lotNames(totals.open) },
 		ppoQty: { ppo: totals.ppoNames },
+		lotQty: { ppo: totals.ppoNames },
+		notPlanned: { ppo: totals.ppoNames },
 		cut: { lot: lotNames(totals.lots.filter((row) => row.cut)), dispatched: true },
 		dispatched: { lot: lotNames(totals.lots.filter((row) => row.dispatch)), dispatched: true },
 		balance: { lot: lotNames(totals.lots.filter((row) => row.balance)), dispatched: true },

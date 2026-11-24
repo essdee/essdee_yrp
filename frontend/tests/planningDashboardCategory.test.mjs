@@ -57,6 +57,6 @@ test("PPO Tracking: a category alone is a scope and narrows PPO and Lot options"
 	assert.deepEqual(result.category, [{ value: "Thermal", hint: "2 PPOs" }, { value: "Vest", hint: "1 PPO" }])
 	assert.deepEqual(pruneTrackingFilters(filters, result), { ppo: [], lot: [], process: [], category: ["Thermal"] })
 	const data = { ppos: { "PPO-1": { boxes: 1, pieces: 10 } } }
-	const byCategory = trackingSummary(data, [{ lot: "L-1", ppo: "PPO-1", status: "In sewing", qty: 10, cut_pcs: 10, balance: 10, dispatch: 0, has_work_order: true, product_category: "Thermal" }])
-	assert.deepEqual([byCategory.ppoCount, byCategory.ppoPieces, byCategory.balance, byCategory.notStartedLots], [1, 10, 10, 0])
+	const byCategory = trackingSummary(data, [{ lot: "L-1", ppo: "PPO-1", status: "In sewing", qty: 10, ppo_qty: 10, cut_pcs: 10, balance: 10, dispatch: 0, has_work_order: true, product_category: "Thermal" }])
+	assert.deepEqual([byCategory.ppoCount, byCategory.ppoQty, byCategory.balance, byCategory.notStartedLots], [1, 10, 10, 0])
 })

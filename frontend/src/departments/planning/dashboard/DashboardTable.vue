@@ -35,8 +35,7 @@
 						<td>
 							<span class="pd-status-mix" :title="row.isGroup ? row.breakdown : undefined"><LotStatusPill :status="row.status" /><LotStatusPill v-if="!row.isGroup && row.purchase_split" :status="row.purchase_split.status" :title="`${formatQuantity(row.purchase_split.pieces)} pcs still on PO`" /><em v-if="row.isGroup && row.otherStatuses">+{{ row.otherStatuses }}</em></span>
 						</td>
-						<td class="pd-number">{{ ppoQuantityText(row.ppo) }}<small v-if="!ppos[row.ppo]?.pieces" class="pd-unit">box</small></td>
-						<td v-for="field in SUMMED_FIELDS" :key="field" class="pd-number" :class="{ 'is-negative': field === 'balance' && row.balance < 0 }" :data-col="field">{{ formatQuantity(row[field]) }}<small v-if="field === 'dispatch' && row.to_alternative" class="pd-sub" data-to-alternative>+{{ formatQuantity(row.to_alternative) }} to alternative</small></td>
+						<td v-for="field in SUMMED_FIELDS" :key="field" class="pd-number" :class="{ 'is-negative': field === 'balance' && row.balance < 0 }" :data-col="field">{{ formatQuantity(row[field]) }}<small v-if="field === 'qty' && row.is_set" class="pd-sub" data-set>sets</small><small v-if="field === 'dispatch' && row.to_alternative" class="pd-sub" data-to-alternative>+{{ formatQuantity(row.to_alternative) }} to alternative</small></td>
 					</tr>
 					<tr v-if="shown.hasMore" ref="sentinel" class="pd-more-row"><td :colspan="COLUMNS.length + 1">Loading more {{ unit }}s…</td></tr>
 					<tr v-if="!shown.rows.length"><td :colspan="COLUMNS.length + 1" class="pd-empty">No lots match these filters.</td></tr>
@@ -72,13 +71,13 @@ const COLUMNS = [
 	{ key: "item", label: "Item" },
 	{ key: "product_category", label: "Category", title: "Product Category of the lot's item (or its template)" },
 	{ key: "status", label: "Status" },
-	{ key: "ppoQty", label: "PPO Qty", isNumber: true, title: "PPO pcs = boxes × pieces per box; 'box' when the PPO has no single pieces per box. Repeated on every lot of the PPO" },
-	{ key: "qty", label: "Lot Qty", isNumber: true, title: "Lot order pcs (as Lot pcs in PPO Tracking)" },
-	{ key: "cut", label: "Cut Qty", isNumber: true, title: "Pcs received from Cutting Work Orders" },
+	{ key: "ppo_qty", label: "PPO Qty", isNumber: true, title: "The lot's share of its PPO's pieces, split by the boxes each lot took; set items count sets" },
+	{ key: "qty", label: "Lot Qty", isNumber: true, title: "Lot order pieces; a set item counts complete sets" },
+	{ key: "cut", label: "Cut Qty", isNumber: true, title: "Pieces received from Cutting Work Orders; a set item counts complete sets (the fewest of its parts per colour and size)" },
 	{ key: "stitch", label: "Stitching Qty", isNumber: true, title: "" },
 	{ key: "packed", label: "Packed Qty", isNumber: true, title: "Pcs received from the lot's packing Work Orders (Includes Packing); each WO counted once" },
 	{ key: "dispatch", label: "Dispatched Qty", isNumber: true, title: "Dispatch pcs (as in PPO Tracking); pieces moved to an alternative lot show below" },
-	{ key: "balance", label: "Balance", isNumber: true, title: "Cut − Dispatched − Moved to alternative; 0 for a lot with no Cut yet" },
+	{ key: "balance", label: "Balance", isNumber: true, title: "PPO Qty − Dispatched − Moved to alternative" },
 ]
 const sort = ref({ key: "ppo", direction: 1 })
 const isGrouped = ref(false)
@@ -104,11 +103,6 @@ function sortBy(key) {
 
 const sortMark = (key) => (sort.value.key === key ? (sort.value.direction > 0 ? "▲" : "▼") : "↕")
 const ariaSort = (key) => (sort.value.key === key ? (sort.value.direction > 0 ? "ascending" : "descending") : "none")
-
-function ppoQuantityText(ppo) {
-	const info = props.ppos[ppo] || {}
-	return info.pieces ? formatQuantity(info.pieces) : formatQuantity(info.boxes, Number(info.boxes) % 1 !== 0)
-}
 
 function copy() {
 	copyCsv(toast, dashboardCsv(sorted.value, isGrouped.value, props.ppos), sorted.value.length, unit.value)

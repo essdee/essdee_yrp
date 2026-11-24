@@ -2,6 +2,8 @@ from unittest import TestCase
 
 from essdee_yrp.planning.dashboard import ladder
 from essdee_yrp.planning.dashboard.lot_metrics import LotMetrics
+from essdee_yrp.planning.dashboard.production_orders import get_ppo_quantity
+from essdee_yrp.planning.dashboard.set_quantities import SetQuantities, count_sets, get_major_colour
 
 
 def facts(**values):
@@ -187,7 +189,9 @@ class TestLotQuantities(TestCase):
 	sewing = {"Stitching", "Stitching and Packing", "Bottom Fusing and Stitching"}
 
 	def quantities(self, orders, received):
-		return ladder.get_lot_quantities(orders, received, self.sewing)
+		return ladder.get_lot_quantities(
+			orders, lambda chosen: sum(received.get(order["name"], 0) for order in chosen), self.sewing
+		)
 
 	def test_cut_stitching_and_packed_from_their_work_orders(self):
 		orders = [
@@ -211,12 +215,10 @@ class TestLotQuantities(TestCase):
 		orders = [{"name": "WO-1", "process_name": "Stitching", "includes_packing": 0}] * 2
 		self.assertEqual(self.quantities(orders, {"WO-1": 50})["stitch"], 50)
 
-	def test_balance_is_cut_less_dispatched_and_moved(self):
-		self.assertEqual(ladder.get_balance(cut=120, dispatch=50, to_alternative=20), 50)
-		self.assertEqual(ladder.get_balance(cut=120, dispatch=150, to_alternative=0), -30)
-
-	def test_balance_is_zero_before_cutting(self):
-		self.assertEqual(ladder.get_balance(cut=0, dispatch=40, to_alternative=0), 0)
+	def test_balance_is_ppo_share_less_dispatched_and_moved(self):
+		self.assertEqual(ladder.get_balance(ppo_quantity=120, dispatch=50, to_alternative=20), 50)
+		self.assertEqual(ladder.get_balance(ppo_quantity=120, dispatch=150, to_alternative=0), -30)
+		self.assertEqual(ladder.get_balance(ppo_quantity=1000, dispatch=0, to_alternative=0), 1000)
 
 
 class TestSewingProcesses(TestCase):
@@ -244,14 +246,31 @@ class TestSewingProcesses(TestCase):
 
 
 class TestPpoPieces(TestCase):
-	def test_pieces_are_boxes_times_the_single_pieces_per_box(self):
-		self.assertEqual(ladder.get_ppo_pieces(100.5, [12, 12, None]), 1206)
+	def test_packing_combo_when_the_lots_agree_with_it(self):
+		self.assertEqual(ladder.get_pieces_per_box(4165, 835, [5, 5, None]), 5)
+		self.assertEqual(ladder.get_pieces_per_box(0, 0, [12]), 12)
 
-	def test_boxes_only_when_no_pieces_per_box(self):
-		self.assertIsNone(ladder.get_ppo_pieces(554, [None, 0]))
+	def test_lots_own_pieces_per_box_when_the_combo_disagrees(self):
+		self.assertEqual(ladder.get_pieces_per_box(2186, 2186, [30]), 1)
+		self.assertEqual(ladder.get_pieces_per_box(1000, 100, [6, 12]), 10)
 
-	def test_boxes_only_when_pieces_per_box_differ(self):
-		self.assertIsNone(ladder.get_ppo_pieces(554, [6, 12]))
+	def test_no_pieces_per_box(self):
+		self.assertIsNone(ladder.get_pieces_per_box(0, 0, [None, 0]))
+		self.assertEqual(ladder.get_ppo_pieces(554, None, 0), (None, ""))
+
+	def test_pieces_are_boxes_times_pieces_per_box(self):
+		self.assertEqual(ladder.get_ppo_pieces(100.5, 12, 1206), (1206, "boxes"))
+		self.assertEqual(ladder.get_ppo_pieces(1900, 5, 4165), (9500, "boxes"))
+
+	def test_quantity_already_in_pieces_is_kept(self):
+		self.assertEqual(ladder.get_ppo_pieces(1896, 50, 1914), (1896, "pieces"))
+		self.assertEqual(ladder.get_ppo_pieces(6000, 206, 6180), (6000, "pieces"))
+		self.assertEqual(ladder.get_ppo_pieces(15000, 1, 15000), (15000, "boxes"))
+
+	def test_split_follows_the_boxes_each_lot_took(self):
+		self.assertEqual(ladder.split_quantity(1000, {"A": 30, "B": 10}), {"A": 750, "B": 250})
+		self.assertEqual(ladder.split_quantity(90, {"A": 0, "B": 0, "C": 0}), {"A": 30, "B": 30, "C": 30})
+		self.assertEqual(ladder.split_quantity(90, {}), {})
 
 
 class TestDispatchMultiplier(TestCase):
@@ -295,12 +314,15 @@ class TestProcessRows(TestCase):
 
 
 class TestLotSummaryBalance(TestCase):
-	"""Balance follows the Cut column: pieces received from Cutting Work Orders."""
+	"""Cut is what Cutting Work Orders received, never planned pieces."""
 
 	def summary(self, received_cut, dispatch=0.0, moved=0.0):
-		metrics = LotMetrics([{"name": "LOT-1", "item": "VEST"}], sewing_processes=[])
+		metrics = LotMetrics(
+			[{"name": "LOT-1", "item": "VEST", "total_order_quantity": 1000}], sewing_processes=[]
+		)
 		metrics.__dict__.update(
 			orders=[],
+			sets=SetQuantities({}, []),
 			orders_by_lot={
 				"LOT-1": [
 					{"name": "WO-CUT", "process_name": "Cutting", "is_rework": 0, "includes_packing": 0}
@@ -318,11 +340,74 @@ class TestLotSummaryBalance(TestCase):
 		)
 		return metrics.get_summary("LOT-1")
 
-	def test_lot_in_cutting_with_nothing_received_has_no_balance(self):
+	def test_lot_in_cutting_with_nothing_received_has_no_cut(self):
 		summary = self.summary(received_cut=0)
 		self.assertEqual(summary["status"], "In cutting")
-		self.assertEqual((summary["cut"], summary["total"], summary["balance"]), (0, 1000, 0))
+		self.assertEqual((summary["cut"], summary["total"], summary["qty"]), (0, 1000, 1000))
 
-	def test_balance_never_uses_planned_pieces(self):
+	def test_cut_is_what_cutting_received(self):
 		summary = self.summary(received_cut=800, dispatch=300, moved=100)
-		self.assertEqual((summary["cut"], summary["balance"]), (800, 400))
+		self.assertEqual((summary["cut"], summary["dispatch"], summary["to_alternative"]), (800, 300, 100))
+
+
+class TestSetCounts(TestCase):
+	"""A set item counts complete sets: per major colour and size, the fewest of its parts."""
+
+	ATTRIBUTES = {
+		"TOP-RED-S": {"Part": "Top", "Size": "S"},
+		"BOTTOM-NAVY-S": {"Part": "Bottom", "Size": "S"},
+		"TOP-RED-M": {"Part": "Top", "Size": "M"},
+		"BOTTOM-NAVY-M": {"Part": "Bottom", "Size": "M"},
+		"SET-RED-S": {"Size": "S"},
+	}
+	RED = '{"major_colour": "Red", "major_part": "Top"}'
+
+	def count(self, rows, parts=("Bottom", "Top")):
+		return count_sets(rows, self.ATTRIBUTES, "Part", "Size", list(parts))
+
+	def test_parts_are_never_added(self):
+		rows = [("TOP-RED-S", self.RED, 100), ("BOTTOM-NAVY-S", self.RED, 100)]
+		self.assertEqual(self.count(rows), 100)
+
+	def test_a_set_needs_every_part(self):
+		rows = [
+			("TOP-RED-S", self.RED, 80),
+			("BOTTOM-NAVY-S", self.RED, 50),
+			("TOP-RED-M", self.RED, 40),
+		]
+		self.assertEqual(self.count(rows), 50)
+
+	def test_whole_set_variants_count_as_they_are(self):
+		self.assertEqual(self.count([("SET-RED-S", self.RED, 30)]), 30)
+
+	def test_no_rows_no_sets(self):
+		self.assertEqual(self.count([]), 0)
+		self.assertEqual(get_major_colour(""), "")
+
+
+class TestPpoQuantity(TestCase):
+	"""PPO pieces split over its lots by the boxes each took, so lot shares add up to the PPO."""
+
+	def lots(self, *rows):
+		return [
+			{"name": name, "packing_combo": combo, "total_quantity": boxes} for name, combo, boxes in rows
+		]
+
+	def test_boxes_times_combo_split_by_ordered_boxes(self):
+		lots = self.lots(("A", 10, 30), ("B", 10, 10))
+		result = get_ppo_quantity(50, lots, {"A": 300, "B": 100}, {"A": 30, "B": 10})
+		self.assertEqual((result["pieces"], result["conversion"]), (500, "packing combo"))
+		self.assertEqual(result["lot_shares"], {"A": 375, "B": 125})
+
+	def test_ppo_stored_in_pieces_keeps_its_quantity(self):
+		result = get_ppo_quantity(1896, self.lots(("F0826-19", 50, 41)), {"F0826-19": 1914}, {"F0826-19": 41})
+		self.assertEqual((result["pieces"], result["conversion"]), (1896, "stored in pieces"))
+
+	def test_lot_boxes_disagreeing_with_combo_use_the_lots_own_ratio(self):
+		result = get_ppo_quantity(2186, self.lots(("F0826-32", 30, 2186)), {"F0826-32": 2186}, {})
+		self.assertEqual((result["pieces"], result["conversion"]), (2186, "lots' pieces per box"))
+		self.assertEqual(result["lot_shares"], {"F0826-32": 2186})
+
+	def test_no_pieces_per_box_counts_nothing(self):
+		result = get_ppo_quantity(11750, self.lots(("A", 0, 0)), {"A": 0}, {})
+		self.assertEqual((result["pieces"], result["lot_shares"]), (None, {"A": 0}))

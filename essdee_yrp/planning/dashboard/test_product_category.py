@@ -38,7 +38,8 @@ SUMMARY = {
 	"dispatch": 0,
 	"to_alternative": 0,
 	"alternatives": [],
-	"balance": 10,
+	"qty": 10,
+	"is_set": False,
 }
 
 
@@ -76,7 +77,9 @@ class TestDashboardCategory(ItemFixtures):
 				dashboard.frappe, "get_list", return_value=[{"name": "PPO-1", "delivery_date": None}]
 			),
 			patch.object(dashboard, "get_lots", return_value=lots),
-			patch.object(dashboard, "get_ppo_details", return_value={"PPO-1": {"delivery": None}}),
+			patch.object(
+				dashboard, "get_ppo_details", return_value={"PPO-1": {"delivery": None, "lot_shares": {}}}
+			),
 			patch.object(dashboard, "get_lots_with_work_orders", return_value={"L-1"}),
 			patch.object(dashboard, "get_sewing_processes", return_value=[]),
 			patch.object(dashboard, "LotMetrics", return_value=metrics),
@@ -126,7 +129,9 @@ class TestTrackingCategory(ItemFixtures):
 			patch.object(
 				tracking,
 				"get_ppo_details",
-				side_effect=lambda orders, lots: {row["name"]: {"delivery": None} for row in orders},
+				side_effect=lambda orders, lots, quantities: {
+					row["name"]: {"delivery": None, "lot_shares": {}} for row in orders
+				},
 			),
 			patch.object(
 				tracking, "authorize_filter_values", side_effect=lambda doctype, values: values or []

@@ -27,11 +27,11 @@
 						<th rowspan="2" title="Lot: one segment per process, in First DC order. PPO: dispatched ÷ PPO pcs">Progress</th>
 					</tr>
 					<tr>
-						<th class="pd-number" title="PPO quantity: boxes × pieces per box">PPO</th>
-						<th class="pd-number" title="Lot order pcs. PPO row: sum over its lots with Work Orders">Lot</th>
-						<th class="pd-number" title="Pieces received from Cutting Work Orders">Cut</th>
+						<th class="pd-number" title="PPO pieces (sets for set items). Lot: its share of the PPO, split by the boxes each lot took">PPO</th>
+						<th class="pd-number" title="Lot order pieces; a set item counts complete sets. PPO row: sum over its lots with Work Orders">Lot</th>
+						<th class="pd-number" title="Pieces received from Cutting Work Orders; a set item counts complete sets">Cut</th>
 						<th class="pd-number" title="Pieces dispatched. PPO row: all its lots, including hidden dispatched lots">Dispatched</th>
-						<th class="pd-number" title="Lot: Cut − Dispatched − Moved to alternative; 0 before any Cut. PPO: PPO − Dispatched">Balance</th>
+						<th class="pd-number" title="PPO − Dispatched − Moved to alternative. Lot: its share of the PPO">Balance</th>
 					</tr>
 				</thead>
 				<tbody>

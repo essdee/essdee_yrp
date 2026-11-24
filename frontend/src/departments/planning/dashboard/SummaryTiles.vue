@@ -1,5 +1,5 @@
 <template>
-	<div class="pd-tiles" :style="{ '--pd-tile-count': tiles.length }" :aria-label="label">
+	<div class="pd-tiles" :aria-label="label">
 		<component
 			:is="clickable ? 'button' : 'div'"
 			v-for="tile in tiles"

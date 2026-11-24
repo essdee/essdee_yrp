@@ -20,11 +20,11 @@ import { trackingTiles } from "../src/departments/planning/dashboard/summaryCard
 
 const process = (name, kind, status, values = {}) => ({ name, kind, status, first_dc: "2026-08-01", planned: 100, delivered: 100, received: 90, dispatch: 0, reason: "WO Closed", work_orders: [{ name: `WO-${name}`, supplier: "S1", status: "Closed" }], ...values })
 const lots = [
-	{ lot: "L-1", ppo: "PPO-1", item: "A", delivery: "2026-06-15", qty: 1000, status: "Packing in progress", planned: 1000, cut: 1100, cut_pcs: 1100, total: 1100, dispatch: 900, balance: 200, has_work_order: true,
+	{ lot: "L-1", ppo: "PPO-1", item: "A", delivery: "2026-06-15", qty: 1000, status: "Packing in progress", planned: 1000, cut: 1100, cut_pcs: 1100, total: 1100, dispatch: 900, ppo_qty: 1000, balance: 100, has_work_order: true,
 		processes: [process("Cutting", "cutting", "partial", { planned: 1200, received: 1100 }), process("Stitching", "item", "done"), process("Packing", "packing", "partial", { received: 950, dispatch: 900 })] },
-	{ lot: "L-2", ppo: "PPO-1", item: "A", delivery: "2026-06-15", qty: 500, status: "Dispatched", planned: 500, cut: 520, cut_pcs: 520, total: 520, dispatch: 500, balance: 20, has_work_order: true,
+	{ lot: "L-2", ppo: "PPO-1", item: "A", delivery: "2026-06-15", qty: 500, status: "Dispatched", planned: 500, cut: 520, cut_pcs: 520, total: 520, dispatch: 500, ppo_qty: 500, balance: 0, has_work_order: true,
 		processes: [process("Cutting", "cutting", "done"), process("Packing", "packing", "done")] },
-	{ lot: "L-3", ppo: "PPO-2", item: "B", delivery: "2026-10-05", qty: 300, status: "Fabric not received", planned: 300, cut: 0, cut_pcs: 0, total: 300, dispatch: 0, balance: 0, has_work_order: true,
+	{ lot: "L-3", ppo: "PPO-2", item: "B", delivery: "2026-10-05", qty: 300, status: "Fabric not received", planned: 300, cut: 0, cut_pcs: 0, total: 300, dispatch: 0, ppo_qty: 0, balance: 0, has_work_order: true,
 		processes: [process("Knitting", "cloth", "idle", { first_dc: null, planned: 50, delivered: 0, received: 0 })] },
 ]
 const ppos = {
@@ -45,17 +45,17 @@ test("summary adds up exactly the lots the table shows", () => {
 	const shown = visibleTrackingLots(matchingTrackingLots(lots, { ppo: ["PPO-1", "PPO-2"], lot: [], process: ["Stitching"] }), true)
 	const summary = trackingSummary(data, shown)
 	assert.deepEqual([summary.ppoCount, summary.rows.length, summary.openLots, summary.dispatchedLots], [1, 1, 1, 0])
-	assert.deepEqual([summary.ppoPieces, summary.cut, summary.dispatched, summary.balance], [1500, 1100, 900, 200])
+	assert.deepEqual([summary.ppoQty, summary.lotQty, summary.notPlanned, summary.cut, summary.dispatched, summary.balance], [1000, 1000, 0, 1100, 900, 100])
 	const all = trackingSummary(data, visibleTrackingLots(lots, false), 1)
 	assert.deepEqual([all.ppoCount, all.rows.length, all.hiddenDispatched, all.withoutPieces], [2, 2, 1, [{ name: "PPO-2", boxes: 30 }]])
-	assert.deepEqual([all.cut, all.dispatched, all.balance, all.uncutLots], [1100, 900, 200, 1])
+	assert.deepEqual([all.ppoQty, all.cut, all.dispatched, all.balance, all.overPlanned], [1000, 1100, 900, 100, [{ name: "PPO-2", over: 300 }]])
 })
 
 test("tracking tiles read the same figures in pieces with a formula hover card", () => {
 	const tiles = trackingTiles(trackingSummary(data, lots))
 	const byKey = Object.fromEntries(tiles.map((tile) => [tile.key, tile]))
-	assert.deepEqual(tiles.map((tile) => tile.key), ["ppos", "lots", "ppoQty", "cut", "dispatched", "balance"])
-	assert.deepEqual([byKey.cut.value, byKey.dispatched.value, byKey.balance.value], ["1,620", "1,400", "220"])
+	assert.deepEqual(tiles.map((tile) => tile.key), ["ppos", "lots", "ppoQty", "lotQty", "notPlanned", "cut", "dispatched", "balance"])
+	assert.deepEqual([byKey.ppoQty.value, byKey.lotQty.value, byKey.notPlanned.value, byKey.cut.value, byKey.dispatched.value, byKey.balance.value], ["1,500", "1,800", "0", "1,620", "1,400", "100"])
 	assert.ok(tiles.every((tile) => tile.help.formula && !tile.unit))
 })
 
@@ -98,8 +98,8 @@ test("lots group under their PPO in order", () => {
 
 test("CSV has the PPO and lot figures then each visible process", () => {
 	const lines = trackingCsv([lots[0], lots[2]], ppos).split("\n")
-	assert.equal(lines[0], "PPO,PPO Qty boxes,PPO pcs,PPO Cut pcs,PPO Dispatch pcs,PPO Balance pcs,Lot,Item,Status,Delivery,Lot pcs,Cut pcs,Dispatch pcs,Balance pcs,Cutting Delivered Kg,Cutting Received pcs,Stitching Delivered pcs,Stitching Received pcs,Packing Delivered pcs,Packing Received pcs,Knitting Delivered Kg,Knitting Received Kg")
-	assert.equal(lines[1].split(",").slice(0, 14).join(","), "PPO-1,150,1500,1620,1400,100,L-1,A,Packing in progress,15-06-2026,1000,1100,900,200")
+	assert.equal(lines[0], "PPO,PPO Qty boxes,PPO pcs,PPO Cut pcs,PPO Dispatch pcs,PPO Balance pcs,Lot,Item,Status,Delivery,PPO share pcs,Lot pcs,Cut pcs,Dispatch pcs,Balance pcs,Cutting Delivered Kg,Cutting Received pcs,Stitching Delivered pcs,Stitching Received pcs,Packing Delivered pcs,Packing Received pcs,Knitting Delivered Kg,Knitting Received Kg")
+	assert.equal(lines[1].split(",").slice(0, 15).join(","), "PPO-1,150,1500,1620,1400,100,L-1,A,Packing in progress,15-06-2026,1000,1000,1100,900,100")
 	assert.equal(lines[2].split(",").slice(-6).join(","), ",,,,0,0")
 })
 
@@ -122,8 +122,11 @@ test("purchase units carry received % per unit", () => {
 	assert.deepEqual(purchaseUnits(null), [])
 })
 
-test("balance card is the Balance column, which leaves out pieces moved to an alternative lot", () => {
-	const moved = { ...lots[0], to_alternative: 150, balance: 50 }
+test("balance card is the Balance column: PPO share less dispatched, moved pieces counted as dispatched", () => {
+	const moved = { ...lots[0], to_alternative: 150, balance: -50 }
 	const summary = trackingSummary(data, [moved])
-	assert.deepEqual([summary.balance, summary.cut - summary.cutDispatched - summary.cutMoved, summary.moved], [50, 50, 150])
+	assert.deepEqual([summary.balance, summary.ppoQty - summary.dispatched - summary.moved, summary.moved], [-50, -50, 150])
+	const tiles = Object.fromEntries(trackingTiles(summary).map((tile) => [tile.key, tile]))
+	assert.equal(tiles.dispatched.value, "1,050")
+	assert.equal(tiles.dispatched.foot, "pcs · incl. 150 pcs moved to alternative")
 })

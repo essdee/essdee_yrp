@@ -1,6 +1,6 @@
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import { csvText, percentOf, plural, roundQuantity } from "./dashboardFormat.js"
-import { ppoQuantityTotals, quantityTotals } from "./dashboardRows.js"
+import { ppoConversions, quantityTotals } from "./dashboardRows.js"
 
 export const PROCESS_STATUS_LABELS = { done: "Completed", partial: "Partial", idle: "Not started" }
 export const PROCESS_UNITS = { cloth: ["Kg", "Kg"], cutting: ["Kg", "pcs"], item: ["pcs", "pcs"], packing: ["pcs", "pcs"] }
@@ -44,21 +44,21 @@ export function trackingSummary(data, rows, hiddenDispatched = 0) {
 		openLots: open.length,
 		dispatchedLots: lots.length - open.length,
 		notStartedLots: rows.length - lots.length,
-		...ppoQuantityTotals(ppoNames, data.ppos),
-		lotQty: sum(rows, (row) => row.qty),
+		...ppoConversions(ppoNames, data.ppos),
 		...quantityTotals(rows, "cut_pcs"),
 	}
 }
 
-/** PPO row figures over every lot of the PPO with a Work Order, including hidden dispatched lots. */
+/** PPO row figures over every lot of the PPO with a Work Order, including hidden dispatched lots; moved pieces count as dispatched. */
 export function ppoFigures(ppo = {}) {
 	const lots = ppo.work_order_lots || []
 	const cut = sum(lots, (row) => row.cut_pcs)
 	const dispatch = sum(lots, (row) => row.dispatch)
+	const moved = sum(lots, (row) => row.to_alternative)
 	return {
-		boxes: ppo.boxes, pieces: ppo.pieces, piecesPerBox: ppo.pieces_per_box,
-		lotPieces: sum(lots, (row) => row.qty), cut, dispatch,
-		balance: ppo.pieces ? ppo.pieces - dispatch : null,
+		boxes: ppo.boxes, pieces: ppo.pieces, piecesPerBox: ppo.pieces_per_box, conversion: ppo.conversion,
+		lotPieces: sum(lots, (row) => row.qty), cut, dispatch, moved,
+		balance: ppo.pieces != null ? ppo.pieces - dispatch - moved : null,
 		share: ppo.pieces ? dispatch / ppo.pieces : 0,
 		isCutOver: Boolean(ppo.pieces && cut > ppo.pieces),
 	}
@@ -157,7 +157,7 @@ export function trackingCsv(lots, ppos = {}) {
 	const units = (kind) => PROCESS_UNITS[kind] || PROCESS_UNITS.item
 	const header = [
 		"PPO", "PPO Qty boxes", "PPO pcs", "PPO Cut pcs", "PPO Dispatch pcs", "PPO Balance pcs", "Lot", "Item", "Status", "Delivery",
-		"Lot pcs", "Cut pcs", "Dispatch pcs", "Balance pcs",
+		"PPO share pcs", "Lot pcs", "Cut pcs", "Dispatch pcs", "Balance pcs",
 		...processes.flatMap(([name, kind]) => [`${name} Delivered ${units(kind)[0]}`, `${name} Received ${units(kind)[1]}`]),
 	]
 	const lines = lots.map((row) => {
@@ -165,7 +165,7 @@ export function trackingCsv(lots, ppos = {}) {
 		const byName = Object.fromEntries(row.processes.map((step) => [step.name, step]))
 		return [
 			row.ppo, figures.boxes ?? "", figures.pieces ?? "", figures.cut, figures.dispatch, figures.balance ?? "",
-			row.lot, row.item, row.status, formatDisplayDate(row.delivery, ""), row.qty, row.cut_pcs, row.dispatch, row.balance,
+			row.lot, row.item, row.status, formatDisplayDate(row.delivery, ""), row.ppo_qty, row.qty, row.cut_pcs, row.dispatch, row.balance,
 			...processes.flatMap(([name]) => (byName[name] ? [roundQuantity(byName[name].delivered), roundQuantity(byName[name].received)] : ["", ""])),
 		]
 	})

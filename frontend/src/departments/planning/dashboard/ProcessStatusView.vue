@@ -50,8 +50,8 @@
 							<td class="pd-ps-item" :title="row.item">{{ row.item }}</td>
 							<td><LotStatusPill :status="row.ppoStatus" /></td>
 							<td><LotStatusPill :status="row.status" /></td>
-							<td class="pd-number">{{ ppoQuantityText(row.ppo) }}<small v-if="!dashboard.ppos[row.ppo]?.pieces" class="pd-unit">box</small></td>
-							<td class="pd-number">{{ formatQuantity(row.qty) }}</td>
+							<td class="pd-number">{{ formatQuantity(row.ppo_qty) }}</td>
+							<td class="pd-number">{{ formatQuantity(row.qty) }}<small v-if="row.is_set" class="pd-sub">sets</small></td>
 							<td v-for="process in processes" :key="process.name" :data-cell="process.name" @mouseenter="card?.show($event.currentTarget, row, process.name)" @mouseleave="card?.scheduleHide()" @focusin="card?.show($event.currentTarget, row, process.name)" @focusout="card?.scheduleHide()">
 								<span v-if="views[index][process.name].tone === 'none'" class="pd-muted">{{ NOT_IN_IPD }}</span>
 								<button v-else-if="views[index][process.name].isClickable" type="button" class="pd-ps-cell" @click="openCell($event, row, process.name)">
@@ -148,11 +148,6 @@ function setFilter(kind, values) {
 function clear() {
 	Object.assign(filters, emptyDashboardFilters())
 	if (props.category.length) emit("update:category", [])
-}
-
-function ppoQuantityText(ppo) {
-	const info = dashboard.value.ppos[ppo] || {}
-	return info.pieces ? formatQuantity(info.pieces) : formatQuantity(info.boxes, Number(info.boxes) % 1 !== 0)
 }
 
 function openStep(row, step) {

@@ -5,7 +5,9 @@ import frappe
 
 from essdee_yrp.finishing import alternative_transfers
 from essdee_yrp.finishing.status import compute_received_status
+from essdee_yrp.planning.dashboard.ladder import get_balance
 from essdee_yrp.planning.dashboard.lot_metrics import LotMetrics
+from essdee_yrp.planning.dashboard.set_quantities import SetQuantities
 
 SQL = "essdee_yrp.finishing.alternative_transfers.frappe.db.sql"
 ROWS = [
@@ -116,6 +118,7 @@ class TestLotSummaryCountsAlternative(TestCase):
 			fabric_routes={},
 			purchase_lines={},
 			dispatch={"LOT-1": 55},
+			sets=SetQuantities({}, []),
 			item_totals={"WO-CUT": {"planned": 100, "delivered": 100, "received": 100}},
 			alternatives={"LOT-1": [{"lot": "LOT-1-1", "item": "ALT", "quantity": 40.0, "boxes": 4.0}]},
 		)
@@ -131,5 +134,5 @@ class TestLotSummaryCountsAlternative(TestCase):
 		self.assertEqual(summary["status"], "Dispatched")
 		self.assertEqual(summary["to_alternative"], 40)
 		self.assertEqual(summary["cut"], 100)
-		self.assertEqual(summary["balance"], 5)
+		self.assertEqual(get_balance(summary["cut"], summary["dispatch"], summary["to_alternative"]), 5)
 		self.assertEqual(summary["alternatives"][0]["lot"], "LOT-1-1")

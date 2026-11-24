@@ -4,6 +4,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, today
 
+from essdee_yrp.planning.dashboard import ladder
 from essdee_yrp.planning.dashboard.lot_metrics import LotMetrics
 from essdee_yrp.planning.dashboard.processes import LotProcesses
 from essdee_yrp.planning.dashboard.production_orders import (
@@ -121,10 +122,14 @@ def get_tracking_data(ppos=None, lots=None, product_categories=None):
 	metrics = LotMetrics(ppo_lots)
 	tracked = get_tracked_lots(metrics, started)
 	summaries = {name: metrics.get_summary(name) for name in tracked}
-	details = get_ppo_details(production_orders, ppo_lots)
+	quantities = {row["name"]: metrics.get_lot_quantity(row["name"]) for row in ppo_lots}
+	details = get_ppo_details(production_orders, ppo_lots, quantities)
 	for name, info in details.items():
 		info["lots"] = [
-			{**get_ppo_lot(row, row["name"] in started), "product_category": item_categories.get(row["item"])}
+			{
+				**get_ppo_lot(row, quantities[row["name"]], row["name"] in started),
+				"product_category": item_categories.get(row["item"]),
+			}
 			for row in ppo_lots
 			if row["production_order"] == name
 		]
@@ -156,11 +161,11 @@ def get_tracking_data(ppos=None, lots=None, product_categories=None):
 	}
 
 
-def get_ppo_lot(row, has_work_order):
+def get_ppo_lot(row, quantity, has_work_order):
 	return {
 		"lot": row["name"],
 		"item": row["item"],
-		"planned": flt(row["total_order_quantity"]),
+		"planned": quantity,
 		"has_work_order": has_work_order,
 	}
 
@@ -169,7 +174,7 @@ def get_work_order_lot(row, summary):
 	return {
 		"lot": row["name"],
 		"status": summary["status"],
-		"qty": flt(row["total_order_quantity"]),
+		"qty": summary["qty"],
 		"cut_pcs": summary["cut"],
 		"dispatch": summary["dispatch"],
 		"to_alternative": summary["to_alternative"],
@@ -177,12 +182,15 @@ def get_work_order_lot(row, summary):
 
 
 def get_lot_row(row, details, summary, processes):
+	ppo_quantity = flt(details[row["production_order"]]["lot_shares"].get(row["name"]), 3)
 	return {
 		"lot": row["name"],
 		"ppo": row["production_order"],
 		"item": row["item"],
 		"delivery": details[row["production_order"]]["delivery"],
-		"qty": flt(row["total_order_quantity"]),
+		"qty": summary["qty"],
+		"is_set": summary["is_set"],
+		"ppo_qty": ppo_quantity,
 		"status": summary["status"],
 		"planned": summary["planned"],
 		"cut": summary["order_cut"],
@@ -191,6 +199,6 @@ def get_lot_row(row, details, summary, processes):
 		"dispatch": summary["dispatch"],
 		"to_alternative": summary["to_alternative"],
 		"alternatives": summary["alternatives"],
-		"balance": summary["balance"],
+		"balance": ladder.get_balance(ppo_quantity, summary["dispatch"], summary["to_alternative"]),
 		"processes": processes.get_processes(row["name"]),
 	}

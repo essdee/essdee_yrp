@@ -1,46 +1,55 @@
 import { formatQuantity, plural } from "./dashboardFormat.js"
 
 const pcs = (value) => `${formatQuantity(value)} pcs`
+const names = (list, detail) => list.map((entry) => `${entry.name} (${detail(entry)})`).join(", ")
 
-/** PPO Qty tile: pieces once per PPO; PPOs with no single pieces per box are named, not counted. */
-export function ppoQuantityTile(totals) {
-	const missing = totals.withoutPieces
-	const lines = [
-		`Counted once per PPO over the ${plural(totals.ppoCount, "PPO")} in the table, for the whole PPO (all its lots).`,
-		`Lot Qty of the lots in the table: ${pcs(totals.lotQty)}.`,
+/** Hover line naming set lots, which count complete sets. */
+function setLine(totals) {
+	return totals.setLots ? [`${plural(totals.setLots, "set-item lot")} counted in sets (1 set = 1 piece; parts never added).`] : []
+}
+
+/** PPO Qty, Lot Qty and Not Planned tiles over the table's lots; `count` is how many PPOs they cover. */
+export function planTiles(totals, count) {
+	const ppoLines = [`Each lot carries its share of the PPO, split by the boxes it took; summed over the ${plural(count, "PPO")} in the table.`]
+	if (totals.inferred.length) ppoLines.push(`Not by Packing Combo: ${names(totals.inferred, (ppo) => `${formatQuantity(ppo.boxes, ppo.boxes % 1 !== 0)} → ${formatQuantity(ppo.pieces)} pcs, ${ppo.conversion}`)}.`)
+	if (totals.withoutPieces.length) ppoLines.push(`Counted 0, no pieces per box on their lots: ${names(totals.withoutPieces, (ppo) => `${formatQuantity(ppo.boxes, ppo.boxes % 1 !== 0)} boxes`)}.`)
+	const notPlannedLines = [`Covers only the ${plural(count, "PPO")} listed in the table, each floored at 0.`]
+	if (totals.overPlanned.length) notPlannedLines.push(`Lot Qty above PPO Qty: ${names(totals.overPlanned, (ppo) => `+${pcs(ppo.over)}`)}.`)
+	return [
+		{
+			key: "ppoQty", label: "PPO Qty", value: formatQuantity(totals.ppoQty),
+			foot: totals.withoutPieces.length ? `pcs · ${plural(totals.withoutPieces.length, "PPO")} with no pcs per box` : `pcs · ${plural(count, "PPO")}`,
+			help: { formula: "PPO Qty = PPO boxes × pieces per box", lines: [...ppoLines, ...setLine(totals)] },
+		},
+		{
+			key: "lotQty", label: "Lot Qty", value: formatQuantity(totals.lotQty), foot: `pcs · ${plural(totals.rows.length, "lot")}`,
+			help: { formula: "Lot Qty = Σ Lot Qty of the lots in the table", lines: ["Pieces ordered on each lot.", ...setLine(totals)] },
+		},
+		{
+			key: "notPlanned", label: "Not Planned", value: formatQuantity(totals.notPlanned), foot: "pcs · PPO Qty − Lot Qty",
+			help: { formula: "Not Planned = PPO Qty − Lot Qty, per PPO", lines: notPlannedLines },
+		},
 	]
-	if (missing.length) {
-		const names = missing.map((ppo) => `${ppo.name} (${formatQuantity(ppo.boxes, ppo.boxes % 1 !== 0)} boxes)`).join(", ")
-		lines.push(`Not counted, no single pieces per box on their lots: ${names}.`)
-	}
-	return {
-		key: "ppoQty", label: "PPO Qty", value: formatQuantity(totals.ppoPieces),
-		foot: missing.length ? `pcs · ${plural(missing.length, "PPO")} not counted (no pcs per box)` : `pcs · ${plural(totals.ppoCount, "PPO")}`,
-		help: { formula: "PPO Qty = PPO boxes × pieces per box of its lots", lines },
-	}
 }
 
 /** Cut, Dispatched and Balance tiles; `count` is the number of lots the figures add up. */
 export function quantityTiles(totals, count) {
-	const balanceLines = [
-		`= ${pcs(totals.cut)} − ${pcs(totals.cutDispatched)} − ${pcs(totals.cutMoved)} over the ${plural(totals.cutLots, "lot")} with Cut.`,
-	]
-	if (totals.uncutLots) {
-		balanceLines.push(`${plural(totals.uncutLots, "lot")} with no Cut yet count 0${totals.uncutDispatched ? `; their ${pcs(totals.uncutDispatched)} dispatched or moved is not subtracted` : ""}.`)
-	}
-	balanceLines.push("Same as the sum of the table's Balance column.")
+	const dispatched = totals.dispatched + totals.moved
 	return [
 		{
 			key: "cut", label: "Cut", value: formatQuantity(totals.cut), foot: `pcs received from Cutting WOs · ${plural(count, "lot")}`,
-			help: { formula: "Cut = Σ Cut Qty of the lots in the table", lines: [`Pieces received from Cutting Work Orders in these ${plural(count, "lot")}; ${totals.cutLots} have Cut.`] },
+			help: { formula: "Cut = Σ Cut Qty of the lots in the table", lines: ["Pieces received from Cutting Work Orders.", ...(totals.setLots ? ["A set counts once all its parts are cut: the fewest of its parts per colour and size."] : [])] },
 		},
 		{
-			key: "dispatched", label: "Dispatched", value: formatQuantity(totals.dispatched), foot: `pcs · ${plural(count, "lot")}, dispatched lots included`,
-			help: { formula: "Dispatched = Σ Dispatched Qty of the lots in the table", lines: [`Moved to alternative lots is separate: ${pcs(totals.moved)}.`] },
+			key: "dispatched", label: "Dispatched", value: formatQuantity(dispatched), foot: totals.moved ? `pcs · incl. ${pcs(totals.moved)} moved to alternative` : `pcs · ${plural(count, "lot")}`,
+			help: { formula: "Dispatched = dispatched + moved to alternative", lines: [`= ${pcs(totals.dispatched)} dispatched + ${pcs(totals.moved)} moved to alternative lots.`, ...setLine(totals)] },
 		},
 		{
-			key: "balance", label: "Balance", value: formatQuantity(totals.balance), foot: "pcs · Cut − Dispatched − Moved to alternative",
-			help: { formula: "Balance = Cut − Dispatched − Moved to alternative, per lot", lines: balanceLines },
+			key: "balance", label: "Balance", value: formatQuantity(totals.balance), foot: "pcs · PPO Qty − Dispatched",
+			help: {
+				formula: "Balance = PPO Qty − Dispatched",
+				lines: [`= ${pcs(totals.ppoQty)} − ${pcs(dispatched)} (moved to alternative counts as dispatched).`, "Same as the sum of the table's Balance column."],
+			},
 		},
 	]
 }
@@ -58,7 +67,7 @@ export function dashboardTiles(totals) {
 			key: "lots", label: "Open lots", value: formatQuantity(totals.open.length), foot: `${formatQuantity(dispatchedLots)} dispatched · ${formatQuantity(totals.notStarted.length)} no WO yet`,
 			help: { formula: "Open lots = lots with Work Orders, not Dispatched", lines: [`${formatQuantity(totals.open.length)} open + ${formatQuantity(dispatchedLots)} dispatched + ${formatQuantity(totals.notStarted.length)} with no Work Order = ${plural(totals.rows.length, "lot")} in the table.`] },
 		},
-		ppoQuantityTile(totals),
+		...planTiles(totals, totals.ppoCount),
 		...quantityTiles(totals, totals.rows.length),
 		{
 			key: "late", label: "Late lots", value: formatQuantity(totals.late.length), foot: "open lots past delivery", alert: totals.late.length > 0,
@@ -79,7 +88,7 @@ export function trackingTiles(summary) {
 			key: "lots", label: "Lots", value: formatQuantity(summary.rows.length), foot: lotFoot,
 			help: { formula: "Lots in the table", lines: ["Lots with no Work Order and no yarn / fabric PO are not listed."] },
 		},
-		ppoQuantityTile(summary),
+		...planTiles(summary, summary.ppoCount),
 		...quantityTiles(summary, summary.rows.length),
 	]
 }

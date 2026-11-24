@@ -6,6 +6,7 @@ from frappe.utils import cint, flt
 
 from essdee_yrp.finishing.alternative_transfers import get_alternative_transfers
 from essdee_yrp.planning.dashboard import ladder
+from essdee_yrp.planning.dashboard.set_quantities import SetQuantities
 from essdee_yrp.purchase_order_approval import get_approval_item_groups
 
 WORK_ORDER = "YRP Work Order"
@@ -93,6 +94,22 @@ class LotMetrics:
 
 	def get_order_total(self, order, key):
 		return self.item_totals.get(order["name"], {}).get(key, 0.0)
+
+	@cached_property
+	def sets(self):
+		return SetQuantities(self.lots, self.orders)
+
+	def get_lot_quantity(self, lot):
+		"""Lot order pieces; a set-item lot counts complete sets."""
+		if self.sets.is_set(lot):
+			return self.sets.get_lot_sets(lot)
+		return flt(self.lots[lot].get("total_order_quantity"))
+
+	def get_received(self, lot, orders):
+		"""Pieces the Work Orders received; a set-item lot counts complete sets."""
+		if self.sets.is_set(lot):
+			return self.sets.get_received_sets(lot, orders)
+		return sum(self.get_order_total(order, "received") for order in orders)
 
 	@cached_property
 	def order_quantities(self):
@@ -367,10 +384,12 @@ class LotMetrics:
 		"""Status, quantities and dispatch of one lot as the Dashboard and PPO Tracking show them."""
 		facts = self.get_facts(lot)
 		orders = self.get_production_orders(lot)
-		received = {order["name"]: self.get_order_total(order, "received") for order in orders}
 		total = ladder.get_basis(facts["planned"], facts["cut"])
 		status = ladder.get_lot_status(facts)
-		quantities = ladder.get_lot_quantities(orders, received, self.sewing)
+		quantities = ladder.get_lot_quantities(
+			orders, lambda chosen: self.get_received(lot, chosen), self.sewing
+		)
+		quantity = self.get_lot_quantity(lot)
 		return {
 			"status": status,
 			"status_rank": ladder.get_status_rank(status, facts["fabric_step"]),
@@ -381,6 +400,7 @@ class LotMetrics:
 			"dispatch": facts["dispatch"],
 			"to_alternative": facts["to_alternative"],
 			"alternatives": self.alternatives.get(lot, []),
-			"balance": ladder.get_balance(quantities["cut"], facts["dispatch"], facts["to_alternative"]),
-			"purchase_split": self.get_purchase_split(lot, status, total),
+			"qty": quantity,
+			"is_set": self.sets.is_set(lot),
+			"purchase_split": self.get_purchase_split(lot, status, quantities["cut"] or quantity),
 		}

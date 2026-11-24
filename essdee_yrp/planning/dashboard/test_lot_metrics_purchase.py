@@ -110,7 +110,10 @@ class TestLotMetricsPurchaseStatus(TestCase):
 			)
 
 	def summaries(self, *names):
-		metrics = LotMetrics([{"name": name, "item": "Vest"} for name in names], sewing_processes=[])
+		metrics = LotMetrics(
+			[{"name": name, "item": "Vest", "total_order_quantity": 1000} for name in names],
+			sewing_processes=[],
+		)
 		return {name: metrics.get_summary(name) for name in names}
 
 	def test_po_below_ninety_percent_received_is_po_created(self):
@@ -177,14 +180,11 @@ class TestLotMetricsPurchaseStatus(TestCase):
 		self.route(lot, ["Knitting"])
 		self.purchase(lot, 1000, 100)
 		self.work_order(lot, "Knitting", delivered=250)
-		metrics = LotMetrics([{"name": lot, "item": "Vest"}], sewing_processes=[])
-		row = get_lot_row(
-			{"name": lot, "production_order": "PPO", "item": "Vest", "total_order_quantity": 1000},
-			{"delivery": None},
-			metrics,
-			True,
-		)
+		lot_row = {"name": lot, "production_order": "PPO", "item": "Vest", "total_order_quantity": 1000}
+		metrics = LotMetrics([lot_row], sewing_processes=[])
+		row = get_lot_row(lot_row, {"delivery": None, "lot_shares": {lot: 1200}}, metrics, True)
 		self.assertEqual(row["purchase_split"]["pieces"], 750)
+		self.assertEqual((row["qty"], row["ppo_qty"], row["balance"]), (1000, 1200, 1200))
 
 	def test_purchase_summary_totals_each_unit_over_qualifying_pos(self):
 		lot = self.lot("L")
