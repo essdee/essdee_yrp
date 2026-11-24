@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import test from "node:test"
-import { getScrollLeftToReveal } from "../src/components/common/childGrid/syncedHorizontalScroll.js"
+import { getScrollLeftToReveal, vSyncedHorizontalScroll } from "../src/components/common/childGrid/syncedHorizontalScroll.js"
 
 const read = (path) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8")
 const enterprise = read("styles/enterprise.css")
@@ -36,6 +36,26 @@ test("horizontal sync only slides the table and never moves the header on vertic
 	assert.match(scroller, /bar\.addEventListener\("scroll", onBarScroll, \{ passive: true \}\)/)
 	assert.match(scroller, /table\.style\.translate = bar\.scrollLeft \? `\$\{-bar\.scrollLeft\}px 0` : ""/)
 	assert.doesNotMatch(scroller, /translateY|document\.addEventListener\("scroll"/)
+})
+
+test("a one-finger horizontal swipe on the clipped wrapper slides the table", () => {
+	globalThis.ResizeObserver = class { observe() {} disconnect() {} }
+	const listeners = {}
+	const bar = { scrollLeft: 40, hidden: false, addEventListener() {}, removeEventListener() {} }
+	const wrap = {
+		querySelector: (selector) => (selector.includes("table") ? { style: {} } : bar),
+		addEventListener: (type, listener) => { listeners[type] = listener },
+		removeEventListener: (type) => { delete listeners[type] },
+	}
+	vSyncedHorizontalScroll.mounted(wrap)
+	listeners.touchstart({ touches: [{ clientX: 300 }] })
+	listeners.touchmove({ touches: [{ clientX: 180 }] })
+	assert.equal(bar.scrollLeft, 160)
+	listeners.touchstart({ touches: [{ clientX: 300 }, { clientX: 100 }] })
+	listeners.touchmove({ touches: [{ clientX: 0 }, { clientX: 0 }] })
+	assert.equal(bar.scrollLeft, 160)
+	vSyncedHorizontalScroll.beforeUnmount(wrap)
+	assert.equal(listeners.touchmove, undefined)
 })
 
 test("focused cells are revealed horizontally", () => {
