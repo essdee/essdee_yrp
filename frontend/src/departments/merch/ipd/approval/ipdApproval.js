@@ -131,3 +131,16 @@ export function clothAccessoryColours(accessory) {
 export function processFlow(coreProcesses = []) {
 	return coreProcesses.filter((row) => row.process).map((row) => (row.in ? `${row.process} (${row.in} → ${row.out})` : row.process)).join(" → ")
 }
+
+/** Work Orders grouped by process, groups with a process changed since the last approval first. */
+export function workOrderGroups(orders = []) {
+	const groups = new Map()
+	for (const order of orders) {
+		const process = order.process_name || "—"
+		if (!groups.has(process)) groups.set(process, { process, orders: [], isAffected: false })
+		const group = groups.get(process)
+		group.orders.push(order)
+		group.isAffected ||= Boolean(order.is_affected)
+	}
+	return [...groups.values()].sort((first, second) => Number(second.isAffected) - Number(first.isAffected))
+}

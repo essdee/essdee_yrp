@@ -278,3 +278,55 @@ class TestDocumentActivity(IntegrationTestCase):
 		frappe.set_user(STRANGER)
 		with self.assertRaises(frappe.PermissionError):
 			get_document_activity(PARENT, self.doc.name)
+
+	def test_comments_join_the_page_that_covers_their_time(self):
+		versions = frappe.get_all(
+			"Version",
+			filters={"ref_doctype": PARENT, "docname": self.doc.name},
+			fields=["name", "creation"],
+			order_by="creation desc, name desc",
+		)
+		newest = self.add_comment("Added BOM items: <b>Tape</b><br>Packing colour added: Navy", None)
+		oldest = self.add_comment(
+			"Removed BOM items: Collar", frappe.utils.add_to_date(versions[-1].creation, seconds=-10)
+		)
+		first = get_document_activity(PARENT, self.doc.name, start=0, page_length=1)
+		self.assertEqual(
+			first["versions"][0]["comment"], ["Added BOM items: Tape", "Packing colour added: Navy"]
+		)
+		self.assertEqual(first["versions"][0]["name"], newest)
+		self.assertNotIn(oldest, [entry["name"] for entry in first["versions"]])
+		rest = get_document_activity(PARENT, self.doc.name, start=first["next_start"], page_length=10)
+		self.assertEqual(rest["versions"][-1]["name"], oldest)
+		self.assertEqual(rest["versions"][-1]["user_name"], "Administrator")
+
+	def test_same_save_comment_joins_its_version_card(self):
+		newest = frappe.get_all(
+			"Version",
+			filters={"ref_doctype": PARENT, "docname": self.doc.name},
+			fields=["name", "creation"],
+			order_by="creation desc, name desc",
+			limit=1,
+		)[0]
+		comment = self.add_comment(
+			"Removed BOM items: Collar", frappe.utils.add_to_date(newest.creation, seconds=-1)
+		)
+		activity = get_document_activity(PARENT, self.doc.name, start=0, page_length=1)
+		self.assertEqual(activity["versions"][0]["name"], newest.name)
+		self.assertEqual(activity["versions"][0]["summary"], ["Removed BOM items: Collar"])
+		self.assertNotIn(comment, [entry["name"] for entry in activity["versions"]])
+
+	def add_comment(self, content, creation):
+		comment = frappe.get_doc(
+			{
+				"doctype": "Comment",
+				"comment_type": "Comment",
+				"comment_email": "Administrator",
+				"reference_doctype": PARENT,
+				"reference_name": self.doc.name,
+				"content": content,
+			}
+		).insert(ignore_permissions=True)
+		if creation:
+			frappe.db.set_value("Comment", comment.name, "creation", creation, update_modified=False)
+		return comment.name

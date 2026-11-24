@@ -44,9 +44,11 @@ function rowCountLines(rows, verb, preposition) {
 	return (rows || []).map((row) => [text(`${verb} ${plural(row.count, "row")} ${preposition} `), strong(row.table)])
 }
 
-/** One Version entry as display lines; each line is a list of `{ text, strong }` segments. */
+/** One Version or Comment entry as display lines; each line is a list of `{ text, strong }` segments. */
 export function describeActivityEntry(entry) {
+	if (entry.comment) return entry.comment.map((line) => [text(line)])
 	return [
+		...(entry.summary || []).map((line) => [text(line)]),
 		...eventLines(entry),
 		...(entry.changes?.length ? [[text("changed "), ...joinChanges(entry.changes)]] : []),
 		...rowCountLines(entry.rows_added, "added", "to"),

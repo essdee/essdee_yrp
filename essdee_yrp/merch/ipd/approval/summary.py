@@ -10,6 +10,7 @@ from essdee_yrp.merch.ipd.approval.piece_weight import (
 	get_weight_warnings,
 	weight_groups,
 )
+from essdee_yrp.merch.ipd.approval.work_orders import get_work_orders
 from essdee_yrp.merch.ipd.checks import run_checks
 from essdee_yrp.merch.ipd.draft import load_ipd
 from essdee_yrp.merch.ipd.payload import build_payload
@@ -127,4 +128,7 @@ def build_summary(payload, header, checks=()):
 def get_summary(name):
 	doc = load_ipd(name, "read")
 	payload = build_payload(doc)
-	return build_summary(payload, get_header(doc, payload), check_warnings(name))
+	summary = build_summary(payload, get_header(doc, payload), check_warnings(name))
+	attributes = summary["attributes"]
+	summary["work_orders"] = get_work_orders(doc, attributes["colours"], attributes["sizes"])
+	return summary

@@ -1,14 +1,16 @@
 import json
+import re
 
 import frappe
 from frappe import _
-from frappe.utils import cint, cstr, strip_html
+from frappe.utils import add_to_date, cint, cstr, get_datetime, strip_html
 
 DEFAULT_PAGE_LENGTH = 10
 MAX_PAGE_LENGTH = 50
 MAX_VALUE_LENGTH = 80
 VERSION_BATCH = 50
 MAX_SCANNED_VERSIONS = 500
+SAME_SAVE_SECONDS = 5
 DOCSTATUS_EVENTS = {1: "submitted", 2: "cancelled"}
 
 
@@ -29,6 +31,7 @@ def get_document_activity(
 
 	start, page_length = max(cint(start), 0), min(max(cint(page_length), 1), MAX_PAGE_LENGTH)
 	entries, next_start, has_more = get_version_page(meta, name, start, page_length)
+	entries = merge_comments(entries, get_comment_entries(doctype, name, start, next_start, has_more))
 	full_names = get_full_names({stamps.owner, stamps.modified_by, *(entry["user"] for entry in entries)})
 	for entry in entries:
 		entry["user_name"] = full_names.get(entry["user"], entry["user"])
@@ -74,6 +77,75 @@ def get_version_page(meta, name: str, start: int, page_length: int) -> tuple[lis
 		if not has_more:
 			break
 	return entries, offset, has_more
+
+
+def get_comment_entries(doctype: str, name: str, start: int, next_start: int, has_more: bool) -> list:
+	"""Comments between this page's newest and oldest scanned Version, so pages never repeat one.
+
+	Bounds sit SAME_SAVE_SECONDS early because a save writes its comment just before its Version.
+	"""
+	filters = {"reference_doctype": doctype, "reference_name": name, "comment_type": "Comment"}
+	bounds = []
+	if start:
+		bounds.append(["creation", "<", same_save_bound(doctype, name, start - 1)])
+	if has_more:
+		bounds.append(["creation", ">=", same_save_bound(doctype, name, next_start - 1)])
+	rows = frappe.get_all(
+		"Comment",
+		filters=[*[[key, "=", value] for key, value in filters.items()], *bounds],
+		fields=["name", "comment_email", "owner", "creation", "content"],
+		order_by="creation desc",
+	)
+	return [
+		{
+			"name": row.name,
+			"user": row.comment_email or row.owner,
+			"at": cstr(row.creation),
+			"comment": [
+				line
+				for part in re.split(r"<br\s*/?>", row.content or "")
+				if (line := strip_html(part).strip())
+			],
+		}
+		for row in rows
+	]
+
+
+def merge_comments(versions: list, comments: list) -> list:
+	"""Fold each comment into the Version its own save wrote; keep the rest as cards, newest first."""
+	cards = []
+	for comment in comments:
+		version = get_same_save_version(versions, comment)
+		if version:
+			version["summary"] = comment["comment"]
+		else:
+			cards.append(comment)
+	return sorted(versions + cards, key=lambda entry: entry["at"], reverse=True)
+
+
+def get_same_save_version(versions: list, comment: dict) -> dict | None:
+	written_at = get_datetime(comment["at"])
+	for version in reversed(versions):
+		gap = (get_datetime(version["at"]) - written_at).total_seconds()
+		if version["user"] == comment["user"] and 0 <= gap <= SAME_SAVE_SECONDS and "summary" not in version:
+			return version
+	return None
+
+
+def same_save_bound(doctype: str, name: str, offset: int):
+	return add_to_date(get_version_creation(doctype, name, offset), seconds=-SAME_SAVE_SECONDS)
+
+
+def get_version_creation(doctype: str, name: str, offset: int):
+	rows = frappe.get_all(
+		"Version",
+		filters={"ref_doctype": doctype, "docname": name},
+		pluck="creation",
+		order_by="creation desc, name desc",
+		start=offset,
+		limit=1,
+	)
+	return rows[0] if rows else None
 
 
 def get_full_names(users: set) -> dict:

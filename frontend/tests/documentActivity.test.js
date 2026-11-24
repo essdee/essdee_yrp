@@ -74,6 +74,15 @@ test("version entries are summarised like the Desk timeline", () => {
 	assert.deepEqual(describeActivityEntry(version("v4", { events: ["created"], via: "Data Import DI-1" })).map(lineText), ["created this document via Data Import DI-1"])
 })
 
+test("comment entries render one line per comment line", () => {
+	assert.deepEqual(describeActivityEntry({ name: "c1", comment: ["Added BOM items: Tape", "Packing colour added: Navy"] }).map(lineText), ["Added BOM items: Tape", "Packing colour added: Navy"])
+})
+
+test("a version card lists its change-log summary first", () => {
+	const lines = describeActivityEntry(version("v3", { summary: ["Removed BOM items: Tape"], rows_removed: [{ table: "Item BOM", count: 1 }] })).map(lineText)
+	assert.deepEqual(lines, ["Removed BOM items: Tape", "removed 1 row from Item BOM"])
+})
+
 test("refresh key follows saves, submits and cancels", () => {
 	assert.equal(activityRefreshKey({ modified: "2026-10-23 10:00:00", docstatus: 1, status: "Submitted" }), "2026-10-23 10:00:00")
 	assert.equal(activityRefreshKey({ docstatus: 1, status: "Submitted" }), "1|Submitted")

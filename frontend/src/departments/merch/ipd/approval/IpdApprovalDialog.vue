@@ -26,6 +26,7 @@
 				</label>
 			</div>
 			<Message v-else severity="success" size="small" :closable="false">No warnings in this IPD.</Message>
+			<IpdApprovalWorkOrders v-if="summary.work_orders" :work-orders="summary.work_orders" />
 			<div class="ipd-approval__grid">
 				<IpdApprovalSection
 					v-for="(section, index) in sections"
@@ -57,6 +58,7 @@ import { getIpdApprovalSummary } from "../../../../api/merch.js"
 import { formatDisplayDate } from "../../../../utils/dateFormat.js"
 import IpdApprovalAlerts from "./IpdApprovalAlerts.vue"
 import IpdApprovalSection from "./IpdApprovalSection.vue"
+import IpdApprovalWorkOrders from "./IpdApprovalWorkOrders.vue"
 import { approvalGate, orderedSections, sizeRange, weightSpan } from "./ipdApproval.js"
 import "./approval.css"
 
