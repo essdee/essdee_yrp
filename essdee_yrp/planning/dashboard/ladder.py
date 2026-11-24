@@ -38,8 +38,11 @@ def get_basis(planned, cut):
 	return flt(cut) or flt(planned)
 
 
-def get_balance(planned, cut, dispatch):
-	return get_basis(planned, cut) - flt(dispatch)
+def get_balance(cut, dispatch, to_alternative):
+	"""Cut pieces not yet dispatched or moved to an alternative lot; 0 for a lot with no cut yet."""
+	if flt(cut) <= 0:
+		return 0.0
+	return flt(cut) - flt(dispatch) - flt(to_alternative)
 
 
 def get_best_cutting_status(statuses):

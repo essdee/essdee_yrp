@@ -9,13 +9,14 @@ import {
 	dashboardTotals,
 	filterDashboardRows,
 	groupDashboardRows,
-	pageRows,
 	rowDrill,
 	sortDashboardRows,
 	statusCards,
 	statusTone,
 	tileDrill,
 } from "../src/departments/planning/dashboard/dashboardRows.js"
+import { windowRows } from "../src/departments/planning/dashboard/rowWindow.js"
+import { dashboardTiles } from "../src/departments/planning/dashboard/summaryCards.js"
 
 const ppos = {
 	"PPO-1": { item: "A", item_name: "Alpha", boxes: 100, pieces_per_box: 10, pieces: 1000, delivery: "2026-10-01" },
@@ -26,7 +27,7 @@ const lot = (values) => ({ has_work_order: true, cut: 0, stitch: 0, packed: 0, d
 const rows = [
 	lot({ lot: "L-2", ppo: "PPO-1", item: "A", status: "In sewing", status_rank: 500, delivery: "2026-10-01", qty: 400, cut: 410, stitch: 100, total: 410, balance: 410 }),
 	lot({ lot: "L-1", ppo: "PPO-1", item: "A", status: "Dispatched", status_rank: 800, delivery: "2026-10-01", qty: 500, cut: 520, stitch: 520, packed: 500, dispatch: 500, total: 520, balance: 20 }),
-	lot({ lot: "L-10", ppo: "PPO-2", item: "B", status: "Fabric not received", status_rank: 100, delivery: "2026-12-01", qty: 300, total: 300, balance: 300 }),
+	lot({ lot: "L-10", ppo: "PPO-2", item: "B", status: "Fabric not received", status_rank: 100, delivery: "2026-12-01", qty: 300, total: 300, balance: 0 }),
 	{ lot: "L-3", ppo: "PPO-1", item: "A", status: NO_WORK_ORDER, status_rank: 0, has_work_order: false, delivery: "2026-10-01", qty: 250, cut: 0, stitch: 0, packed: 0, dispatch: 0, total: 0, balance: 0 },
 ]
 const data = { as_of: "2026-11-06", ppos, lots: rows }
@@ -40,23 +41,44 @@ test("filters narrow rows and options ignore their own filter", () => {
 	assert.deepEqual(dashboardOptions(rows, { ...empty, item: ["B"] }, "lot", ppos), [{ value: "L-10", hint: "B" }])
 })
 
-test("tiles use every open PPO without a filter and the matching PPOs with one", () => {
+test("tiles add up exactly the table rows, with or without a filter", () => {
 	const all = dashboardTotals(data, empty)
-	assert.equal(all.ppoCount, 3)
-	assert.equal(all.ppoPieces, 1050)
-	assert.equal(all.ppoBoxes, 160.5)
-	assert.equal(all.boxesOnly, 1)
+	assert.equal(all.ppoCount, 2)
+	assert.equal(all.allPpoCount, 3)
+	assert.equal(all.ppoPieces, 1000)
+	assert.deepEqual(all.withoutPieces, [{ name: "PPO-2", boxes: 50.5 }])
+	assert.equal(all.lotQty, 1450)
 	assert.equal(all.lots.length, 3)
 	assert.equal(all.open.length, 2)
 	assert.equal(all.cut, 930)
 	assert.equal(all.dispatched, 500)
-	assert.equal(all.balance, 710)
+	assert.equal(all.balance, 430)
 	assert.deepEqual(all.late.map((row) => row.lot), ["L-2"])
 	assert.equal(all.notStarted.length, 1)
 	assert.equal(all.ppoWithWorkOrders, 2)
 	const filtered = dashboardTotals(data, { ...empty, item: ["B"] })
 	assert.equal(filtered.ppoCount, 1)
 	assert.equal(filtered.ppoPieces, 0)
+	assert.equal(filtered.withoutPieces.length, 1)
+})
+
+test("every card equals the sum of its table column for each filter", () => {
+	const cutting = lot({ lot: "L-20", ppo: "PPO-3", item: "C", status: "In cutting", status_rank: 400, qty: 900, total: 900, cut: 0, balance: 0 })
+	const moved = lot({ lot: "L-21", ppo: "PPO-3", item: "C", status: "In cutting", status_rank: 400, qty: 100, cut: 100, dispatch: 10, to_alternative: 30, balance: 60 })
+	const all = { ...data, lots: [...rows, cutting, moved] }
+	const column = (list, field) => list.reduce((total, row) => total + (row[field] || 0), 0)
+	for (const filters of [empty, { ...empty, status: ["In cutting"] }, { ...empty, item: ["A"] }, { ...empty, lot: ["L-2", "L-21"] }]) {
+		const totals = dashboardTotals(all, filters)
+		assert.equal(totals.cut, column(totals.rows, "cut"))
+		assert.equal(totals.dispatched, column(totals.rows, "dispatch"))
+		assert.equal(totals.balance, column(totals.rows, "balance"))
+		assert.equal(totals.balance, totals.cut - totals.cutDispatched - totals.cutMoved)
+		assert.ok(totals.balance <= totals.cut)
+	}
+	const inCutting = dashboardTotals(all, { ...empty, status: ["In cutting"] })
+	assert.deepEqual([inCutting.ppoCount, inCutting.cut, inCutting.balance, inCutting.uncutLots, inCutting.moved], [1, 100, 60, 1, 30])
+	const grouped = groupDashboardRows(inCutting.rows)
+	assert.deepEqual([grouped[0].balance, grouped[0].to_alternative], [60, 30])
 })
 
 test("status cards add up to the rows and use Lot pcs for lots with no Work Order", () => {
@@ -118,19 +140,19 @@ test("group by PPO sums lots, keeps PPO qty once and shows the furthest-behind o
 	assert.equal(groupDashboardRows([rows[0], rows[1]])[0].status, "In sewing")
 })
 
-test("sorting is numeric-aware and reversible, paging is 50 rows", () => {
+test("sorting is numeric-aware and reversible; rows render in scroll chunks", () => {
 	const byLot = sortDashboardRows(rows, { key: "lot", direction: 1 }, ppos).map((row) => row.lot)
 	assert.deepEqual(byLot, ["L-1", "L-2", "L-3", "L-10"])
 	const byCut = sortDashboardRows(rows, { key: "cut", direction: -1 }, ppos).map((row) => row.lot)
 	assert.equal(byCut[0], "L-1")
 	const many = Array.from({ length: 120 }, (_, index) => ({ lot: String(index) }))
-	assert.deepEqual([pageRows(many, 2).start, pageRows(many, 2).rows.length, pageRows(many, 9).page, pageRows(many, 0).pages], [100, 20, 2, 3])
+	assert.deepEqual([windowRows(many, 60).rows.length, windowRows(many, 60).hasMore, windowRows(many, 180).rows.length, windowRows(many, 180).hasMore], [60, true, 120, false])
 })
 
 test("CSV writes every row with the PPO qty unit", () => {
 	const text = dashboardCsv(sortDashboardRows(rows, { key: "ppo", direction: 1 }, ppos), false, ppos)
 	const lines = text.split("\n")
-	assert.equal(lines[0], "#,PPO,Lot,Item,Product Category,Status,PPO Qty,PPO Qty unit,Lot Qty,Cut Qty,Stitching Qty,Packed Qty,Dispatched Qty")
+	assert.equal(lines[0], "#,PPO,Lot,Item,Product Category,Status,PPO Qty,PPO Qty unit,Lot Qty,Cut Qty,Stitching Qty,Packed Qty,Dispatched Qty,Moved to alternative,Balance")
 	assert.equal(lines.length, 5)
 	assert.ok(lines.some((line) => line.includes("PPO-2,L-10,B,,Fabric not received,50.5,box")))
 	const grouped = dashboardCsv(groupDashboardRows(rows), true, ppos).split("\n")
@@ -140,9 +162,20 @@ test("CSV writes every row with the PPO qty unit", () => {
 
 test("drills open PPO Tracking with the tile or row selection", () => {
 	const totals = dashboardTotals(data, empty)
-	assert.deepEqual(tileDrill("ppos", totals), { ppo: ["PPO-1", "PPO-2", "PPO-3"], lot: [], dispatched: false })
+	assert.deepEqual(tileDrill("ppos", totals), { ppo: ["PPO-1", "PPO-2"], lot: [], dispatched: false })
 	assert.deepEqual(tileDrill("cut", totals), { ppo: [], lot: ["L-2", "L-1"], dispatched: true })
 	assert.deepEqual(tileDrill("late", totals), { ppo: [], lot: ["L-2"], dispatched: false })
 	assert.deepEqual(rowDrill(rows[1], true), { ppo: ["PPO-1"], lot: ["L-1"], dispatched: true })
 	assert.deepEqual(rowDrill(rows[0], false), { ppo: ["PPO-1"], lot: [], dispatched: false })
+})
+
+test("tiles say their formula in a hover card and never mention boxes-only counts", () => {
+	const tiles = dashboardTiles(dashboardTotals(data, empty))
+	const byKey = Object.fromEntries(tiles.map((tile) => [tile.key, tile]))
+	assert.ok(tiles.every((tile) => tile.help?.formula && !("title" in tile)))
+	assert.equal(byKey.ppoQty.foot, "pcs · 1 PPO not counted (no pcs per box)")
+	assert.ok(byKey.ppoQty.help.lines.some((line) => line.includes("PPO-2 (50.5 boxes)")))
+	assert.equal(byKey.balance.help.formula, "Balance = Cut − Dispatched − Moved to alternative, per lot")
+	assert.equal(byKey.balance.help.lines[0], "= 930 pcs − 500 pcs − 0 pcs over the 2 lots with Cut.")
+	assert.equal(byKey.cut.foot, "pcs received from Cutting WOs · 4 lots")
 })

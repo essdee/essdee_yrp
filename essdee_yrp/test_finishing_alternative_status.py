@@ -116,15 +116,20 @@ class TestLotSummaryCountsAlternative(TestCase):
 			fabric_routes={},
 			purchase_lines={},
 			dispatch={"LOT-1": 55},
+			item_totals={"WO-CUT": {"planned": 100, "delivered": 100, "received": 100}},
 			alternatives={"LOT-1": [{"lot": "LOT-1-1", "item": "ALT", "quantity": 40.0, "boxes": 4.0}]},
 		)
 		metrics.__dict__["orders_by_lot"] = {
-			"LOT-1": [{"name": "WO-1", "process_name": "Packing", "is_rework": 0, "includes_packing": 1}]
+			"LOT-1": [
+				{"name": "WO-CUT", "process_name": "Cutting", "is_rework": 0, "includes_packing": 0},
+				{"name": "WO-1", "process_name": "Packing", "is_rework": 0, "includes_packing": 1},
+			]
 		}
 
 		summary = metrics.get_summary("LOT-1")
 
 		self.assertEqual(summary["status"], "Dispatched")
 		self.assertEqual(summary["to_alternative"], 40)
+		self.assertEqual(summary["cut"], 100)
 		self.assertEqual(summary["balance"], 5)
 		self.assertEqual(summary["alternatives"][0]["lot"], "LOT-1-1")

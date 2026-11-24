@@ -31,7 +31,7 @@
 						<th class="pd-number" title="Lot order pcs. PPO row: sum over its lots with Work Orders">Lot</th>
 						<th class="pd-number" title="Pieces received from Cutting Work Orders">Cut</th>
 						<th class="pd-number" title="Pieces dispatched. PPO row: all its lots, including hidden dispatched lots">Dispatched</th>
-						<th class="pd-number" title="Lot: Cut − Dispatched (Lot before cutting). PPO: PPO − Dispatched">Balance</th>
+						<th class="pd-number" title="Lot: Cut − Dispatched − Moved to alternative; 0 before any Cut. PPO: PPO − Dispatched">Balance</th>
 					</tr>
 				</thead>
 				<tbody>

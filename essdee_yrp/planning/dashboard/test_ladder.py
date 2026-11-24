@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from essdee_yrp.planning.dashboard import ladder
+from essdee_yrp.planning.dashboard.lot_metrics import LotMetrics
 
 
 def facts(**values):
@@ -210,9 +211,12 @@ class TestLotQuantities(TestCase):
 		orders = [{"name": "WO-1", "process_name": "Stitching", "includes_packing": 0}] * 2
 		self.assertEqual(self.quantities(orders, {"WO-1": 50})["stitch"], 50)
 
-	def test_balance_can_be_negative(self):
-		self.assertEqual(ladder.get_balance(planned=100, cut=120, dispatch=150), -30)
-		self.assertEqual(ladder.get_balance(planned=100, cut=0, dispatch=40), 60)
+	def test_balance_is_cut_less_dispatched_and_moved(self):
+		self.assertEqual(ladder.get_balance(cut=120, dispatch=50, to_alternative=20), 50)
+		self.assertEqual(ladder.get_balance(cut=120, dispatch=150, to_alternative=0), -30)
+
+	def test_balance_is_zero_before_cutting(self):
+		self.assertEqual(ladder.get_balance(cut=0, dispatch=40, to_alternative=0), 0)
 
 
 class TestSewingProcesses(TestCase):
@@ -288,3 +292,37 @@ class TestProcessRows(TestCase):
 			{"name": "A", "first_dc": "2026-08-01"},
 		]
 		self.assertEqual([row["name"] for row in ladder.sort_by_first_dc(rows)], ["A", "B", "C"])
+
+
+class TestLotSummaryBalance(TestCase):
+	"""Balance follows the Cut column: pieces received from Cutting Work Orders."""
+
+	def summary(self, received_cut, dispatch=0.0, moved=0.0):
+		metrics = LotMetrics([{"name": "LOT-1", "item": "VEST"}], sewing_processes=[])
+		metrics.__dict__.update(
+			orders=[],
+			orders_by_lot={
+				"LOT-1": [
+					{"name": "WO-CUT", "process_name": "Cutting", "is_rework": 0, "includes_packing": 0}
+				]
+			},
+			item_totals={"WO-CUT": {"planned": 1000, "delivered": 1000, "received": received_cut}},
+			order_quantities={"LOT-1": (1000, 0)},
+			cutting_statuses={"LOT-1": "Cutting In Progress"},
+			lay_sheets={"LOT-1": 1},
+			cutting_delivered=set(),
+			fabric_routes={},
+			purchase_lines={},
+			dispatch={"LOT-1": dispatch},
+			alternatives={"LOT-1": [{"quantity": moved}] if moved else []},
+		)
+		return metrics.get_summary("LOT-1")
+
+	def test_lot_in_cutting_with_nothing_received_has_no_balance(self):
+		summary = self.summary(received_cut=0)
+		self.assertEqual(summary["status"], "In cutting")
+		self.assertEqual((summary["cut"], summary["total"], summary["balance"]), (0, 1000, 0))
+
+	def test_balance_never_uses_planned_pieces(self):
+		summary = self.summary(received_cut=800, dispatch=300, moved=100)
+		self.assertEqual((summary["cut"], summary["balance"]), (800, 400))

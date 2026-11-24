@@ -43,7 +43,7 @@ test("Product Category lives in the URL across tabs and drills", () => {
 	assert.deepEqual(drillQuery({ ppo: ["PPO-1"], lot: [], dispatched: false, category: ["Thermal"] }), { view: "tracking", ppo: ["PPO-1"], category: ["Thermal"] })
 })
 
-test("PPO Tracking: a category alone is a scope and narrows PPO, Lot and not-started lots", () => {
+test("PPO Tracking: a category alone is a scope and narrows PPO and Lot options", () => {
 	assert.ok(hasTrackingScope({ ppo: [], lot: [], process: [], category: ["Thermal"] }))
 	assert.ok(!hasTrackingScope({ ppo: [], lot: [], process: [] }))
 	const options = {
@@ -56,9 +56,7 @@ test("PPO Tracking: a category alone is a scope and narrows PPO, Lot and not-sta
 	assert.deepEqual(result.lot.map((option) => option.value), ["L-1"])
 	assert.deepEqual(result.category, [{ value: "Thermal", hint: "2 PPOs" }, { value: "Vest", hint: "1 PPO" }])
 	assert.deepEqual(pruneTrackingFilters(filters, result), { ppo: [], lot: [], process: [], category: ["Thermal"] })
-	const data = { ppos: { "PPO-1": { boxes: 1, pieces: 10, lots: [{ lot: "L-8", has_work_order: false, planned: 40, product_category: "Thermal" }, { lot: "L-9", has_work_order: false, planned: 60, product_category: "Vest" }] } }, lots: [] }
-	const summary = trackingSummary(data, { ppo: ["PPO-1"], lot: [], process: [], category: ["Thermal"] })
-	assert.deepEqual([summary.notStartedLots, summary.notStarted], [1, 40])
-	const byCategory = trackingSummary({ ...data, lots: [{ lot: "L-1", ppo: "PPO-1", status: "In sewing", total: 10, dispatch: 0, product_category: "Thermal" }] }, { ppo: [], lot: [], process: [], category: ["Thermal"] })
-	assert.deepEqual([byCategory.isLotsOnly, byCategory.notStartedLots], [false, 1])
+	const data = { ppos: { "PPO-1": { boxes: 1, pieces: 10 } } }
+	const byCategory = trackingSummary(data, [{ lot: "L-1", ppo: "PPO-1", status: "In sewing", qty: 10, cut_pcs: 10, balance: 10, dispatch: 0, has_work_order: true, product_category: "Thermal" }])
+	assert.deepEqual([byCategory.ppoCount, byCategory.ppoPieces, byCategory.balance, byCategory.notStartedLots], [1, 10, 10, 0])
 })

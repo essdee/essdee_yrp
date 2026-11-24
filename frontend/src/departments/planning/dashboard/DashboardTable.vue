@@ -6,16 +6,11 @@
 				<p :data-count="sorted.length">{{ rangeText }} · sorted by {{ sortLabel }}<template v-if="isGrouped"> · {{ plural(rows.length, "lot") }} grouped</template></p>
 			</div>
 			<div class="pd-toolbar__end">
-				<div v-if="paged.pages > 1" class="pd-pager">
-					<Button label="‹ Prev" size="small" severity="secondary" outlined :disabled="!paged.page" @click="page = paged.page - 1" />
-					<span>Page {{ paged.page + 1 }} of {{ paged.pages }}</span>
-					<Button label="Next ›" size="small" severity="secondary" outlined :disabled="paged.page >= paged.pages - 1" @click="page = paged.page + 1" />
-				</div>
 				<label class="pd-check"><Checkbox v-model="isGrouped" binary input-id="pd-group-by-ppo" /><span>Group by PPO</span></label>
 				<Button label="Copy CSV" size="small" severity="secondary" outlined @click="copy" />
 			</div>
 		</header>
-		<div class="pd-table-wrap">
+		<div class="pd-table-wrap pd-table-wrap--scroll">
 			<table class="pd-table pd-dash-table" :class="{ 'is-grouped': isGrouped }">
 				<thead>
 					<tr>
@@ -26,8 +21,8 @@
 					</tr>
 				</thead>
 				<tbody>
-					<tr v-for="(row, index) in paged.rows" :key="isGrouped ? row.ppo : row.lot" :class="{ 'is-dispatched': row.status === 'Dispatched' }" :data-row="isGrouped ? row.ppo : row.lot">
-						<td class="pd-number pd-muted">{{ paged.start + index + 1 }}</td>
+					<tr v-for="(row, index) in shown.rows" :key="isGrouped ? row.ppo : row.lot" :class="{ 'is-dispatched': row.status === 'Dispatched' }" :data-row="isGrouped ? row.ppo : row.lot">
+						<td class="pd-number pd-muted">{{ index + 1 }}</td>
 						<td><button type="button" class="pd-link" @click="emit('drill', rowDrill(row, false))">{{ row.ppo }}</button></td>
 						<td :class="isGrouped ? 'pd-lots-cell' : 'pd-lot-cell'">
 							<template v-if="isGrouped">
@@ -41,9 +36,10 @@
 							<span class="pd-status-mix" :title="row.isGroup ? row.breakdown : undefined"><LotStatusPill :status="row.status" /><LotStatusPill v-if="!row.isGroup && row.purchase_split" :status="row.purchase_split.status" :title="`${formatQuantity(row.purchase_split.pieces)} pcs still on PO`" /><em v-if="row.isGroup && row.otherStatuses">+{{ row.otherStatuses }}</em></span>
 						</td>
 						<td class="pd-number">{{ ppoQuantityText(row.ppo) }}<small v-if="!ppos[row.ppo]?.pieces" class="pd-unit">box</small></td>
-						<td v-for="field in SUMMED_FIELDS" :key="field" class="pd-number" :data-col="field">{{ formatQuantity(row[field]) }}</td>
+						<td v-for="field in SUMMED_FIELDS" :key="field" class="pd-number" :class="{ 'is-negative': field === 'balance' && row.balance < 0 }" :data-col="field">{{ formatQuantity(row[field]) }}<small v-if="field === 'dispatch' && row.to_alternative" class="pd-sub" data-to-alternative>+{{ formatQuantity(row.to_alternative) }} to alternative</small></td>
 					</tr>
-					<tr v-if="!paged.rows.length"><td :colspan="COLUMNS.length + 1" class="pd-empty">No lots match these filters.</td></tr>
+					<tr v-if="shown.hasMore" ref="sentinel" class="pd-more-row"><td :colspan="COLUMNS.length + 1">Loading more {{ unit }}s…</td></tr>
+					<tr v-if="!shown.rows.length"><td :colspan="COLUMNS.length + 1" class="pd-empty">No lots match these filters.</td></tr>
 				</tbody>
 			</table>
 		</div>
@@ -54,14 +50,15 @@
 import Button from "primevue/button"
 import Checkbox from "primevue/checkbox"
 import { useToast } from "primevue/usetoast"
-import { computed, ref, watch } from "vue"
+import { computed, ref } from "vue"
 
 import LotStatusPill from "./LotStatusPill.vue"
 import { copyCsv } from "./copyCsv.js"
 import { formatQuantity, plural } from "./dashboardFormat.js"
-import { SUMMED_FIELDS, dashboardCsv, groupDashboardRows, pageRows, rowDrill, sortDashboardRows } from "./dashboardRows.js"
+import { SUMMED_FIELDS, dashboardCsv, groupDashboardRows, rowDrill, sortDashboardRows } from "./dashboardRows.js"
+import { useRowWindow } from "./rowWindow.js"
 
-/** Flat lot table (or one row per PPO) with sorting, 50-row pages and Copy CSV. */
+/** Flat lot table (or one row per PPO) with sorting, rows loading as it scrolls, and Copy CSV. */
 const props = defineProps({
 	rows: { type: Array, required: true },
 	ppos: { type: Object, required: true },
@@ -80,22 +77,18 @@ const COLUMNS = [
 	{ key: "cut", label: "Cut Qty", isNumber: true, title: "Pcs received from Cutting Work Orders" },
 	{ key: "stitch", label: "Stitching Qty", isNumber: true, title: "" },
 	{ key: "packed", label: "Packed Qty", isNumber: true, title: "Pcs received from the lot's packing Work Orders (Includes Packing); each WO counted once" },
-	{ key: "dispatch", label: "Dispatched Qty", isNumber: true, title: "Dispatch pcs (as in PPO Tracking)" },
+	{ key: "dispatch", label: "Dispatched Qty", isNumber: true, title: "Dispatch pcs (as in PPO Tracking); pieces moved to an alternative lot show below" },
+	{ key: "balance", label: "Balance", isNumber: true, title: "Cut − Dispatched − Moved to alternative; 0 for a lot with no Cut yet" },
 ]
 const sort = ref({ key: "ppo", direction: 1 })
-const page = ref(0)
 const isGrouped = ref(false)
 
 const tableRows = computed(() => (isGrouped.value ? groupDashboardRows(props.rows) : props.rows))
 const sorted = computed(() => sortDashboardRows(tableRows.value, sort.value, props.ppos))
-const paged = computed(() => pageRows(sorted.value, page.value))
+const { shown, sentinel } = useRowWindow(sorted)
 const unit = computed(() => (isGrouped.value ? "PPO" : "lot"))
 const sortLabel = computed(() => COLUMNS.find((column) => column.key === sort.value.key)?.label)
-const rangeText = computed(() => (sorted.value.length
-	? `${formatQuantity(paged.value.start + 1)}–${formatQuantity(paged.value.start + paged.value.rows.length)} of ${plural(sorted.value.length, unit.value)}`
-	: `No ${unit.value}s`))
-
-watch(() => [props.rows, isGrouped.value], () => { page.value = 0 })
+const rangeText = computed(() => (sorted.value.length ? plural(sorted.value.length, unit.value) : `No ${unit.value}s`))
 
 function columnTitle(column) {
 	const title = column.key === "stitch"
@@ -107,7 +100,6 @@ function columnTitle(column) {
 
 function sortBy(key) {
 	sort.value = { key, direction: sort.value.key === key ? -sort.value.direction : 1 }
-	page.value = 0
 }
 
 const sortMark = (key) => (sort.value.key === key ? (sort.value.direction > 0 ? "▲" : "▼") : "↕")

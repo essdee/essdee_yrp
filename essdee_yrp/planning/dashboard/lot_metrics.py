@@ -370,16 +370,17 @@ class LotMetrics:
 		received = {order["name"]: self.get_order_total(order, "received") for order in orders}
 		total = ladder.get_basis(facts["planned"], facts["cut"])
 		status = ladder.get_lot_status(facts)
+		quantities = ladder.get_lot_quantities(orders, received, self.sewing)
 		return {
 			"status": status,
 			"status_rank": ladder.get_status_rank(status, facts["fabric_step"]),
 			"planned": facts["planned"],
 			"order_cut": facts["cut"],
-			**ladder.get_lot_quantities(orders, received, self.sewing),
+			**quantities,
 			"total": total,
 			"dispatch": facts["dispatch"],
 			"to_alternative": facts["to_alternative"],
 			"alternatives": self.alternatives.get(lot, []),
-			"balance": total - facts["dispatch"] - facts["to_alternative"],
+			"balance": ladder.get_balance(quantities["cut"], facts["dispatch"], facts["to_alternative"]),
 			"purchase_split": self.get_purchase_split(lot, status, total),
 		}

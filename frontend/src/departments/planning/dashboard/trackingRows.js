@@ -1,5 +1,6 @@
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import { csvText, percentOf, plural, roundQuantity } from "./dashboardFormat.js"
+import { ppoQuantityTotals, quantityTotals } from "./dashboardRows.js"
 
 export const PROCESS_STATUS_LABELS = { done: "Completed", partial: "Partial", idle: "Not started" }
 export const PROCESS_UNITS = { cloth: ["Kg", "Kg"], cutting: ["Kg", "pcs"], item: ["pcs", "pcs"], packing: ["pcs", "pcs"] }
@@ -32,27 +33,20 @@ export function hiddenDispatchedCount(matching) {
 	return matching.filter(isDispatched).length
 }
 
-/** Selection tiles: PPO and Lot filters set the scope; the Process filter and Show dispatched are ignored. */
-export function trackingSummary(data, filters) {
-	const lots = (data.lots || []).filter((row) => row.has_work_order)
-	const ppoNames = filters.ppo.length ? filters.ppo.filter((name) => data.ppos?.[name]) : [...new Set((data.lots || []).map((row) => row.ppo))]
-	const ppos = ppoNames.map((name) => data.ppos?.[name] || {})
-	const notStarted = filters.lot.length
-		? (data.lots || []).filter((row) => !row.has_work_order).map((row) => ({ planned: row.qty }))
-		: ppos.flatMap((ppo) => (ppo.lots || []).filter((row) => !row.has_work_order && inCategory(filters, row.product_category)))
+/** Tile figures over exactly the lots the table shows; Cut is pieces received from Cutting WOs (`cut_pcs`). */
+export function trackingSummary(data, rows, hiddenDispatched = 0) {
+	const lots = rows.filter((row) => row.has_work_order)
 	const open = lots.filter((row) => !isDispatched(row))
+	const ppoNames = [...new Set(rows.map((row) => row.ppo))]
 	return {
+		rows, ppoNames, hiddenDispatched,
 		ppoCount: ppoNames.length,
-		lotCount: lots.length + notStarted.length,
 		openLots: open.length,
 		dispatchedLots: lots.length - open.length,
-		notStartedLots: notStarted.length,
-		ppoBoxes: sum(ppos, (ppo) => ppo.boxes),
-		ppoPieces: sum(ppos, (ppo) => ppo.pieces),
-		dispatched: sum(lots, (row) => row.dispatch),
-		workInProgress: sum(open, (row) => Math.max(row.total - row.dispatch - (row.to_alternative || 0), 0)),
-		notStarted: sum(notStarted, (row) => row.planned),
-		isLotsOnly: !filters.ppo.length && Boolean(filters.lot.length),
+		notStartedLots: rows.length - lots.length,
+		...ppoQuantityTotals(ppoNames, data.ppos),
+		lotQty: sum(rows, (row) => row.qty),
+		...quantityTotals(rows, "cut_pcs"),
 	}
 }
 

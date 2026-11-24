@@ -14,7 +14,9 @@ import {
 	trackingCsv,
 	trackingFilterOptions,
 	trackingSummary,
+	visibleTrackingLots,
 } from "../src/departments/planning/dashboard/trackingRows.js"
+import { trackingTiles } from "../src/departments/planning/dashboard/summaryCards.js"
 
 const process = (name, kind, status, values = {}) => ({ name, kind, status, first_dc: "2026-08-01", planned: 100, delivered: 100, received: 90, dispatch: 0, reason: "WO Closed", work_orders: [{ name: `WO-${name}`, supplier: "S1", status: "Closed" }], ...values })
 const lots = [
@@ -22,7 +24,7 @@ const lots = [
 		processes: [process("Cutting", "cutting", "partial", { planned: 1200, received: 1100 }), process("Stitching", "item", "done"), process("Packing", "packing", "partial", { received: 950, dispatch: 900 })] },
 	{ lot: "L-2", ppo: "PPO-1", item: "A", delivery: "2026-06-15", qty: 500, status: "Dispatched", planned: 500, cut: 520, cut_pcs: 520, total: 520, dispatch: 500, balance: 20, has_work_order: true,
 		processes: [process("Cutting", "cutting", "done"), process("Packing", "packing", "done")] },
-	{ lot: "L-3", ppo: "PPO-2", item: "B", delivery: "2026-10-05", qty: 300, status: "Fabric not received", planned: 300, cut: 0, cut_pcs: 0, total: 300, dispatch: 0, balance: 300, has_work_order: true,
+	{ lot: "L-3", ppo: "PPO-2", item: "B", delivery: "2026-10-05", qty: 300, status: "Fabric not received", planned: 300, cut: 0, cut_pcs: 0, total: 300, dispatch: 0, balance: 0, has_work_order: true,
 		processes: [process("Knitting", "cloth", "idle", { first_dc: null, planned: 50, delivered: 0, received: 0 })] },
 ]
 const ppos = {
@@ -39,12 +41,22 @@ test("Process filter keeps only those processes and drops lots without them", ()
 	assert.equal(hasTrackingScope({ ppo: [], lot: ["L-1"], process: [] }), true)
 })
 
-test("summary ignores the Process filter and counts not-started lots of selected PPOs", () => {
-	const summary = trackingSummary(data, { ppo: ["PPO-1", "PPO-2"], lot: [], process: ["Stitching"] })
-	assert.deepEqual([summary.ppoCount, summary.lotCount, summary.openLots, summary.dispatchedLots, summary.notStartedLots], [2, 4, 2, 1, 1])
-	assert.deepEqual([summary.ppoBoxes, summary.ppoPieces, summary.dispatched, summary.workInProgress, summary.notStarted], [180, 1500, 1400, 500, 400])
-	const lotsOnly = trackingSummary({ ...data, lots: [lots[0]] }, { ppo: [], lot: ["L-1"], process: [] })
-	assert.deepEqual([lotsOnly.ppoCount, lotsOnly.lotCount, lotsOnly.notStarted, lotsOnly.isLotsOnly], [1, 1, 0, true])
+test("summary adds up exactly the lots the table shows", () => {
+	const shown = visibleTrackingLots(matchingTrackingLots(lots, { ppo: ["PPO-1", "PPO-2"], lot: [], process: ["Stitching"] }), true)
+	const summary = trackingSummary(data, shown)
+	assert.deepEqual([summary.ppoCount, summary.rows.length, summary.openLots, summary.dispatchedLots], [1, 1, 1, 0])
+	assert.deepEqual([summary.ppoPieces, summary.cut, summary.dispatched, summary.balance], [1500, 1100, 900, 200])
+	const all = trackingSummary(data, visibleTrackingLots(lots, false), 1)
+	assert.deepEqual([all.ppoCount, all.rows.length, all.hiddenDispatched, all.withoutPieces], [2, 2, 1, [{ name: "PPO-2", boxes: 30 }]])
+	assert.deepEqual([all.cut, all.dispatched, all.balance, all.uncutLots], [1100, 900, 200, 1])
+})
+
+test("tracking tiles read the same figures in pieces with a formula hover card", () => {
+	const tiles = trackingTiles(trackingSummary(data, lots))
+	const byKey = Object.fromEntries(tiles.map((tile) => [tile.key, tile]))
+	assert.deepEqual(tiles.map((tile) => tile.key), ["ppos", "lots", "ppoQty", "cut", "dispatched", "balance"])
+	assert.deepEqual([byKey.cut.value, byKey.dispatched.value, byKey.balance.value], ["1,620", "1,400", "220"])
+	assert.ok(tiles.every((tile) => tile.help.formula && !tile.unit))
 })
 
 test("PPO figures cover every lot of the PPO and flag Cut over PPO", () => {
@@ -91,10 +103,6 @@ test("CSV has the PPO and lot figures then each visible process", () => {
 	assert.equal(lines[2].split(",").slice(-6).join(","), ",,,,0,0")
 })
 
-test("trackingSummary counts only selected PPOs the server returned", () => {
-	const data = { ppos: { "PPO-1": { boxes: 1, pieces: 10, lots: [] } }, lots: [] }
-	assert.equal(trackingSummary(data, { ppo: ["PPO-1", "PPO-DRAFT"], lot: [], process: [] }).ppoCount, 1)
-})
 
 const ordered = { lot: "L-9", ppo: "PPO-1", item: "A", qty: 400, status: "PO Created", total: 0, dispatch: 0, balance: 0, has_work_order: false, processes: [],
 	purchase: { units: [{ uom: "Kg", ordered: 3042, received: 70 }, { uom: "Meter", ordered: 0, received: 0 }], purchase_orders: ["PO-1", "PO-2"] } }
@@ -104,12 +112,9 @@ test("a lot with only a yarn / fabric PO is listed, without process rows", () =>
 	assert.deepEqual(matchingTrackingLots([ordered], { ppo: [], lot: [], process: ["Knitting"] }), [])
 })
 
-test("summary counts a PO-only lot once, as not started", () => {
-	const withPo = { ...data, lots: [...lots, ordered] }
-	const summary = trackingSummary(withPo, { ppo: ["PPO-1", "PPO-2"], lot: [], process: [] })
-	assert.deepEqual([summary.lotCount, summary.openLots, summary.notStartedLots, summary.notStarted], [4, 2, 1, 400])
-	const picked = trackingSummary({ ...data, lots: [ordered] }, { ppo: [], lot: ["L-9"], process: [] })
-	assert.deepEqual([picked.lotCount, picked.openLots, picked.notStartedLots, picked.notStarted], [1, 0, 1, 400])
+test("summary counts a PO-only lot once, with no Work Order", () => {
+	const summary = trackingSummary(data, [...lots, ordered])
+	assert.deepEqual([summary.rows.length, summary.openLots, summary.notStartedLots, summary.lotQty], [4, 2, 1, 2200])
 })
 
 test("purchase units carry received % per unit", () => {
@@ -117,8 +122,8 @@ test("purchase units carry received % per unit", () => {
 	assert.deepEqual(purchaseUnits(null), [])
 })
 
-test("work in progress leaves out pieces moved to an alternative lot", () => {
-	const moved = { ...lots[0], to_alternative: 150 }
-	const summary = trackingSummary({ ...data, lots: [moved] }, { ppo: [], lot: ["L-1"], process: [] })
-	assert.equal(summary.workInProgress, 50)
+test("balance card is the Balance column, which leaves out pieces moved to an alternative lot", () => {
+	const moved = { ...lots[0], to_alternative: 150, balance: 50 }
+	const summary = trackingSummary(data, [moved])
+	assert.deepEqual([summary.balance, summary.cut - summary.cutDispatched - summary.cutMoved, summary.moved], [50, 50, 150])
 })
