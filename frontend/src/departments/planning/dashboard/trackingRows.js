@@ -1,5 +1,6 @@
 import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import { csvText, percentOf, plural, roundQuantity } from "./dashboardFormat.js"
+import { ppoConversions, quantityTotals } from "./dashboardRows.js"
 
 export const PROCESS_STATUS_LABELS = { done: "Completed", partial: "Partial", idle: "Not started" }
 export const PROCESS_UNITS = { cloth: ["Kg", "Kg"], cutting: ["Kg", "pcs"], item: ["pcs", "pcs"], packing: ["pcs", "pcs"] }
@@ -32,39 +33,32 @@ export function hiddenDispatchedCount(matching) {
 	return matching.filter(isDispatched).length
 }
 
-/** Selection tiles: PPO and Lot filters set the scope; the Process filter and Show dispatched are ignored. */
-export function trackingSummary(data, filters) {
-	const lots = (data.lots || []).filter((row) => row.has_work_order)
-	const ppoNames = filters.ppo.length ? filters.ppo.filter((name) => data.ppos?.[name]) : [...new Set((data.lots || []).map((row) => row.ppo))]
-	const ppos = ppoNames.map((name) => data.ppos?.[name] || {})
-	const notStarted = filters.lot.length
-		? (data.lots || []).filter((row) => !row.has_work_order).map((row) => ({ planned: row.qty }))
-		: ppos.flatMap((ppo) => (ppo.lots || []).filter((row) => !row.has_work_order && inCategory(filters, row.product_category)))
+/** Tile figures over exactly the lots the table shows; Cut is pieces received from Cutting WOs (`cut_pcs`). */
+export function trackingSummary(data, rows, hiddenDispatched = 0) {
+	const lots = rows.filter((row) => row.has_work_order)
 	const open = lots.filter((row) => !isDispatched(row))
+	const ppoNames = [...new Set(rows.map((row) => row.ppo))]
 	return {
+		rows, ppoNames, hiddenDispatched,
 		ppoCount: ppoNames.length,
-		lotCount: lots.length + notStarted.length,
 		openLots: open.length,
 		dispatchedLots: lots.length - open.length,
-		notStartedLots: notStarted.length,
-		ppoBoxes: sum(ppos, (ppo) => ppo.boxes),
-		ppoPieces: sum(ppos, (ppo) => ppo.pieces),
-		dispatched: sum(lots, (row) => row.dispatch),
-		workInProgress: sum(open, (row) => Math.max(row.total - row.dispatch - (row.to_alternative || 0), 0)),
-		notStarted: sum(notStarted, (row) => row.planned),
-		isLotsOnly: !filters.ppo.length && Boolean(filters.lot.length),
+		notStartedLots: rows.length - lots.length,
+		...ppoConversions(ppoNames, data.ppos),
+		...quantityTotals(rows, "cut_pcs"),
 	}
 }
 
-/** PPO row figures over every lot of the PPO with a Work Order, including hidden dispatched lots. */
+/** PPO row figures over every lot of the PPO with a Work Order, including hidden dispatched lots; moved pieces count as dispatched. */
 export function ppoFigures(ppo = {}) {
 	const lots = ppo.work_order_lots || []
 	const cut = sum(lots, (row) => row.cut_pcs)
 	const dispatch = sum(lots, (row) => row.dispatch)
+	const moved = sum(lots, (row) => row.to_alternative)
 	return {
-		boxes: ppo.boxes, pieces: ppo.pieces, piecesPerBox: ppo.pieces_per_box,
-		lotPieces: sum(lots, (row) => row.qty), cut, dispatch,
-		balance: ppo.pieces ? ppo.pieces - dispatch : null,
+		boxes: ppo.boxes, pieces: ppo.pieces, piecesPerBox: ppo.pieces_per_box, conversion: ppo.conversion,
+		lotPieces: sum(lots, (row) => row.qty), cut, dispatch, moved,
+		balance: ppo.pieces != null ? ppo.pieces - dispatch - moved : null,
 		share: ppo.pieces ? dispatch / ppo.pieces : 0,
 		isCutOver: Boolean(ppo.pieces && cut > ppo.pieces),
 	}
@@ -163,7 +157,7 @@ export function trackingCsv(lots, ppos = {}) {
 	const units = (kind) => PROCESS_UNITS[kind] || PROCESS_UNITS.item
 	const header = [
 		"PPO", "PPO Qty boxes", "PPO pcs", "PPO Cut pcs", "PPO Dispatch pcs", "PPO Balance pcs", "Lot", "Item", "Status", "Delivery",
-		"Lot pcs", "Cut pcs", "Dispatch pcs", "Balance pcs",
+		"PPO share pcs", "Lot pcs", "Cut pcs", "Dispatch pcs", "Balance pcs",
 		...processes.flatMap(([name, kind]) => [`${name} Delivered ${units(kind)[0]}`, `${name} Received ${units(kind)[1]}`]),
 	]
 	const lines = lots.map((row) => {
@@ -171,7 +165,7 @@ export function trackingCsv(lots, ppos = {}) {
 		const byName = Object.fromEntries(row.processes.map((step) => [step.name, step]))
 		return [
 			row.ppo, figures.boxes ?? "", figures.pieces ?? "", figures.cut, figures.dispatch, figures.balance ?? "",
-			row.lot, row.item, row.status, formatDisplayDate(row.delivery, ""), row.qty, row.cut_pcs, row.dispatch, row.balance,
+			row.lot, row.item, row.status, formatDisplayDate(row.delivery, ""), row.ppo_qty, row.qty, row.cut_pcs, row.dispatch, row.balance,
 			...processes.flatMap(([name]) => (byName[name] ? [roundQuantity(byName[name].delivered), roundQuantity(byName[name].received)] : ["", ""])),
 		]
 	})

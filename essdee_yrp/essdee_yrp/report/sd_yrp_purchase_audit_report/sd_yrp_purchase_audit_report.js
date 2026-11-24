@@ -53,7 +53,6 @@ frappe.query_reports["SD YRP Purchase Audit Report"] = {
 			label: __("Warehouse"),
 			fieldtype: "Link",
 			options: "Warehouse",
-			reqd: 1,
 			get_query: () => {
 				const supplier = frappe.query_report.get_filter_value("supplier");
 				return { filters: supplier ? { supplier, disabled: 0 } : { disabled: 0 } };

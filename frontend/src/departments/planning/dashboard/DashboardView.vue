@@ -6,7 +6,7 @@
 					<InlinePageNavigation :show-back="false" />
 					<div>
 						<h1 id="pd-dashboard-title">Dashboard</h1>
-						<p>All {{ formatQuantity(ppoTotal) }} open PPOs and their lots. Filters narrow every section; click a figure, PPO or Lot to open it in PPO Tracking.</p>
+						<p>{{ formatQuantity(ppoTotal) }} open PPOs; their open lots below. Filters narrow every section and the cards add up the table's lots; click a figure, PPO or Lot to open it in PPO Tracking.</p>
 					</div>
 				</div>
 				<div class="pd-head__end">
@@ -43,6 +43,7 @@ import DashboardTable from "./DashboardTable.vue"
 import FilterMultiSelect from "./FilterMultiSelect.vue"
 import SummaryTiles from "./SummaryTiles.vue"
 import { formatQuantity } from "./dashboardFormat.js"
+import { dashboardTiles } from "./summaryCards.js"
 import { dashboardOptions, dashboardTotals, emptyDashboardFilters, hasDashboardFilter, tileDrill } from "./dashboardRows.js"
 
 /** Factory-wide view of every open PPO and its lots; tiles, PPO and Lot links drill into PPO Tracking. */
@@ -64,18 +65,7 @@ const activeFilters = computed(() => ({ ...filters, product_category: props.cate
 const ppoTotal = computed(() => Object.keys(data.value?.ppos || {}).length)
 const totals = computed(() => dashboardTotals(data.value || { lots: [], ppos: {} }, activeFilters.value))
 const options = computed(() => Object.fromEntries(FILTERS.map(({ kind }) => [kind, dashboardOptions(data.value?.lots || [], activeFilters.value, kind, data.value?.ppos)])))
-const tiles = computed(() => {
-	const value = totals.value
-	return [
-		{ key: "ppos", label: "Open PPOs", value: formatQuantity(value.ppoCount), foot: `${formatQuantity(value.ppoWithWorkOrders)} with Work Orders` },
-		{ key: "lots", label: "Open lots", value: formatQuantity(value.open.length), foot: `${formatQuantity(value.lots.length - value.open.length)} dispatched · ${formatQuantity(value.notStarted.length)} no WO yet` },
-		{ key: "ppoQty", label: "PPO qty", value: formatQuantity(value.ppoPieces), foot: `pcs · ${formatQuantity(value.boxesOnly)} PPOs boxes only`, title: `${formatQuantity(value.ppoBoxes, true)} boxes. Pieces = boxes × pieces per box; ${value.boxesOnly} PPOs have no single pieces per box and count in boxes only.` },
-		{ key: "cut", label: "Cut", value: formatQuantity(value.cut), foot: "pcs received from Cutting WOs" },
-		{ key: "dispatched", label: "Dispatched", value: formatQuantity(value.dispatched), foot: "pcs, incl. dispatched lots" },
-		{ key: "balance", label: "Balance", value: formatQuantity(value.balance), foot: "pcs · open lots, Cut − Dispatched" },
-		{ key: "late", label: "Late lots", value: formatQuantity(value.late.length), foot: "open lots past delivery", alert: value.late.length > 0 },
-	]
-})
+const tiles = computed(() => dashboardTiles(totals.value))
 
 async function load() {
 	loading.value = true

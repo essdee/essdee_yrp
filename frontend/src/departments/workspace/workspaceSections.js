@@ -5,9 +5,9 @@ import { departments } from "../registry.js"
 import { DEPARTMENT_CARD_SOURCES } from "../search/departmentCards.js"
 import { getDepartmentWorkspace } from "./departmentWorkspaces.js"
 
-/** Title and card-id sections for the page at `path`: an overridden department landing, else the Layout Builder workspace in `lock`. */
-export function getWorkspaceView(path, lock = lockedDepartment, boot = globalThis.window?.frappe?.boot) {
-	const department = departments.find((item) => item.path === path)
+/** Title and card-id sections for department `departmentKey`'s overridden landing, else the Layout Builder workspace in `lock`. */
+export function getWorkspaceView(departmentKey, lock = lockedDepartment, boot = globalThis.window?.frappe?.boot) {
+	const department = departments.find((item) => item.key === departmentKey)
 	const override = department && getDepartmentWorkspace(department.key, boot)
 	if (override) return { title: department.label, sections: override.sections }
 	return { title: lock?.label || "Workspace", sections: lock?.sections || [] }

@@ -1,7 +1,12 @@
+import { h } from "vue"
+
 import { getDepartmentWorkspace } from "./workspace/departmentWorkspaces.js"
 
+/** Saved Layout Builder landing for department `key`, bound to it so the module sidebar renders the same cards on its section pages. */
+const configuredLanding = (key) => import("./workspace/ConfiguredWorkspace.vue").then((module) => ({ name: "ConfiguredDepartmentWorkspace", render: () => h(module.default, { departmentKey: key }) }))
+
 /** Department landing page: the Layout Builder sections when its built-in layout is overridden, else `load`. */
-const landing = (key, load) => () => (getDepartmentWorkspace(key) ? import("./workspace/ConfiguredWorkspace.vue") : load())
+const landing = (key, load) => () => (getDepartmentWorkspace(key) ? configuredLanding(key) : load())
 
 /** /web departments. `sections` maps each launcher workspace key to the route segment(s) under `path` it owns; `combines` adds the sections of other departments, limited to `combinedSections` when set. */
 export const departments = [

@@ -6,7 +6,7 @@
 					<InlinePageNavigation :show-back="false" />
 					<div>
 						<h1 id="pd-tracking-title">PPO Tracking</h1>
-						<p>Lot-wise progress by process. PPO sizes are boxes; production is pieces.</p>
+						<p>Lot-wise progress by process. Every figure is in pieces; the cards add up the lots in the table.</p>
 					</div>
 				</div>
 				<div class="pd-head__end">
@@ -58,7 +58,7 @@ import { formatDisplayDate } from "../../../utils/dateFormat.js"
 import FilterMultiSelect from "./FilterMultiSelect.vue"
 import SummaryTiles from "./SummaryTiles.vue"
 import TrackingLotsTable from "./TrackingLotsTable.vue"
-import { formatQuantity } from "./dashboardFormat.js"
+import { trackingTiles } from "./summaryCards.js"
 import {
 	emptyTrackingFilters, hasTrackingScope, hiddenDispatchedCount, matchingTrackingLots,
 	pruneTrackingFilters, trackingFilterOptions, trackingSummary, visibleTrackingLots,
@@ -84,18 +84,7 @@ const loadedLots = computed(() => (hasScope.value ? data.value?.lots || [] : [])
 const options = computed(() => trackingFilterOptions(filterOptions.value, loadedLots.value, props.filters))
 const matchingLots = computed(() => matchingTrackingLots(loadedLots.value, props.filters))
 const visibleLots = computed(() => visibleTrackingLots(matchingLots.value, props.showDispatched))
-const tiles = computed(() => {
-	const summary = trackingSummary(data.value || {}, props.filters)
-	const lotFoot = [`${summary.openLots} open`, summary.dispatchedLots ? `${summary.dispatchedLots} dispatched` : "", summary.notStartedLots ? `${summary.notStartedLots} not started` : ""].filter(Boolean).join(" · ")
-	return [
-		{ key: "ppos", label: "PPOs", value: formatQuantity(summary.ppoCount), foot: summary.isLotsOnly ? "of the selected lots" : "selected" },
-		{ key: "lots", label: "Lots", value: formatQuantity(summary.lotCount), foot: lotFoot },
-		{ key: "ppoQty", label: "PPO Quantity", value: formatQuantity(summary.ppoBoxes, true), unit: "boxes", foot: `${formatQuantity(summary.ppoPieces)} pieces` },
-		{ key: "dispatched", label: "Dispatched", value: formatQuantity(summary.dispatched), foot: "pieces, incl. dispatched lots" },
-		{ key: "wip", label: "Work in Progress", value: formatQuantity(summary.workInProgress), foot: "pieces · balance of open lots" },
-		{ key: "notStarted", label: "Not Started", value: formatQuantity(summary.notStarted), foot: summary.isLotsOnly && !summary.notStartedLots ? "not counted when picking lots" : "pieces · lots with no Work Order" },
-	]
-})
+const tiles = computed(() => trackingTiles(trackingSummary(data.value || {}, visibleLots.value, props.showDispatched ? 0 : hiddenDispatchedCount(matchingLots.value))))
 
 function setFilter(kind, values) {
 	emit("update", { filters: { ...props.filters, [kind]: values }, showDispatched: props.showDispatched })

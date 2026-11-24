@@ -57,9 +57,9 @@ test("the launcher draws one titled grid per section", async () => {
 test("an overridden department landing shows its saved sections; the workspace home shows the lock's", () => {
 	const sections = [{ label: "Cutting", cards: ["planning:cutting_plans"] }, { label: "Sewing", cards: ["planning:sewing_plans", "merch:lots"] }]
 	const boot = { ui_config: { department_workspaces: { planning: { layout: "Production Planner", sections } } } }
-	assert.deepEqual(getWorkspaceView("/planning", null, boot), { title: "Planning", sections })
-	assert.deepEqual(getWorkspaceView("/workspace", lock, boot), { title: "Floor Desk", sections: lock.sections })
-	assert.deepEqual(getWorkspaceView("/merch", null, boot), { title: "Workspace", sections: [] })
+	assert.deepEqual(getWorkspaceView("planning", null, boot), { title: "Planning", sections })
+	assert.deepEqual(getWorkspaceView("", lock, boot), { title: "Floor Desk", sections: lock.sections })
+	assert.deepEqual(getWorkspaceView("merch", null, boot), { title: "Workspace", sections: [] })
 })
 
 test("every department landing switches to the saved sections when its layout is overridden", async () => {
@@ -67,5 +67,13 @@ test("every department landing switches to the saved sections when its layout is
 	const { departments } = await import("../src/departments/registry.js")
 	const registry = readFileSync(new URL("../src/departments/registry.js", import.meta.url), "utf8")
 	assert.deepEqual([...registry.matchAll(/component: landing\("([a-z-]+)"/g)].map((match) => match[1]), departments.map((department) => department.key))
-	assert.match(registry, /getDepartmentWorkspace\(key\) \? import\("\.\/workspace\/ConfiguredWorkspace\.vue"\)/)
+	assert.match(registry, /getDepartmentWorkspace\(key\) \? configuredLanding\(key\)/)
+	assert.match(registry, /import\("\.\/workspace\/ConfiguredWorkspace\.vue"\)\.then\(\(module\) => \(\{[^}]*h\(module\.default, \{ departmentKey: key \}\)/)
+})
+
+test("a configured landing reads its department from the bound key, not the route, so the module sidebar resolves it on section pages", async () => {
+	const { readFileSync } = await import("node:fs")
+	const source = readFileSync(new URL("../src/departments/workspace/ConfiguredWorkspace.vue", import.meta.url), "utf8")
+	assert.match(source, /getWorkspaceView\(props\.departmentKey\)/)
+	assert.doesNotMatch(source, /useRoute/)
 })

@@ -32,13 +32,8 @@
 					<h2>Lots</h2>
 					<p :data-count="rows.length">{{ rangeText }} · {{ formatQuantity(processes.length) }} {{ processes.length === 1 ? "process" : "processes" }}</p>
 				</div>
-				<div v-if="paged.pages > 1" class="pd-toolbar__end pd-pager">
-					<Button label="‹ Prev" size="small" severity="secondary" outlined :disabled="!paged.page" @click="page = paged.page - 1" />
-					<span>Page {{ paged.page + 1 }} of {{ paged.pages }}</span>
-					<Button label="Next ›" size="small" severity="secondary" outlined :disabled="paged.page >= paged.pages - 1" @click="page = paged.page + 1" />
-				</div>
 			</header>
-			<div class="pd-table-wrap">
+			<div class="pd-table-wrap pd-table-wrap--scroll">
 				<table class="pd-table pd-ps-table">
 					<thead>
 						<tr>
@@ -48,15 +43,15 @@
 						</tr>
 					</thead>
 					<tbody>
-						<tr v-for="(row, index) in paged.rows" :key="row.lot" :data-row="row.lot">
-							<td class="pd-number pd-muted">{{ paged.start + index + 1 }}</td>
+						<tr v-for="(row, index) in shown.rows" :key="row.lot" :data-row="row.lot">
+							<td class="pd-number pd-muted">{{ index + 1 }}</td>
 							<td>{{ row.ppo }}</td>
 							<td><b>{{ row.lot }}</b></td>
 							<td class="pd-ps-item" :title="row.item">{{ row.item }}</td>
 							<td><LotStatusPill :status="row.ppoStatus" /></td>
 							<td><LotStatusPill :status="row.status" /></td>
-							<td class="pd-number">{{ ppoQuantityText(row.ppo) }}<small v-if="!dashboard.ppos[row.ppo]?.pieces" class="pd-unit">box</small></td>
-							<td class="pd-number">{{ formatQuantity(row.qty) }}</td>
+							<td class="pd-number">{{ formatQuantity(row.ppo_qty) }}</td>
+							<td class="pd-number">{{ formatQuantity(row.qty) }}<small v-if="row.is_set" class="pd-sub">sets</small></td>
 							<td v-for="process in processes" :key="process.name" :data-cell="process.name" @mouseenter="card?.show($event.currentTarget, row, process.name)" @mouseleave="card?.scheduleHide()" @focusin="card?.show($event.currentTarget, row, process.name)" @focusout="card?.scheduleHide()">
 								<span v-if="views[index][process.name].tone === 'none'" class="pd-muted">{{ NOT_IN_IPD }}</span>
 								<button v-else-if="views[index][process.name].isClickable" type="button" class="pd-ps-cell" @click="openCell($event, row, process.name)">
@@ -65,7 +60,8 @@
 								<CellPill v-else :view="views[index][process.name]" />
 							</td>
 						</tr>
-						<tr v-if="!paged.rows.length"><td :colspan="processes.length + 8" class="pd-empty">No lots match these filters.</td></tr>
+						<tr v-if="shown.hasMore" ref="sentinel" class="pd-more-row"><td :colspan="processes.length + 8">Loading more lots…</td></tr>
+						<tr v-if="!shown.rows.length"><td :colspan="processes.length + 8" class="pd-empty">No lots match these filters.</td></tr>
 					</tbody>
 				</table>
 			</div>
@@ -80,7 +76,7 @@
 import Button from "primevue/button"
 import Menu from "primevue/menu"
 import Skeleton from "primevue/skeleton"
-import { computed, h, onMounted, reactive, ref, watch } from "vue"
+import { computed, h, onMounted, reactive, ref } from "vue"
 
 import { getPlanningDashboard, getPlanningProcessStatus } from "../../../api/planning.js"
 import WorkspaceLoadError from "../../../components/common/WorkspaceLoadError.vue"
@@ -91,7 +87,8 @@ import LotStatusPill from "./LotStatusPill.vue"
 import ProcessCellCard from "./ProcessCellCard.vue"
 import ProcessDetailDialog from "./ProcessDetailDialog.vue"
 import { formatQuantity, plural } from "./dashboardFormat.js"
-import { dashboardOptions, emptyDashboardFilters, filterDashboardRows, hasDashboardFilter, pageRows } from "./dashboardRows.js"
+import { dashboardOptions, emptyDashboardFilters, filterDashboardRows, hasDashboardFilter } from "./dashboardRows.js"
+import { useRowWindow } from "./rowWindow.js"
 import { CELL_TONES, NOT_IN_IPD, cellView, processStatusRows, visibleProcesses } from "./processStatusRows.js"
 
 /** Dashboard lots with one column per IPD process; a cell opens the PPO Tracking process detail. */
@@ -112,7 +109,6 @@ const dashboard = ref(null)
 const status = ref({ processes: [], lots: {} })
 const loading = ref(false)
 const error = ref("")
-const page = ref(0)
 const filters = reactive(emptyDashboardFilters())
 const activeFilters = computed(() => ({ ...filters, product_category: props.category }))
 const menu = ref(null)
@@ -125,14 +121,10 @@ const dialogStep = ref(null)
 const allRows = computed(() => (dashboard.value ? processStatusRows(dashboard.value, status.value) : []))
 const rows = computed(() => filterDashboardRows(allRows.value, activeFilters.value))
 const processes = computed(() => visibleProcesses(status.value.processes, rows.value))
-const paged = computed(() => pageRows(rows.value, page.value))
-const views = computed(() => paged.value.rows.map((row) => Object.fromEntries(processes.value.map(({ name }) => [name, cellView(row, name)]))))
+const { shown, sentinel } = useRowWindow(rows)
+const views = computed(() => shown.value.rows.map((row) => Object.fromEntries(processes.value.map(({ name }) => [name, cellView(row, name)]))))
 const options = computed(() => Object.fromEntries(FILTERS.map(({ kind }) => [kind, dashboardOptions(dashboard.value?.lots || [], activeFilters.value, kind, dashboard.value?.ppos)])))
-const rangeText = computed(() => (rows.value.length
-	? `${formatQuantity(paged.value.start + 1)}–${formatQuantity(paged.value.start + paged.value.rows.length)} of ${plural(rows.value.length, "lot")}`
-	: "No lots"))
-
-watch(rows, () => { page.value = 0 })
+const rangeText = computed(() => (rows.value.length ? plural(rows.value.length, "lot") : "No lots"))
 
 async function load() {
 	loading.value = true
@@ -156,11 +148,6 @@ function setFilter(kind, values) {
 function clear() {
 	Object.assign(filters, emptyDashboardFilters())
 	if (props.category.length) emit("update:category", [])
-}
-
-function ppoQuantityText(ppo) {
-	const info = dashboard.value.ppos[ppo] || {}
-	return info.pieces ? formatQuantity(info.pieces) : formatQuantity(info.boxes, Number(info.boxes) % 1 !== 0)
 }
 
 function openStep(row, step) {
@@ -189,7 +176,7 @@ onMounted(load)
 .pd-ps-table .pd-status { gap: 4px; padding: .15rem .45rem; font-size: 11px; }
 .pd-ps-table tbody tr:nth-child(even) td { background: var(--erp-surface-soft); }
 .pd-ps-table td:nth-child(3) { position: sticky; left: 0; z-index: 1; background: var(--erp-surface); box-shadow: 1px 0 0 var(--erp-border); }
-.pd-ps-table th:nth-child(3) { position: sticky; left: 0; z-index: 2; box-shadow: 1px 0 0 var(--erp-border); }
+.pd-ps-table th:nth-child(3) { position: sticky; top: 0; left: 0; z-index: 3; box-shadow: 1px 0 0 var(--erp-border); }
 .pd-ps-table .pd-ps-item { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 .pd-ps-table th.pd-ps-col--fabric { background: var(--pd-blue-fill); }
 .pd-ps-cell { padding: 0; border: 0; background: none; cursor: pointer; }

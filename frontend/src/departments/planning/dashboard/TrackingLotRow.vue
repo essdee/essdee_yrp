@@ -12,11 +12,11 @@
 		</td>
 		<td><LotStatusPill :status="row.status" /></td>
 		<td class="pd-nowrap">{{ delivery.date }}<template v-if="delivery.lateDays"> · <span class="pd-late" :title="`${delivery.lateDays} days past delivery`">{{ delivery.lateDays }}d late</span></template></td>
-		<td />
-		<td class="pd-number" data-col="lot">{{ formatQuantity(row.qty) }}</td>
+		<td class="pd-number pd-muted" data-col="ppo_qty">{{ formatQuantity(row.ppo_qty) }}</td>
+		<td class="pd-number" data-col="lot">{{ formatQuantity(row.qty) }}<small v-if="row.is_set" class="pd-sub">sets</small></td>
 		<td class="pd-number" data-col="cut">{{ formatQuantity(row.cut_pcs) }}</td>
 		<td class="pd-number" data-col="dispatch">{{ formatQuantity(row.dispatch) }}<small v-if="row.to_alternative" class="pd-sub" data-to-alternative>+{{ formatQuantity(row.to_alternative) }} to alternative</small></td>
-		<td class="pd-number" data-col="balance" :class="{ 'is-negative': row.balance < 0 }" :title="`${row.cut ? 'Cut' : 'Lot'} pcs ${formatQuantity(row.total)} − Dispatch ${formatQuantity(row.dispatch)}${row.to_alternative ? ` − to alternative ${formatQuantity(row.to_alternative)}` : ''}`">{{ formatQuantity(row.balance) }}</td>
+		<td class="pd-number" data-col="balance" :class="{ 'is-negative': row.balance < 0 }" :title="`PPO share ${formatQuantity(row.ppo_qty)} − Dispatch ${formatQuantity(row.dispatch)}${row.to_alternative ? ` − to alternative ${formatQuantity(row.to_alternative)}` : ''}`">{{ formatQuantity(row.balance) }}</td>
 		<td class="pd-progress-cell">
 			<span class="pd-strip" role="img" :aria-label="`${strip.done} of ${strip.total} processes completed`">
 				<span v-for="segment in strip.segments" :key="segment.name" class="pd-seg" :class="`pd-seg--${segment.status}`" :title="segment.tip" />

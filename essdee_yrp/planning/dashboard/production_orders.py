@@ -14,6 +14,7 @@ LOT_FIELDS = [
 	"production_order",
 	"packing_combo",
 	"total_order_quantity",
+	"total_quantity",
 	"production_detail",
 ]
 
@@ -95,20 +96,67 @@ def get_ppo_items(production_orders):
 	return result
 
 
-def get_ppo_details(production_orders, lots):
-	"""{PPO: {delivery, item, item_name, boxes, pieces_per_box, pieces}}; `production_orders` are PPO rows."""
-	items = get_ppo_items([row["name"] for row in production_orders])
-	combos = defaultdict(list)
+def get_ordered_boxes(production_orders):
+	"""{PPO: {lot: boxes}} from YRP Production Ordered Detail, the PPO quantity each lot took."""
+	if not production_orders:
+		return defaultdict(dict)
+	rows = frappe.db.sql(
+		"""select parent, ifnull(nullif(lot, ''), reference_name), sum(quantity)
+		from `tabYRP Production Ordered Detail`
+		where parenttype=%(doctype)s and parent in %(names)s group by 1, 2""",
+		{"doctype": PPO, "names": tuple(production_orders)},
+	)
+	result = defaultdict(dict)
+	for ppo, lot, boxes in rows:
+		result[ppo][lot] = flt(boxes)
+	return result
+
+
+def get_conversion(unit, pieces_per_box, combos):
+	"""How PPO pieces were found: the Packing Combo, the lots' own pieces per box, or the quantity already in pieces."""
+	if unit == "pieces":
+		return "stored in pieces"
+	if not pieces_per_box:
+		return ""
+	return "packing combo" if combos == {pieces_per_box} else "lots' pieces per box"
+
+
+def get_ppo_quantity(boxes, lots, lot_quantities, ordered):
+	"""{pieces_per_box, pieces, conversion, lot_shares} of one PPO over its open `lots`; pieces None when it cannot be converted."""
+	lot_pieces = sum(lot_quantities[lot["name"]] for lot in lots)
+	combos = {flt(lot.get("packing_combo")) for lot in lots if flt(lot.get("packing_combo"))}
+	pieces_per_box = ladder.get_pieces_per_box(
+		lot_pieces, sum(flt(lot.get("total_quantity")) for lot in lots), combos
+	)
+	pieces, unit = ladder.get_ppo_pieces(boxes, pieces_per_box, lot_pieces)
+	weights = {lot["name"]: ordered.get(lot["name"], 0.0) for lot in lots}
+	if not any(weights.values()):
+		weights = {lot["name"]: lot_quantities[lot["name"]] for lot in lots}
+	return {
+		"pieces_per_box": flt(pieces_per_box, 3) if pieces_per_box else None,
+		"pieces": flt(pieces, 3) if pieces is not None else None,
+		"conversion": get_conversion(unit, pieces_per_box, combos),
+		"lot_shares": ladder.split_quantity(pieces or 0.0, weights),
+	}
+
+
+def get_ppo_details(production_orders, lots, lot_quantities):
+	"""{PPO: {delivery, item, item_name, boxes, pieces_per_box, pieces, conversion, lot_shares}}; `production_orders` are PPO rows.
+
+	`lot_quantities` holds each lot's pieces (sets for set items); every PPO's pieces are split over its open lots.
+	"""
+	names = [row["name"] for row in production_orders]
+	items = get_ppo_items(names)
+	ordered_boxes = get_ordered_boxes(names)
+	by_ppo = defaultdict(list)
 	for lot in lots:
-		combos[lot["production_order"]].append(lot.get("packing_combo"))
+		by_ppo[lot["production_order"]].append(lot)
 	result = {}
 	for row in production_orders:
-		pieces = ladder.get_ppo_pieces(items[row["name"]]["boxes"], combos[row["name"]])
-		distinct = {flt(combo) for combo in combos[row["name"]] if flt(combo)}
-		result[row["name"]] = {
+		name = row["name"]
+		result[name] = {
 			"delivery": get_iso_date(row.get("delivery_date")),
-			**items[row["name"]],
-			"pieces_per_box": distinct.pop() if pieces is not None else None,
-			"pieces": flt(pieces, 3) if pieces is not None else None,
+			**items[name],
+			**get_ppo_quantity(items[name]["boxes"], by_ppo[name], lot_quantities, ordered_boxes[name]),
 		}
 	return result

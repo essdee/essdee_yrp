@@ -90,9 +90,10 @@ const shownSections = computed(() => {
 	if (props.sections.length) return props.sections.map((section) => ({ label: section.label, items: section.items.filter(isVisible) })).filter((section) => section.items.length)
 	return visibleItems.value.length ? [{ label: "", items: visibleWorkspaceCards(visibleItems.value, selectedCardKey.value) }] : []
 })
+const sidebarCards = computed(() => props.sections.length ? shownSections.value.flatMap((section) => section.items.map((item) => ({ ...item, group: section.label }))) : visibleItems.value)
 const reportsCard = computed(() => visibleItems.value.find((item) => item.key === "reports"))
 const searchReports = computed(() => reportsCard.value ? props.reports : [])
-if (reportCards) watchEffect(() => reportCards(props.loading ? [] : visibleItems.value))
+if (reportCards) watchEffect(() => reportCards(props.loading ? [] : sidebarCards.value))
 const headingId = computed(() => `${props.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-workspace-title`)
 </script>
 

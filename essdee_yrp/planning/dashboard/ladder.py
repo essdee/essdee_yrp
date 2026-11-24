@@ -28,6 +28,7 @@ CUTTING_PLAN_RANK = {
 	"Fabric Partially Received": 2,
 	"Planned": 1,
 }
+MATCH_TOLERANCE = 0.1
 DISPATCHED_SHARE = 0.9
 SEWN_SHARE = 0.9
 PURCHASE_RECEIVED_SHARE = 0.9
@@ -38,8 +39,9 @@ def get_basis(planned, cut):
 	return flt(cut) or flt(planned)
 
 
-def get_balance(planned, cut, dispatch):
-	return get_basis(planned, cut) - flt(dispatch)
+def get_balance(ppo_quantity, dispatch, to_alternative):
+	"""The lot's share of PPO pieces not yet dispatched; pieces moved to an alternative lot count as dispatched."""
+	return flt(ppo_quantity) - flt(dispatch) - flt(to_alternative)
 
 
 def get_best_cutting_status(statuses):
@@ -123,12 +125,12 @@ def get_sewing_processes(setting, details, used_processes):
 	return sorted(process for process in set(used_processes) if setting in expand_processes(process, details))
 
 
-def get_lot_quantities(orders, received_by_order, sewing):
-	"""Cut, Stitching and Packed pieces of one lot; each Work Order counts once per figure."""
-	unique = {order["name"]: order for order in orders}.values()
+def get_lot_quantities(orders, get_received, sewing):
+	"""Cut, Stitching and Packed pieces of one lot; `get_received(orders)` totals what the Work Orders received, each once."""
+	unique = list({order["name"]: order for order in orders}.values())
 
 	def total(matches):
-		return sum(flt(received_by_order.get(order["name"])) for order in unique if matches(order))
+		return flt(get_received([order for order in unique if matches(order)]))
 
 	return {
 		"cut": total(lambda order: order["process_name"] == CUTTING_PROCESS),
@@ -137,10 +139,42 @@ def get_lot_quantities(orders, received_by_order, sewing):
 	}
 
 
-def get_ppo_pieces(boxes, packing_combos):
-	"""PPO pieces = boxes × the single pieces per box of its lots; None means boxes only."""
+def get_pieces_per_box(lot_pieces, lot_boxes, packing_combos):
+	"""The lots' single Packing Combo while their own pieces ÷ boxes agree with it within 10%, else that ratio; None with neither."""
 	combos = {flt(combo) for combo in packing_combos if flt(combo)}
-	return flt(boxes) * combos.pop() if len(combos) == 1 else None
+	combo = combos.pop() if len(combos) == 1 else None
+	ratio = flt(lot_pieces) / flt(lot_boxes) if flt(lot_boxes) > 0 and flt(lot_pieces) > 0 else None
+	if combo and (ratio is None or is_near(ratio, combo)):
+		return combo
+	return ratio
+
+
+def is_near(value, reference):
+	return bool(reference) and abs(flt(value) / flt(reference) - 1) <= MATCH_TOLERANCE
+
+
+def get_ppo_pieces(boxes, pieces_per_box, lot_pieces):
+	"""(pieces, unit) of a PPO: boxes × pieces per box, or the quantity itself when it already matches its lots' pieces.
+
+	Some PPOs store pieces in their box quantity: the quantity is then within 10% of the lots' pieces and boxes × pieces
+	per box is not. (None, "") without pieces per box.
+	"""
+	if not pieces_per_box:
+		return None, ""
+	as_boxes = flt(boxes) * pieces_per_box
+	if pieces_per_box != 1 and is_near(boxes, lot_pieces) and not is_near(as_boxes, lot_pieces):
+		return flt(boxes), "pieces"
+	return as_boxes, "boxes"
+
+
+def split_quantity(total, weights):
+	"""`total` split over `weights` ({key: weight}) in proportion; equally when every weight is 0."""
+	if not weights:
+		return {}
+	whole = sum(flt(weight) for weight in weights.values())
+	if whole <= 0:
+		return dict.fromkeys(weights, flt(total) / len(weights))
+	return {key: flt(total) * flt(weight) / whole for key, weight in weights.items()}
 
 
 def get_dispatch_multiplier(is_batch_tracked, pieces_per_box):

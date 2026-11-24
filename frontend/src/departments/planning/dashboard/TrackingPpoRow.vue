@@ -10,13 +10,13 @@
 				</span>
 			</span>
 		</td>
-		<td class="pd-number" data-ppo-col="qty" :title="`${formatQuantity(figures.boxes, true)} boxes × ${figures.piecesPerBox ?? '?'} pcs per box`">{{ figures.pieces ? formatQuantity(figures.pieces) : "—" }}</td>
+		<td class="pd-number" data-ppo-col="qty" :title="figures.conversion === 'stored in pieces' ? `${formatQuantity(figures.boxes, true)} stored as pieces` : `${formatQuantity(figures.boxes, true)} boxes × ${figures.piecesPerBox ?? '?'} pcs per box (${figures.conversion || 'no pieces per box'})`">{{ figures.pieces ? formatQuantity(figures.pieces) : "—" }}</td>
 		<td class="pd-number" data-ppo-col="lot">{{ formatQuantity(figures.lotPieces) }}</td>
 		<td class="pd-number" data-ppo-col="cut" :class="{ 'is-over': figures.isCutOver }">
 			{{ formatQuantity(figures.cut) }}<span v-if="figures.isCutOver" class="pd-over" data-cut-over :title="`Cut over PPO: ${formatQuantity(figures.cut)} cut against ${formatQuantity(figures.pieces)} PPO pcs (+${formatQuantity(figures.cut - figures.pieces)})`">▲</span>
 		</td>
 		<td class="pd-number" data-ppo-col="dispatch">{{ formatQuantity(figures.dispatch) }}</td>
-		<td class="pd-number" data-ppo-col="balance" :class="{ 'is-negative': figures.balance !== null && figures.balance < 0 }" title="PPO pcs − Dispatched">{{ figures.balance === null ? "—" : formatQuantity(figures.balance) }}</td>
+		<td class="pd-number" data-ppo-col="balance" :class="{ 'is-negative': figures.balance !== null && figures.balance < 0 }" title="PPO pcs − Dispatched − Moved to alternative">{{ figures.balance === null ? "—" : formatQuantity(figures.balance) }}</td>
 		<td>
 			<span v-if="figures.pieces" class="pd-ppo-progress">
 				<span class="pd-ppo-bar" :title="`Dispatched ${formatQuantity(figures.dispatch)} of PPO ${formatQuantity(figures.pieces)} pcs`"><i :style="{ width: `${Math.min(figures.share, 1) * 100}%` }" /></span>

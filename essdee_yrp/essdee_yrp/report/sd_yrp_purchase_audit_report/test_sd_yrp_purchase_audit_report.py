@@ -203,6 +203,41 @@ class TestPurchaseAuditReport(IntegrationTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "does not belong to Supplier"):
 			self.run_report(supplier=other)
 
+	def test_without_warehouse_rows_are_the_union_of_each_warehouse(self):
+		receipt = self.make_voucher("YRP Stock Entry", purpose="Material Receipt")
+		issue = self.make_voucher("YRP Stock Entry", purpose="Material Issue")
+		reconciliation = self.make_voucher("YRP Stock Reconciliation")
+		other = self.make_warehouse("Other Store", self.make_supplier("Audit Other"))
+		idle = self.make_warehouse("Idle Store")
+		self.add_entry(receipt, 50, date="2099-03-01", lot=f"A-{self.key}")
+		self.add_entry(issue, -10, lot=f"A-{self.key}")
+		self.add_entry(receipt, 30, date="2099-03-01", warehouse=other, lot=f"B-{self.key}")
+		self.add_entry(reconciliation, 0, warehouse=other, lot=f"B-{self.key}", qty_after_transaction=24)
+		self.add_entry(receipt, 4, date="2099-03-01", warehouse=idle)
+		views = ({}, {"summarized_view": 1}, {"summarized_view": 1, "month_wise_report": 1})
+		for view in views:
+			with self.subTest(view=view):
+				every = self.run_report(warehouse=None, item_variant=self.variant, **view)
+				each = [
+					row
+					for warehouse in (self.warehouse, other, idle)
+					for row in self.run_report(warehouse=warehouse, item_variant=self.variant, **view)
+				]
+				self.assertEqual(
+					sorted(every, key=lambda row: row["warehouse"]),
+					sorted(each, key=lambda row: row["warehouse"]),
+				)
+				balances = {row["warehouse"]: (row["opening_stock"], row["stock_balance"]) for row in every}
+				self.assertEqual(balances, {self.warehouse: (50, 40), other: (30, 24), idle: (4, 4)})
+
+	def test_supplier_without_warehouse_keeps_its_own_warehouses(self):
+		receipt = self.make_voucher("YRP Stock Entry", purpose="Material Receipt")
+		other = self.make_warehouse("Other Store", self.make_supplier("Audit Other"))
+		self.add_entry(receipt, 5)
+		self.add_entry(receipt, 7, warehouse=other)
+		rows = self.run_report(warehouse=None, supplier=self.supplier, item_variant=self.variant)
+		self.assertEqual([(row["warehouse"], row["stock_balance"]) for row in rows], [(self.warehouse, 5)])
+
 	def test_columns_read_opening_then_movements_then_balance(self):
 		self.make_all_movements()
 		columns, _rows = execute({"from_date": DATE, "to_date": NEXT_DATE, "warehouse": self.warehouse})
@@ -220,10 +255,9 @@ class TestPurchaseAuditReport(IntegrationTestCase):
 		for column in columns:
 			self.assertFalse(column.get("disable_total"))
 
-	def test_rejects_missing_dates_or_warehouse_and_reversed_dates(self):
-		missing_warehouse = {"from_date": DATE, "to_date": NEXT_DATE}
+	def test_rejects_missing_dates_and_reversed_dates(self):
 		reversed_dates = {"from_date": NEXT_DATE, "to_date": DATE, "warehouse": self.warehouse}
-		for filters in ({"from_date": DATE, "warehouse": self.warehouse}, missing_warehouse, reversed_dates):
+		for filters in ({"from_date": DATE, "warehouse": self.warehouse}, reversed_dates):
 			with self.subTest(filters=filters), self.assertRaises(frappe.ValidationError):
 				execute(filters)
 

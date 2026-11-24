@@ -63,6 +63,7 @@ MONTH = "DATE_FORMAT({date}, '%%Y-%%m')"
 
 FILTER_CONDITIONS = {
 	"warehouse": "sle.warehouse = %(warehouse)s",
+	"supplier": "sle.warehouse IN (SELECT name FROM `tabWarehouse` WHERE supplier = %(supplier)s)",
 	"item": f"{ITEM_EXPRESSION} IN %(item)s",
 	"item_variant": "sle.item = %(item_variant)s",
 	"received_type": "sle.received_type = %(received_type)s",
@@ -78,7 +79,8 @@ BALANCE_KEY = "sle.item, sle.warehouse, IFNULL(sle.lot, ''), IFNULL(sle.received
 BALANCE_LEDGER = f"""FROM `tabYRP Stock Ledger Entry` sle
 	JOIN `tabItem` variant ON variant.name = sle.item
 	WHERE {LEDGER_CONDITION} AND sle.posting_date <= %(balance_date)s"""
-BALANCE_QUERY = f"""SELECT {BALANCE_KEY}, SUM(sle.qty) {BALANCE_LEDGER} {{conditions}}
+BALANCE_QUERY = f"""SELECT {BALANCE_KEY}, SUM(IF(sle.posting_date <= %(opening_date)s, sle.qty, 0)), SUM(sle.qty)
+	{BALANCE_LEDGER} {{conditions}}
 	AND sle.voucher_type != {RECONCILIATION}
 	GROUP BY {BALANCE_KEY}"""
 RECONCILED_BALANCE_QUERY = f"""SELECT recon.item, recon.warehouse, recon.lot, recon.received_type,
@@ -169,13 +171,14 @@ def get_filter_values(value):
 
 
 def validate_filters(filters):
-	if not filters.get("from_date") or not filters.get("to_date") or not filters.get("warehouse"):
-		frappe.throw(_("From Date, To Date and Warehouse are required."))
+	if not filters.get("from_date") or not filters.get("to_date"):
+		frappe.throw(_("From Date and To Date are required."))
 	if getdate(filters.from_date) > getdate(filters.to_date):
 		frappe.throw(_("From Date cannot be after To Date."))
 	supplier = filters.get("supplier")
-	if supplier and frappe.db.get_value("Warehouse", filters.warehouse, "supplier") != supplier:
-		frappe.throw(_("Warehouse {0} does not belong to Supplier {1}.").format(filters.warehouse, supplier))
+	warehouse = filters.get("warehouse")
+	if supplier and warehouse and frappe.db.get_value("Warehouse", warehouse, "supplier") != supplier:
+		frappe.throw(_("Warehouse {0} does not belong to Supplier {1}.").format(warehouse, supplier))
 
 
 def get_view(filters):
@@ -294,8 +297,7 @@ def get_data(filters, view, months):
 	rows, unmapped = get_bucket_rows(filters, view)
 	if view == "month_wise":
 		rows = get_month_rows(rows, months)
-	openings = get_stock_balances(filters, add_days(filters.from_date, -1))
-	balances = get_stock_balances(filters, filters.to_date)
+	openings, balances = get_stock_balances(filters, add_days(filters.from_date, -1), filters.to_date)
 	rows += get_static_rows(rows, openings, balances, months, unmapped)
 	for row in rows:
 		key = (row["item_variant"], row["warehouse"], row["received_type"] or "")
@@ -334,16 +336,29 @@ def get_static_rows(rows, openings, balances, months, unmapped):
 	]
 
 
-def get_stock_balances(filters, balance_date):
-	"""Closing qty at balance_date per variant, warehouse and received type, computed per lot like YRP Stock Balance.
+def get_stock_balances(filters, opening_date, closing_date):
+	"""Opening and closing qty per variant, warehouse and received type, computed per lot like YRP Stock Balance.
 
-	The latest Stock Reconciliation entry sets a lot's balance to its qty_after_transaction; later entries add qty.
+	One ledger scan sums both dates. The latest Stock Reconciliation entry sets a lot's balance to its
+	qty_after_transaction; later entries add qty.
 	"""
-	lot_balances = {}
-	values = {**filters, "balance_date": balance_date}
-	for query in (BALANCE_QUERY, RECONCILED_BALANCE_QUERY):
-		rows = frappe.db.sql(query.format(conditions=get_filter_sql(filters)), values)
-		lot_balances.update({tuple(row[:4]): flt(row[4]) for row in rows})
+	conditions = get_filter_sql(filters)
+	rows = frappe.db.sql(
+		BALANCE_QUERY.format(conditions=conditions),
+		{**filters, "opening_date": opening_date, "balance_date": closing_date},
+	)
+	lot_balances = (
+		{tuple(row[:4]): flt(row[4]) for row in rows},
+		{tuple(row[:4]): flt(row[5]) for row in rows},
+	)
+	for lots, balance_date in zip(lot_balances, (opening_date, closing_date), strict=True):
+		query = RECONCILED_BALANCE_QUERY.format(conditions=conditions)
+		reconciled = frappe.db.sql(query, {**filters, "balance_date": balance_date})
+		lots.update({tuple(row[:4]): flt(row[4]) for row in reconciled})
+	return tuple(get_balances_by_received_type(lots) for lots in lot_balances)
+
+
+def get_balances_by_received_type(lot_balances):
 	balances = {}
 	for (variant, warehouse, _lot, received_type), qty in lot_balances.items():
 		key = (variant, warehouse, received_type)

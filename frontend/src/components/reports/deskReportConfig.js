@@ -30,7 +30,7 @@ export const deskReportConfig = {
 	"purchase-audit-report": {
 		title: "Purchase Audit Report", supplierWarehouse: true, ledgerUrl: purchaseAuditLedgerUrl,
 		filters: [date("from_date", "From Date"), date("to_date", "To Date"), link("supplier", "Supplier", "Supplier"),
-			{ ...link("warehouse", "Warehouse", "Warehouse"), reqd: 1 }, link("item", "Item", "Item"),
+			link("warehouse", "Warehouse", "Warehouse"), link("item", "Item", "Item"),
 			link("item_variant", "Item Variant", "Item"), link("item_group", "Item Group", "Item Group"),
 			link("received_type", "Received Type", "YRP Received Type")],
 	},
