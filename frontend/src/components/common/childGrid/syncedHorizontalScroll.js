@@ -39,21 +39,28 @@ export const vSyncedHorizontalScroll = {
 		const onBarScroll = () => { table.style.translate = bar.scrollLeft ? `${-bar.scrollLeft}px 0` : "" }
 		const onWheel = (event) => { if (event.deltaX) bar.scrollLeft += event.deltaX }
 		const onFocus = (event) => revealFocused(wrap, event)
+		let touchStart = null
+		const onTouchStart = (event) => { touchStart = event.touches.length === 1 ? { x: event.touches[0].clientX, scrollLeft: bar.scrollLeft } : null }
+		const onTouchMove = (event) => { if (touchStart && event.touches.length === 1) bar.scrollLeft = touchStart.scrollLeft + touchStart.x - event.touches[0].clientX }
 		const observer = new ResizeObserver(() => measure(wrap))
 		observer.observe(wrap)
 		observer.observe(table)
 		bar.addEventListener("scroll", onBarScroll, { passive: true })
 		wrap.addEventListener("wheel", onWheel, { passive: true })
 		wrap.addEventListener("focusin", onFocus)
-		state.set(wrap, { observer, onBarScroll, onWheel, onFocus })
+		wrap.addEventListener("touchstart", onTouchStart, { passive: true })
+		wrap.addEventListener("touchmove", onTouchMove, { passive: true })
+		state.set(wrap, { observer, onBarScroll, onWheel, onFocus, onTouchStart, onTouchMove })
 	},
 	beforeUnmount(wrap) {
 		if (!state.has(wrap)) return
-		const { observer, onBarScroll, onWheel, onFocus } = state.get(wrap)
+		const { observer, onBarScroll, onWheel, onFocus, onTouchStart, onTouchMove } = state.get(wrap)
 		observer.disconnect()
 		parts(wrap).bar.removeEventListener("scroll", onBarScroll)
 		wrap.removeEventListener("wheel", onWheel)
 		wrap.removeEventListener("focusin", onFocus)
+		wrap.removeEventListener("touchstart", onTouchStart)
+		wrap.removeEventListener("touchmove", onTouchMove)
 		state.delete(wrap)
 	},
 }
