@@ -1,4 +1,5 @@
 import { collectManualKnittingContract, createFabricEntries } from "../../composables/useFabricDeliverableContext.js"
+import { buildFabricMatrices, carryMatrixSelection } from "./fabricMatrix.js"
 
 const QUANTITY_PRECISION = 2
 const QUANTITY_ROUNDING_RULE = roundHalfToEven
@@ -63,7 +64,7 @@ function hydrateEntry(source, index, colour, prefill, useInputPrefill = true) {
 	return entry
 }
 
-function hydrateRow(source) {
+function hydrateRow(source, attributes) {
 	const row = { ...source }
 	row.multi_colour = isMultiColour(row)
 	row.needs_colour = needsFabricColour(row)
@@ -72,6 +73,7 @@ function hydrateRow(source) {
 		? hydrateColourEntries(row)
 		: (row.qty_rows || []).map((entry, index) => hydrateEntry(entry, index, null, entry.prefill))
 	if (row.manual_io) row.manualEntry = createFabricEntries({ rows: [source] })[0]
+	row.matrices = row.kind === "knitting" ? null : buildFabricMatrices(row.qty_rows, attributes)
 	updateLegacyYarn(row)
 	return row
 }
@@ -96,7 +98,26 @@ function needsFabricColour(row) {
 }
 
 export function hydrateFabricRows(context) {
-	return (context.rows || []).map(hydrateRow)
+	return (context.rows || []).map((row) => hydrateRow(row, context.attributes))
+}
+
+/** Matrix quantity accessor over the row's entries, so entries stay the one owner of quantities. */
+export function fabricMatrixQuantities(row) {
+	return {
+		get: (index) => quantity(row.entries[index].qty),
+		set: (index, value) => setFabricClothQuantity(row, row.entries[index], value),
+	}
+}
+
+/** Fill Quantity: keep the user's Dia/colour ticks on the refilled rows. */
+export function carryFabricMatrixSelection(rows, previousRows) {
+	for (const row of rows) {
+		const previous = previousRows.find((candidate) => candidate.fabric_row === row.fabric_row)
+		for (const matrix of row.matrices || []) {
+			const source = previous?.matrices?.find((candidate) => candidate.title === matrix.title)
+			if (source) carryMatrixSelection(matrix, source, fabricMatrixQuantities(row))
+		}
+	}
 }
 
 function updateLegacyYarn(row) {
@@ -276,7 +297,7 @@ export function fabricWarnings(rows) {
 	const sources = new Map()
 	for (const row of rows) {
 		if (row.kind === "knitting") warnings.push(...balanceWarnings(row))
-		else for (const entry of row.entries) addSourceDemand(sources, row, entry)
+		else if (!row.matrices) for (const entry of row.entries) addSourceDemand(sources, row, entry)
 	}
 	return [...warnings, ...demandWarnings(sources, "source GRN available")]
 }

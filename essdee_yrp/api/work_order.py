@@ -19,6 +19,8 @@ from frappe import _
 from frappe.utils import cint, cstr, flt
 from yrp.attribute_links import value as _attribute_value
 
+from essdee_yrp.cloth_program_fill import fill_from_cloth_program
+from essdee_yrp.dyeing_receivable_fill import fill_from_dyeing_receivables
 from essdee_yrp.essdee_yrp.doctype.sd_yrp_ipd_settings.sd_yrp_ipd_settings import (
 	get_colour_attribute,
 	get_dia_attribute,
@@ -38,6 +40,7 @@ from essdee_yrp.fabric_reference import (
 	get_reference_allocations,
 	serialise_reference_allocations,
 )
+from essdee_yrp.fabric_tracking import get_submitted_receivables_by_reference
 from essdee_yrp.folding_lot import is_folding_lot
 from essdee_yrp.ipd_validations import get_attribute_mapping, get_ipd_attribute_values
 
@@ -90,6 +93,65 @@ def _step_kind(ipd, step):
 	if step["shape"] == "identity":
 		return "identity"
 	return None
+
+
+def _apply_cloth_program_fill(qty_rows, row_kind, source_context, explicit_fill, lot, cloth_item):
+	"""Dyeing Fill from Knitting: greige stock is shared by every colour, so the
+	needed kg comes from the Lot's saved Cloth Program instead."""
+	if row_kind != "dyeing" or not explicit_fill:
+		return
+	if not _is_default_knitting_process((source_context or {}).get("process_name")):
+		return
+	fill_from_cloth_program(
+		qty_rows,
+		lot.get("lot_fabric_programs") or [],
+		cloth_item,
+		dia_attribute=get_dia_attribute(),
+		colour_attribute=get_colour_attribute(),
+	)
+
+
+def _source_step_kind(ipd, process_name):
+	return _step_kind(ipd, get_fabric_step(ipd, process_name))
+
+
+def _dyeing_source_process(ipd, row_kind, source_options, source_step):
+	"""The Dyeing process a post-dyeing Fill reads from, or None."""
+	option = next((option for option in source_options or [] if option["value"] == source_step), None)
+	if row_kind == "dyeing" or not option:
+		return None
+	return option["process_name"] if _source_step_kind(ipd, option["process_name"]) == "dyeing" else None
+
+
+def _apply_dyeing_receivable_fill(qty_rows, dyeing_process, lot, cloth_item):
+	"""Fill after Dyeing: each input Dia × Colour takes the full receivable kg of the
+	Lot's submitted Dyeing Work Orders, not the GRN stock left."""
+	dia_attribute, colour_attribute = get_dia_attribute(), get_colour_attribute()
+	receivables = get_submitted_receivables_by_reference(lot, dyeing_process, cloth_item)
+	fill_from_dyeing_receivables(
+		qty_rows,
+		receivables,
+		_variant_dia_colours({reference for reference, _dia, _colour in receivables if reference}),
+		dia_attribute=dia_attribute,
+		colour_attribute=colour_attribute,
+	)
+
+
+def _variant_dia_colours(variants):
+	"""{item variant: (dia, colour)}."""
+	if not variants:
+		return {}
+	dia_attribute, colour_attribute = get_dia_attribute(), get_colour_attribute()
+	values = {}
+	for row in frappe.get_all(
+		"Item Variant Attribute",
+		filters={"parent": ["in", list(variants)], "attribute": ["in", [dia_attribute, colour_attribute]]},
+		fields=["parent", "attribute", "attribute_value"],
+	):
+		values.setdefault(row.parent, {})[row.attribute] = _attribute_value(row.attribute_value)
+	return {
+		variant: (attrs.get(dia_attribute), attrs.get(colour_attribute)) for variant, attrs in values.items()
+	}
 
 
 def _is_default_knitting_process(process_name):
@@ -634,6 +696,11 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 					if any(option["value"] == saved_step for option in row_source_options)
 					else row_source_options[0]["value"]
 				)
+			dyeing_source = (
+				None
+				if auto_selected_source
+				else _dyeing_source_process(ipd, row_kind, row_source_options, selected_source_step)
+			)
 			if selected_source_step:
 				filled_source = fill_from_source_grns(
 					qty_rows,
@@ -642,9 +709,14 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 					current_process=wo.process_name,
 					current_work_order=wo.name,
 					source_process=selected_source_step,
-					allow_empty=auto_selected_source,
+					allow_empty=auto_selected_source or bool(dyeing_source),
 				)
 				selected_source = _merge_source_context(selected_source, filled_source)
+				_apply_cloth_program_fill(
+					qty_rows, row_kind, filled_source, not auto_selected_source, lot, fabric.cloth_item
+				)
+				if dyeing_source:
+					_apply_dyeing_receivable_fill(qty_rows, dyeing_source, lot.name, fabric.cloth_item)
 				if filled_source.get("unmatched"):
 					warnings.append(
 						_("{0} GRN receipt(s) do not enter this process and were ignored: {1}").format(
@@ -714,6 +786,7 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 		"warnings": warnings,
 		"source_process_options": source_options,
 		"source_process": selected_source,
+		"attributes": {"colour": get_colour_attribute(), "dia": get_dia_attribute()} if rows else {},
 	}
 
 
@@ -1560,6 +1633,16 @@ def _source_principal(group, matrix, ipd, bucket):
 	return matches[0]
 
 
+def _legacy_source_variant(line):
+	"""Received Item of a legacy actual-Dia line; older clients send it only in the row key."""
+	if line.get("source_item_variant"):
+		return line["source_item_variant"]
+	key, matrix_key = line.get("key") or "", line.get("matrix_key") or ""
+	if matrix_key and key.startswith(f"{matrix_key}|"):
+		return key[len(matrix_key) + 1 :]
+	return None
+
+
 def _project_legacy_actual_dia(group, matrix, ipd, source_variant, out_combo):
 	"""Return the matrix input index and output attrs for a legacy actual-Dia source."""
 	from essdee_yrp.fabric_source import project_output_attributes
@@ -1998,8 +2081,8 @@ def calculate_fabric_deliverables(work_order, rows, modified=None, source_proces
 				parameters = _execution_parameters(
 					execution_key, matrix_key, line.get("source_bucket_key")
 				)
-			elif source and line.get("source_item_variant"):
-				legacy_source_variant = line["source_item_variant"]
+			elif source and _legacy_source_variant(line):
+				legacy_source_variant = _legacy_source_variant(line)
 				source_input_index, out_attrs = _project_legacy_actual_dia(
 					group, matrix, ipd, legacy_source_variant, out_combo
 				)

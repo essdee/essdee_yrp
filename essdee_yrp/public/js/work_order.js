@@ -784,7 +784,7 @@ function open_fabric_calculate(frm, source_process = null, previous_dialog = nul
 				essdee_yrp.render_knitting_contract_dialog(frm, ctx);
 				return;
 			}
-			render_fabric_dialog(frm, ctx);
+			render_fabric_dialog(frm, ctx, previous_dialog);
 		},
 	});
 }
@@ -1140,8 +1140,9 @@ function apply_fabric_dialog_hierarchy(dialog, quantity_fields) {
 	});
 }
 
-function render_fabric_dialog(frm, ctx) {
+function render_fabric_dialog(frm, ctx, previous_dialog = null) {
 	const fields = [];
+	const matrix_states = [];
 	// one record per qty input: drives collection, yarn total, overshoot check
 	const manifest = [];
 	const styled_quantity_fields = [];
@@ -1326,9 +1327,11 @@ function render_fabric_dialog(frm, ctx) {
 						source_detail: planning_description(row, qr, cint(frm.doc.cloth_execution_version) === 1),
 					});
 				}
-				const manualInputs = push_manual_inputs(row, i, qr, j, null, qr.prefill || 0);
+				push_manifest_entry(qr, j, push_manual_inputs(row, i, qr, j, null, qr.prefill || 0));
+			};
+			const push_manifest_entry = (qr, j, manualInputs) => {
 				manifest.push({
-					fieldname, row: i, key: qr.key,
+					fieldname: `qty_${i}_${j}`, row: i, key: qr.key,
 					matrix_key: qr.matrix_key || qr.key,
 					source_bucket_key: qr.source_bucket_key || null,
 					source_mode: qr.source_mode || null,
@@ -1363,7 +1366,15 @@ function render_fabric_dialog(frm, ctx) {
 				&& sections.length > 1
 				&& qty_rows.every((qr) => qr.section != null);
 
-			if (sectionable) {
+			const previous_state = (previous_dialog?._fabric_matrix_states || [])
+				.find((state) => state.fabric_row === row.fabric_row);
+			const matrix_state = essdee_yrp.create_fabric_matrix_state(row, ctx.attributes, previous_state);
+			if (matrix_state) {
+				const fieldname = `fabric_matrix_${i}`;
+				fields.push({ fieldtype: "HTML", fieldname });
+				qty_rows.forEach((qr, j) => push_manifest_entry(qr, j, []));
+				matrix_states.push(Object.assign(matrix_state, { row: i, fieldname }));
+			} else if (sectionable) {
 				sections.forEach((sec, si) => {
 					if (si % FABRIC_COLOUR_CARDS_PER_ROW === 0) {
 						fields.push({ fieldtype: "Section Break" });
@@ -1424,7 +1435,9 @@ function render_fabric_dialog(frm, ctx) {
 
 	const dialog_options = {
 		title: __("Calculate Fabric Deliverables — {0}", [frm.doc.process_name]),
-		size: "large",
+		size: matrix_states.some((state) => state.matrices.some((matrix) => matrix.columns.length > 4))
+			? "extra-large"
+			: "large",
 		fields,
 		primary_action_label: __("Calculate"),
 		primary_action(values) {
@@ -1432,6 +1445,9 @@ function render_fabric_dialog(frm, ctx) {
 				frappe.msgprint(__("No submitted predecessor GRN stock is available."));
 				return;
 			}
+			matrix_states.forEach((state) => state.values.forEach((qty, j) => {
+				values[`qty_${state.row}_${j}`] = qty;
+			}));
 			const rows = [];
 			let missing_colour = null;
 			let missing_output = null;
@@ -1548,6 +1564,10 @@ function render_fabric_dialog(frm, ctx) {
 	}
 	d = new frappe.ui.Dialog(dialog_options);
 	d.show();
+	d._fabric_matrix_states = matrix_states;
+	matrix_states.forEach((state) => {
+		essdee_yrp.mount_fabric_matrices(d.fields_dict[state.fieldname].$wrapper[0], state);
+	});
 	apply_fabric_dialog_hierarchy(d, styled_quantity_fields);
 	if (ctx.source_process?.unavailable) d.get_primary_btn().prop("disabled", true);
 	// Pre-filled balances must reflect in the auto yarn figure immediately,

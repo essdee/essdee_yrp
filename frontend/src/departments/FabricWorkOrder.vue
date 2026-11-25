@@ -63,6 +63,7 @@
 		<WorkOrderRecalculateDialog v-model:visible="recalculateVisible" :work-order="workspace.record || {}" @changed="actionChanged" />
 		<RelatedDocumentWorkspaceDialog v-model:visible="relatedVisible" :doctype="relatedDoctype" :name="relatedName" :source-context="relatedSourceContext" @changed="relatedChanged" @closed="relatedClosed" />
 		<DocumentConfirmationDialog v-model:visible="lifecycleConfirmVisible" :title="lifecycleConfirmTitle" :message="lifecycleConfirmMessage" :confirm-label="lifecycleConfirmLabel" :busy="Boolean(acting)" @confirm="confirmLifecycleAction" />
+		<WorkOrderDuplicateDialog ref="duplicateDialog" />
 		<FabricStockOperationDialog v-model:visible="materialIssueVisible" operation="stock_entry" :source-context="materialIssueContext" @changed="materialIssueChanged" />
 		<Dialog v-model:visible="grnSourceVisible" modal header="Create Goods Received Note" class="fabric-action-dialog erp-dialog--md" :dismissable-mask="false">
 			<div class="work-order-grn-source">
@@ -108,6 +109,7 @@ import WorkOrderActivityRail from "./fabric-store/WorkOrderActivityRail.vue"
 import WorkOrderCorrectionDialog from "./fabric-store/WorkOrderCorrectionDialog.vue"
 import WorkOrderRecalculateDialog from "./fabric-store/WorkOrderRecalculateDialog.vue"
 import WorkOrderDetails from "./fabric-store/WorkOrderDetails.vue"
+import WorkOrderDuplicateDialog from "./fabric-store/WorkOrderDuplicateDialog.vue"
 import WorkOrderOverview from "./fabric-store/WorkOrderOverview.vue"
 import WorkOrderSummary from "./fabric-store/WorkOrderSummary.vue"
 import QualityWorkOrderInspections from "./quality/components/QualityWorkOrderInspections.vue"
@@ -150,6 +152,7 @@ const grnDeliveryChallan = ref("")
 const grnRequiresDeliveryChallan = ref(false)
 const lifecycleConfirmVisible = ref(false)
 const pendingLifecycleCommand = ref("")
+const duplicateDialog = ref(null)
 let loadSequence = 0
 let actionSequence = 0
 const headerFieldnames = new Set(["status", "wo_date", "item", "lot"])
@@ -339,6 +342,7 @@ async function runLifecycleAction(command) {
 		if (sequence !== actionSequence || requestedId !== String(route.params.workOrderId || "")) return
 		const name = result.record?.name || source.name
 		workspace.value = result
+		if (command === "submit") duplicateDialog.value?.check(name)
 		if (name !== requestedId) await router.replace({ name: props.viewRouteName, params: { workOrderId: name }, state: preserveListNavigationState(name) })
 	}
 	catch (reason) { if (sequence === actionSequence && requestedId === String(route.params.workOrderId || "")) actionError.value = reason?.message || `Unable to ${command} this Work Order.` }

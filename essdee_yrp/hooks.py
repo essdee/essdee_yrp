@@ -283,7 +283,11 @@ doctype_js = {
 		"public/js/production_order.js",
 		"public/js/production_order_workflow.js",
 	],
-	"YRP Work Order": ["public/js/work_order.js", "public/js/work_order_recalculate.js"],
+	"YRP Work Order": [
+		"public/js/work_order.js",
+		"public/js/work_order_recalculate.js",
+		"public/js/work_order_duplicates.js",
+	],
 	"Purchase Order": [
 		"public/js/purchase_order.js",
 		"public/js/purchase_order_attribute_values.js",
@@ -359,6 +363,8 @@ jinja = {
 		"essdee_yrp.print_helpers.fetch_grn_purchase_item_details",
 		"essdee_yrp.print_helpers.get_dc_structure",
 		"essdee_yrp.print_helpers.get_work_order_challan_items",
+		"essdee_yrp.work_order_cloth_print.is_cloth_work_order",
+		"essdee_yrp.work_order_cloth_print.get_work_order_cloth_program",
 		"essdee_yrp.print_helpers.get_grn_structure",
 		"essdee_yrp.print_helpers.fetch_order_item_details",
 		"essdee_yrp.print_helpers.fetch_item_details",
