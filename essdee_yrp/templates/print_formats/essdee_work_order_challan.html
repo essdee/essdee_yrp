@@ -1,5 +1,75 @@
 {% from "essdee_yrp/templates/print_formats/essdee_challan.html" import challan_draft, challan_items, challan_comments, challan_footer %}
 
+{% macro cloth_quantity(value) %}{% if value %}{% set text = "%.3f" | format(value) %}{{ text.rstrip("0").rstrip(".") }}{% else %}—{% endif %}{% endmacro %}
+
+{% macro cloth_program_tables(tables) %}
+<div class="wo-cloth-program">
+    {% for cloth in tables %}
+    {% set label_columns = 2 if cloth.has_fabric_type else 1 %}
+    <div class="wo-cloth-section">
+        <div class="wo-cloth-item">{{ cloth.item }}</div>
+        <div class="wo-cloth-caption">Quantity{% if cloth.uom %} ({{ cloth.uom }}){% endif %}</div>
+        <table class="wo-cloth-table">
+            <thead>
+                <tr>
+                    {% if cloth.has_fabric_type %}<th class="wo-cloth-label">Fabric Type</th>{% endif %}
+                    <th class="wo-cloth-label">Dia</th>
+                    {% for colour in cloth.colours %}<th class="wo-cloth-weight">{{ colour }}</th>{% endfor %}
+                    <th class="wo-cloth-weight">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fabric in cloth.fabric_groups %}
+                    {% for route in fabric.routes %}
+                    <tr>
+                        {% if cloth.has_fabric_type %}<td>{{ fabric.fabric_type }}</td>{% endif %}
+                        <td>{{ route.dia or "—" }}</td>
+                        {% for colour in cloth.colours %}<td class="wo-cloth-weight">{{ cloth_quantity(route.quantities.get(colour, 0)) }}</td>{% endfor %}
+                        <td class="wo-cloth-weight"><strong>{{ cloth_quantity(route.total) }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    {% if cloth.has_fabric_type %}
+                    <tr class="wo-cloth-subtotal">
+                        <th class="wo-cloth-label" colspan="{{ label_columns }}">Total {{ fabric.fabric_type }}</th>
+                        {% for colour in cloth.colours %}<th class="wo-cloth-weight">{{ cloth_quantity(fabric.colour_totals.get(colour, 0)) }}</th>{% endfor %}
+                        <th class="wo-cloth-weight">{{ cloth_quantity(fabric.total) }}</th>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th class="wo-cloth-label" colspan="{{ label_columns }}">Total</th>
+                    {% for colour in cloth.colours %}<th class="wo-cloth-weight">{{ cloth_quantity(cloth.colour_totals.get(colour, 0)) }}</th>{% endfor %}
+                    <th class="wo-cloth-weight">{{ cloth_quantity(cloth.total) }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro work_order_cloth_items(program) %}
+<style>
+    .wo-cloth-program { padding: 8px 0 0; }
+    .wo-cloth-section { margin: 0 0 14px; page-break-inside: avoid; }
+    .wo-cloth-item { font-size: 14px; font-weight: 700; margin: 0 0 3px; text-decoration: underline; }
+    .wo-cloth-caption { color: #333; font-size: 11px; margin: 0 0 5px; }
+    .wo-cloth-table { border-collapse: collapse; width: 100%; }
+    .wo-cloth-table th, .wo-cloth-table td { border: 1px solid #111; line-height: 1.2; padding: 4px 6px; }
+    .wo-cloth-table thead { display: table-header-group; }
+    .wo-cloth-table thead th { background: #e7e7e7; font-size: 11px; font-weight: 700; text-align: center; }
+    .wo-cloth-table .wo-cloth-label { text-align: left; }
+    .wo-cloth-table .wo-cloth-weight { text-align: right; white-space: nowrap; }
+    .wo-cloth-table .wo-cloth-subtotal th { background: #f3f3f3; font-weight: 700; }
+    .wo-cloth-table tfoot th { background: #dedede; border-top: 2px solid #111; font-weight: 700; }
+</style>
+<div class="border-style" style="text-align: center;">Particulars</div>
+{{ cloth_program_tables(program.tables) }}
+{% if program.correction_tables %}{{ cloth_program_tables(program.correction_tables) }}{% endif %}
+{% endmacro %}
+
 {% macro work_order_challan(doc, table, title) %}
 <div>
     {{ challan_draft(doc.docstatus) }}
@@ -29,7 +99,11 @@
             <div style="height:15px;text-align: center;">Expected Date: {{ get_created_date(doc.expected_delivery_date) }}</div>
         </div>
     </div>
-    {{ challan_items(get_work_order_challan_items(doc, table), "Quantity") }}
+    {% if is_cloth_work_order(doc) %}
+        {{ work_order_cloth_items(get_work_order_cloth_program(doc, table)) }}
+    {% else %}
+        {{ challan_items(get_work_order_challan_items(doc, table), "Quantity") }}
+    {% endif %}
     {{ challan_comments(doc.comments) }}
     {{ challan_footer(doc.terms_and_condition) }}
 </div>

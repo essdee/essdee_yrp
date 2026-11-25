@@ -448,8 +448,8 @@ WORK_ORDER_CHALLAN_TABLES = {
 }
 
 
-def get_work_order_challan_items(doc, table):
-	"""A Work Order's deliverables or receivables, plus its submitted corrections' rows, in the Delivery Challan print's grouped shape."""
+def get_work_order_correction_rows(doc, table):
+	"""The ``table`` rows of a Work Order's submitted corrections, oldest correction first."""
 	if table not in WORK_ORDER_CHALLAN_TABLES:
 		frappe.throw(f"Work Order challan print cannot show {table}")
 	corrections = frappe.get_all(
@@ -458,12 +458,16 @@ def get_work_order_challan_items(doc, table):
 		pluck="name",
 		order_by="correction_date asc, creation asc",
 	)
-	correction_rows = [
+	return [
 		row
 		for name in corrections
 		for row in frappe.get_doc("YRP Work Order Correction", name).get(table) or []
 	]
-	rows = with_correction_rows(doc.get(table), correction_rows)
+
+
+def get_work_order_challan_items(doc, table):
+	"""A Work Order's deliverables or receivables, plus its submitted corrections' rows, in the Delivery Challan print's grouped shape."""
+	rows = with_correction_rows(doc.get(table), get_work_order_correction_rows(doc, table))
 	groups = _group_items(rows, WORK_ORDER_CHALLAN_TABLES[table], lot=doc.get("lot"))
 	return sort_grouped_attributes(groups)
 
