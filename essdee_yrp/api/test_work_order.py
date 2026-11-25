@@ -466,14 +466,13 @@ class TestFabricSourceContext(TestCase):
 		)
 		knitting = {"process_name": "Knitting"}
 		cases = (
-			("dyeing", knitting, True, 46),
-			("dyeing", knitting, False, 5),
-			("dyeing", {"process_name": "Dyeing"}, True, 5),
-			("identity", knitting, True, 5),
+			("dyeing", knitting, 46),
+			("dyeing", {"process_name": "Dyeing"}, 5),
+			("identity", knitting, 5),
 		)
-		for kind, source, explicit, expected in cases:
+		for kind, source, expected in cases:
 			with (
-				self.subTest(kind=kind, source=source, explicit=explicit),
+				self.subTest(kind=kind, source=source),
 				patch(
 					"essdee_yrp.api.work_order._is_default_knitting_process",
 					side_effect=lambda name: name == "Knitting",
@@ -489,7 +488,7 @@ class TestFabricSourceContext(TestCase):
 						"prefill": 5,
 					}
 				]
-				_apply_cloth_program_fill(rows, kind, source, explicit, lot, "Cloth")
+				_apply_cloth_program_fill(rows, kind, source, lot, "Cloth")
 				self.assertEqual(rows[0]["prefill"], expected)
 
 	def test_only_rows_after_a_dyeing_source_fill_from_dyeing_receivables(self):
@@ -2166,18 +2165,20 @@ class TestMultiYarnClothIPD(IntegrationTestCase):
 			self.assertEqual(unavailable["source_process"]["sources"], [])
 			self.assertTrue(unavailable["rows"][0]["qty_rows"])
 			for row in unavailable["rows"][0]["qty_rows"]:
-				self.assertEqual(row["prefill"], 0)
 				self.assertEqual(row["source_available"], 0)
 			source_process = unavailable["source_process"]["value"]
-			# Fill after Dyeing shows the submitted Dyeing receivables even with no
+			# Open and Fill after Dyeing show the submitted Dyeing receivables even with no
 			# stock left; Calculate stays blocked by the source check below.
 			dye_wo.db_set("docstatus", 1, update_modified=False)
-			filled = get_fabric_deliverable_context(second_wash.name, source_process=source_process)
-			self.assertTrue(filled["source_process"]["unavailable"])
-			self.assertEqual(
-				sum(flt(row["prefill"]) for row in filled["rows"][0]["qty_rows"]),
-				flt(dye_output.qty),
-			)
+			for filled in (
+				unavailable,
+				get_fabric_deliverable_context(second_wash.name, source_process=source_process),
+			):
+				self.assertTrue(filled["source_process"]["unavailable"])
+				self.assertEqual(
+					sum(flt(row["prefill"]) for row in filled["rows"][0]["qty_rows"]),
+					flt(dye_output.qty),
+				)
 			with self.assertRaisesRegex(frappe.ValidationError, "no longer available|only 0"):
 				calculate_fabric_deliverables(
 					second_wash.name,
