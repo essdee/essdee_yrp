@@ -96,15 +96,6 @@ class TestExactFabricSourceBuckets(TestCase):
 		self.assertIn("cloth_execution_version", sql.call_args_list[1].args[0])
 		self.assertIn("= 0", sql.call_args_list[1].args[0])
 
-	@patch.object(frappe.db, "sql", side_effect=[[], []])
-	@patch.object(frappe.db, "has_column", return_value=True)
-	def test_legacy_lock_excludes_versioned_source_receipts(self, _has_column, sql):
-		fabric_source._lock_source_transactions("LOT-1", "CLOTH", "Knitting")
-
-		self.assertNotIn("cloth_execution_version", sql.call_args_list[0].args[0])
-		self.assertIn("cloth_execution_version", sql.call_args_list[1].args[0])
-		self.assertIn("= 0", sql.call_args_list[1].args[0])
-
 	@patch.object(frappe.db, "add_index")
 	def test_exact_source_consumption_query_has_targeted_index(self, add_index):
 		from essdee_yrp.patches import add_cloth_source_row_index
@@ -1184,31 +1175,23 @@ class TestFabricSourceFill(TestCase):
 		self.assertEqual(result["source_mode"], "exact")
 		prepare.assert_called_once()
 
-	@patch("essdee_yrp.fabric_source._rows_in_stock_uom")
 	@patch("essdee_yrp.fabric_source.get_source_availability")
 	@patch("essdee_yrp.fabric_source.resolve_source_process")
-	def test_calculate_rechecks_stale_or_overallocated_quantity(self, resolve, availability, stock_rows):
-		resolve.return_value = {
-			"value": "0::Knitting",
-			"process_name": "Knitting",
-		}
-		availability.return_value = {
-			"received": {"Greige-32": 100},
-			"reserved": {"Greige-32": 20},
-			"net": {"Greige-32": 80},
-		}
-		stock_rows.return_value = {"Greige-32": 90}
+	def test_calculate_does_not_check_source_availability(self, resolve, availability):
+		resolve.return_value = {"value": "0::Knitting", "process_name": "Knitting"}
 
-		with self.assertRaisesRegex(frappe.ValidationError, "only 80.0 Kg remains available"):
-			validate_source_demands(
-				[{"item_variant": "Greige-32", "qty": 90, "uom": "Kg"}],
-				lot="LOT-1",
-				ipd=frappe._dict(name="IPD-1"),
-				cloth_item="Test Cloth",
-				current_process="Dyeing",
-				current_work_order="WO-2",
-				source_process="0::Knitting",
-			)
+		result = validate_source_demands(
+			[{"item_variant": "Greige-32", "qty": 90, "uom": "Kg"}],
+			lot="LOT-1",
+			ipd=frappe._dict(name="IPD-1"),
+			cloth_item="Test Cloth",
+			current_process="Dyeing",
+			current_work_order="WO-2",
+			source_process="0::Knitting",
+		)
+
+		self.assertEqual(result["source_mode"], "legacy")
+		availability.assert_not_called()
 
 
 class TestFabricSourceTransactions(IntegrationTestCase):

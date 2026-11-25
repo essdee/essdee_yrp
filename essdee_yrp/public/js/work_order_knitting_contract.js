@@ -58,7 +58,7 @@ function applyContractValues(rows, values) {
 export function getKnittingContractPayload(context, rows, values) {
 	applyContractValues(rows, values)
 	const error = rows.map((row) => fabricColourError(row) || fabricContractError(row)).find(Boolean)
-		|| (canCalculateFabric(context, rows) ? "" : "Enter a quantity for at least one row.")
+		|| (canCalculateFabric(rows) ? "" : "Enter a quantity for at least one row.")
 	return { error, payload: error ? null : buildFabricPayload(context, rows) }
 }
 

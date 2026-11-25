@@ -1,6 +1,5 @@
 /** Dia × Colour layout for the fabric deliverables popup, shared by Desk and /web. Cells point at qty_rows indexes; callers own the quantities. */
 
-const OVER_EPSILON = 0.001
 const STEPS = { Enter: [1, 0], ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowRight: [0, 1], ArrowLeft: [0, -1] }
 
 function number(value) {
@@ -168,28 +167,7 @@ export function carryMatrixSelection(target, source, quantities) {
 	})
 }
 
-function poolDemand(matrix, quantities) {
-	const pools = new Map()
-	forEachCell(matrix, (row, column, index) => {
-		const qty = quantities.get(index)
-		const pool = matrix.pools[index]
-		if (!pool) return
-		if (!pools.has(pool.key)) pools.set(pool.key, { available: pool.available, demand: 0, rows: new Set() })
-		pools.get(pool.key).demand += qty
-		pools.get(pool.key).rows.add(row.key)
-	})
-	return pools
-}
-
-function overRows(matrix, quantities) {
-	const over = new Set()
-	for (const pool of poolDemand(matrix, quantities).values()) {
-		if (pool.demand > pool.available + OVER_EPSILON) pool.rows.forEach((key) => over.add(key))
-	}
-	return over
-}
-
-/** Live totals over the current quantities; `over` holds row keys above their shared stock. */
+/** Live totals over the current quantities. */
 export function matrixTotals(matrix, quantities) {
 	const rows = Object.fromEntries(matrix.rows.map((row) => [row.key, 0]))
 	const columns = Object.fromEntries(matrix.columns.map((column) => [column.key, 0]))
@@ -200,9 +178,7 @@ export function matrixTotals(matrix, quantities) {
 		columns[column.key] += qty
 		grand += qty
 	})
-	const over = overRows(matrix, quantities)
-	const overLabels = matrix.rows.filter((row) => over.has(row.key)).map((row) => row.label)
-	return { rows, columns, grand, over, overLabels }
+	return { rows, columns, grand }
 }
 
 /** Next enabled cell for Enter/arrow navigation, or null at the edge. */

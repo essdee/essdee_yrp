@@ -415,7 +415,7 @@ class TestFabricSourceContext(TestCase):
 	def setUp(self):
 		self.enterContext(patch("frappe.get_system_settings", return_value="Banker's Rounding"))
 
-	def test_empty_source_is_unavailable_only_when_allowed(self):
+	def test_empty_source_returns_unavailable_context(self):
 		selected = {"value": "1::Dyeing", "process_name": "Dyeing", "label": "Dyeing"}
 		availability = {
 			"net": {"cloth": 0},
@@ -439,7 +439,7 @@ class TestFabricSourceContext(TestCase):
 					"current_work_order": "WO-1",
 					"source_process": selected["value"],
 				}
-				context = fill_from_source_grns(rows, **arguments, allow_empty=True)
+				context = fill_from_source_grns(rows, **arguments)
 				self.assertEqual(
 					context,
 					{
@@ -453,8 +453,6 @@ class TestFabricSourceContext(TestCase):
 					},
 				)
 				self.assertEqual(rows, [{"prefill": 0, "source_available": 0}] * 2)
-				with self.assertRaisesRegex(frappe.ValidationError, "No unallocated submitted GRN"):
-					fill_from_source_grns(rows, **arguments)
 
 	def test_dyeing_fill_from_knitting_uses_the_cloth_program(self):
 		lot = frappe._dict(
@@ -1857,8 +1855,9 @@ class TestMultiYarnClothIPD(IntegrationTestCase):
 				source_process=context["source_process"]["value"],
 			)
 
-		with self.assertRaisesRegex(frappe.ValidationError, "remains available"):
-			calculate(31)
+		calculate(31)
+		dye_wo.reload()
+		self.assertEqual([(row.item_variant, flt(row.qty)) for row in dye_wo.deliverables], [(actual_greige, 31)])
 		# A browser still running the pre-fix bundle sends only the row key.
 		calculate(25, fields=("key", "matrix_key", "out_attrs"))
 		dye_wo.reload()

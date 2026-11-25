@@ -27,10 +27,8 @@ const STYLE = `
 .yrp-fabric-matrix__cell--off input { color: var(--text-light); cursor: not-allowed; }
 .yrp-fabric-matrix .yrp-fabric-matrix__off, .yrp-fabric-matrix__off .yrp-fabric-matrix__dia-name { color: var(--text-light); }
 .yrp-fabric-matrix__total, .yrp-fabric-matrix tfoot td { min-width: 80px; padding: 8px 10px !important; text-align: right; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
-.yrp-fabric-matrix td.yrp-fabric-matrix__total--over { color: var(--red-600, #c62a2a); background: var(--red-50, #fdecec); }
 .yrp-fabric-matrix tfoot th, .yrp-fabric-matrix tfoot td { position: sticky; bottom: 0; z-index: 2; background: var(--subtle-fg); border-top: 1px solid var(--dark-border-color); border-bottom: 0; }
 .yrp-fabric-matrix tfoot .yrp-fabric-matrix__grand { color: var(--text-color); font-weight: 600; }
-.yrp-fabric-matrix__hint { margin: 0; min-height: 18px; color: var(--red-600, #c62a2a); font-size: var(--text-sm); }
 @media (max-width: 640px) { .yrp-fabric-matrix .yrp-fabric-matrix__dia { min-width: 84px; } .yrp-fabric-matrix__cell { min-width: 80px; } }
 `;
 
@@ -79,22 +77,17 @@ function renderTotals(root, matrix, quantities) {
 	matrix.rows.forEach((row, index) => {
 		const cell = root.querySelector(`[data-row-total="${index}"]`);
 		cell.textContent = display(totals.rows[row.key]);
-		cell.classList.toggle("yrp-fabric-matrix__total--over", totals.over.has(row.key));
 	});
 	matrix.columns.forEach((column, index) => {
 		root.querySelector(`[data-column-total="${index}"]`).textContent = display(totals.columns[column.key]);
 	});
 	root.querySelector("[data-grand-total]").textContent = display(totals.grand);
-	root.querySelector(".yrp-fabric-matrix__hint").textContent = totals.overLabels.length
-		? __("More than available: {0}", [totals.overLabels.join(", ")])
-		: "";
 }
 
 function renderMatrix(root, matrix, quantities, showTitle) {
 	root.innerHTML = (showTitle ? `<div class="yrp-fabric-matrix__title">${escape(matrix.title)}</div>` : "")
 		+ `<div class="yrp-fabric-matrix__wrap"><table aria-label="${escape(__("Quantity by Dia and Colour"))}">`
-		+ `<thead>${headHtml(matrix)}</thead><tbody>${bodyHtml(matrix, quantities)}</tbody><tfoot>${footHtml(matrix)}</tfoot></table></div>`
-		+ `<p class="yrp-fabric-matrix__hint" aria-live="polite"></p>`;
+		+ `<thead>${headHtml(matrix)}</thead><tbody>${bodyHtml(matrix, quantities)}</tbody><tfoot>${footHtml(matrix)}</tfoot></table></div>`;
 	renderTotals(root, matrix, quantities);
 }
 

@@ -39,12 +39,6 @@ export function fabricSourceProcess(context) {
 	return context.source_process?.value || context.source_process_options?.[0]?.value || null
 }
 
-export function fabricUnavailableMessage(context) {
-	if (!context.source_process?.unavailable) return ""
-	const source = context.source_process
-	return `Submit an unallocated ${source.label || source.process_name} GRN, then reopen Calculate.`
-}
-
 export function fabricEntryLabel(entry) {
 	return entry.display_label || entry.label || Object.values(entry.out_attrs || {}).join(" · ") || entry.key
 }
@@ -181,8 +175,7 @@ export function fabricEditableState(rows) {
 	return JSON.stringify(rows.map((row) => [row.entries, row.manualEntry?.manualDeliverables, row.manualEntry?.manualReceivables]))
 }
 
-export function canCalculateFabric(context, rows) {
-	if (context.source_process?.unavailable) return false
+export function canCalculateFabric(rows) {
 	if (rows.some((row) => fabricColourError(row) || fabricContractError(row))) return false
 	if (rows.some((row) => !row.manualEntry && row.entries.some((entry) => fabricEntryError(row, entry)))) return false
 	return rows.some((row) => routeEntries(row).some((entry) => quantity(entry.qty) > 0))
@@ -263,20 +256,6 @@ function addDemand(groups, key, label, available, demand) {
 	groups.get(key).demand += demand
 }
 
-function addSourceDemand(groups, row, entry) {
-	const key = entry.source_bucket_key || entry.source_pool_key
-	if (!key) return
-	const { available, demand } = sourceDemand(entry)
-	addDemand(groups, key, entry.source_grn || `${row.cloth_item} · ${fabricEntryLabel(entry)}`, available, demand)
-}
-
-function sourceDemand(entry) {
-	const hasStock = entry.source_stock_available != null
-	const available = hasStock ? entry.source_stock_available : entry.source_available ?? entry.available
-	const factor = hasStock ? quantity(entry.source_stock_per_output) || 1 : 1
-	return { available, demand: quantity(entry.qty) * factor }
-}
-
 function balanceWarnings(row) {
 	const groups = new Map()
 	for (const entry of routeEntries(row)) {
@@ -293,11 +272,5 @@ function demandWarnings(groups, limit) {
 }
 
 export function fabricWarnings(rows) {
-	const warnings = []
-	const sources = new Map()
-	for (const row of rows) {
-		if (row.kind === "knitting") warnings.push(...balanceWarnings(row))
-		else if (!row.matrices) for (const entry of row.entries) addSourceDemand(sources, row, entry)
-	}
-	return [...warnings, ...demandWarnings(sources, "source GRN available")]
+	return rows.filter((row) => row.kind === "knitting").flatMap(balanceWarnings)
 }

@@ -688,7 +688,6 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 			elif row_signature != source_option_signature:
 				frappe.throw(_("The selected Lot fabrics do not have the same earlier-process chain. Create separate Work Orders for those fabrics."))
 			selected_source_step = source_process
-			auto_selected_source = not selected_source_step
 			if not selected_source_step and row_source_options:
 				saved_step = wo.get("fabric_source_process_step")
 				selected_source_step = (
@@ -705,7 +704,6 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 					current_process=wo.process_name,
 					current_work_order=wo.name,
 					source_process=selected_source_step,
-					allow_empty=auto_selected_source or bool(dyeing_source),
 				)
 				selected_source = _merge_source_context(selected_source, filled_source)
 				_apply_cloth_program_fill(qty_rows, row_kind, filled_source, lot, fabric.cloth_item)
@@ -1910,6 +1908,7 @@ def calculate_fabric_deliverables(work_order, rows, modified=None, source_proces
 						source["selected"]["pool"],
 						line.get("source_bucket_key"),
 						qty * factor,
+						check_available=False,
 					)
 					parameters = _execution_parameters(
 						execution_key, matrix_key, line.get("source_bucket_key")
@@ -2183,6 +2182,7 @@ def calculate_fabric_deliverables(work_order, rows, modified=None, source_proces
 							source["selected"]["pool"],
 							line.get("source_bucket_key"),
 							inp_qty * factor,
+							check_available=False,
 						)
 
 			# The receivable is the STEP's output item (a mid-chain conversion —

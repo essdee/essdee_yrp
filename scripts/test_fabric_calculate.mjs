@@ -6,7 +6,7 @@ import { findNodes, loadComponent, mountComponent, Vue } from './helpers/vue_ren
 
 const {
 	buildFabricPayload, canCalculateFabric, fabricColourError, fabricEntryError, fabricEntryLabel,
-	fabricPlanningHint, fabricSourceProcess, fabricUnavailableMessage, fabricWarnings, fabricYarnTotals,
+	fabricPlanningHint, fabricSourceProcess, fabricWarnings, fabricYarnTotals,
 	hydrateFabricRows, setFabricClothQuantity,
 } = fabricCalculate
 
@@ -142,7 +142,7 @@ assert.deepEqual(multiColourRows[0].entries.map((entry) => ({
 	{ colour: 'Greige', cloth: 30, yarn: [30, 30] },
 	{ colour: 'Melange', cloth: 0, yarn: [0, 0] },
 ])
-assert.equal(canCalculateFabric(multiColourContext, multiColourRows), true)
+assert.equal(canCalculateFabric(multiColourRows), true)
 assert.equal(multiColourContext.rows[0].qty_rows[0].knitting_inputs[0].prefill, 30)
 console.log('Multi-colour: only the default colour keeps yarn prefills; Calculate is enabled')
 
@@ -210,15 +210,15 @@ console.log('Precision: re-split rounds to three decimals before Desk half-even 
 setFabricClothQuantity(knittingRow, route, 0)
 route.inputs[0].qty = 1
 assert.match(fabricEntryError(knittingRow, route), /expected cloth quantity/)
-assert.equal(canCalculateFabric(knittingContext, knittingRows), false, 'orphan yarn blocks even with another valid route')
+assert.equal(canCalculateFabric(knittingRows), false, 'orphan yarn blocks even with another valid route')
 route.inputs[0].qty = 0
 assert.equal(fabricEntryError(knittingRow, route), '')
 setFabricClothQuantity(knittingRow, route, 1)
 for (const input of route.inputs) input.qty = 0
 assert.match(fabricEntryError(knittingRow, route), /at least one yarn/)
-assert.equal(canCalculateFabric(knittingContext, knittingRows), false)
+assert.equal(canCalculateFabric(knittingRows), false)
 setFabricClothQuantity(knittingRow, route, 400)
-assert.equal(canCalculateFabric(knittingContext, knittingRows), true)
+assert.equal(canCalculateFabric(knittingRows), true)
 assert.equal(fabricWarnings(knittingRows)[0], `${cloth} · ${route.label}: 400 > balance 328`, 'warning names the cloth once')
 assert.equal(fabricColourError(knittingRow), '')
 assert.match(fabricEntryLabel(dyeingRows[0].entries[2]), /14.5 Dia \(actual, for 14 Dia\)/)
@@ -230,23 +230,14 @@ const sharedRows = hydrateFabricRows(dyeingContext)
 const shared = sharedRows[0].entries[0]
 shared.qty = 20
 sharedRows[0].entries.push({ ...shared, key: 'other-colour', input_key: 'other-colour', qty: 15 })
-assert.deepEqual(fabricWarnings(sharedRows), ['GRN-00008: 35 > source GRN available 34'])
-assert.equal(canCalculateFabric(dyeingContext, sharedRows), true)
-sharedRows[0].entries[3].qty = 14
-assert.deepEqual(fabricWarnings(sharedRows), [], 'exactly available is permitted')
-shared.source_stock_per_output = 2
-assert.match(fabricWarnings(sharedRows)[0], /54 > source GRN available 34/, 'different output ratios share physical stock')
-const acrossRows = [{ ...sharedRows[0], entries: [shared] }, { ...sharedRows[0], fabric_row: 'other-fabric', entries: [{ ...shared, qty: 1 }] }]
-assert.equal(fabricWarnings(acrossRows).length, 1, 'source buckets aggregate across fabric rows')
+assert.deepEqual(fabricWarnings(sharedRows), [], 'source GRN availability never warns')
+assert.equal(canCalculateFabric(sharedRows), true)
 washingRows[0].entries[0].qty = 21
-assert.match(fabricWarnings(washingRows)[0], /21 > source GRN available 20/)
-assert.equal(canCalculateFabric(washingContext, washingRows), true)
+assert.deepEqual(fabricWarnings(washingRows), [])
+assert.equal(canCalculateFabric(washingRows), true)
 const unavailable = { ...washingContext, source_process: { value: '1::Dyeing', label: 'Dyeing', unavailable: true } }
-assert.equal(fabricUnavailableMessage(unavailable), 'Submit an unallocated Dyeing GRN, then reopen Calculate.')
-assert.equal(canCalculateFabric(unavailable, washingRows), false)
-assert.equal(fabricUnavailableMessage(knittingContext), '')
-assert.equal(canCalculateFabric({}, []), false)
-console.log('C15/C16: shared-bucket warnings, unavailable guidance and disabled Calculate OK')
+assert.equal(canCalculateFabric([]), false)
+console.log('C15/C16: source availability never warns or blocks Calculate')
 
 function actionPanel(context, commands, refreshContext = async (workOrderName, sourceProcess) => ({ ...context, source_process: { value: sourceProcess } })) {
 	const filename = new URL('../frontend/src/departments/fabric-store/WorkOrderActionPanel.vue', import.meta.url)
@@ -370,9 +361,7 @@ const renderedDyeing = await renderPanel(dyeingContext)
 assert.match(renderedText(renderedDyeing), /14.5 Dia \(actual, for 14 Dia\)/)
 assert.match(renderedText(renderedDyeing), /GRN-00008 · row 1 · 20 Kg available/)
 const renderedUnavailable = await renderPanel(unavailable)
-assert.match(renderedText(renderedUnavailable), /No predecessor stock available/)
-assert.match(renderedText(renderedUnavailable), /Submit an unallocated Dyeing GRN, then reopen Calculate\./)
-assert.equal(calculateButton(renderedUnavailable).props.disabled, true)
+assert.doesNotMatch(renderedText(renderedUnavailable), /No predecessor stock available|Submit an unallocated/)
 assert.equal(findNodes(renderedUnavailable, (node) => node.type === 'DocumentErrorDialog')[0].props.message, '')
-console.log('C9-C11/C13/C16: rendered route inputs, reactive totals, warnings and unavailable banner OK')
+console.log('C9-C11/C13/C16: rendered route inputs, reactive totals, warnings and no unavailable banner OK')
 console.log('Fabric Calculate tests passed')
