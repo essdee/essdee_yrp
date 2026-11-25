@@ -40,6 +40,10 @@ from essdee_yrp.api.work_order import (
 	get_work_order_selection_context,
 )
 from essdee_yrp.cloth_execution import get_row_execution_parameters
+from essdee_yrp.essdee_yrp.doctype.sd_yrp_ipd_settings.sd_yrp_ipd_settings import (
+	get_colour_attribute,
+	get_dia_attribute,
+)
 from essdee_yrp.fabric_reference import (
 	get_reference_allocations,
 	scale_reference_allocations,
@@ -1499,6 +1503,10 @@ class TestCalculateFabricDeliverables(IntegrationTestCase):
 		).insert(ignore_permissions=True)
 		dye_context = get_fabric_deliverable_context(dye_work_order.name)
 		self.assertEqual(dye_context["kind"], "dyeing")
+		self.assertEqual(
+			dye_context["attributes"],
+			{"colour": get_colour_attribute(), "dia": get_dia_attribute()},
+		)
 		dye_rows = dye_context["rows"][0]["qty_rows"]
 		self.assertEqual(len(dye_rows), 1)
 		self.assertEqual(

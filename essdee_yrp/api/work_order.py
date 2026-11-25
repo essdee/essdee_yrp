@@ -714,6 +714,7 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 		"warnings": warnings,
 		"source_process_options": source_options,
 		"source_process": selected_source,
+		"attributes": {"colour": get_colour_attribute(), "dia": get_dia_attribute()} if rows else {},
 	}
 
 

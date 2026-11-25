@@ -47,6 +47,9 @@
 						</div>
 						<small v-if="fabricContractError(row)" class="work-order-fabric-row__error" role="alert">{{ fabricContractError(row) }}</small>
 					</template>
+					<template v-else-if="row.matrices">
+						<FabricDeliverablesMatrix v-for="(matrix, index) in row.matrices" :key="matrix.title || index" :row="row" :matrix="matrix" :show-title="row.matrices.length > 1" />
+					</template>
 					<div v-else class="work-order-fabric-row__routes">
 						<section v-for="entry in row.entries" :key="entry.input_key" class="work-order-fabric-row__route">
 							<strong>{{ fabricEntryLabel(entry) }}</strong>
@@ -78,7 +81,7 @@
 						</section>
 					</div>
 					<div v-if="row.kind === 'knitting' && !row.manual_io && !row.reference_routed && (row.yarns || []).length <= 1" class="work-order-action-panel__field"><label>Yarn deliverable quantity</label><InputNumber v-model="row.yarn_qty" :aria-label="`Yarn deliverable quantity for ${row.cloth_item || row.treated_item || 'fabric row'}`" :min="0" :max-fraction-digits="2" fluid /></div>
-					<div class="work-order-fabric-row__yarns" role="status" aria-label="Cloth total"><strong>Cloth total · {{ number(fabricClothTotal(row)) }} Kg</strong></div>
+					<div v-if="!row.matrices" class="work-order-fabric-row__yarns" role="status" aria-label="Cloth total"><strong>Cloth total · {{ number(fabricClothTotal(row)) }} Kg</strong></div>
 					<div v-if="row.kind === 'knitting'" class="work-order-fabric-row__yarns" role="status" aria-label="Yarn totals"><span>Yarn totals</span><strong v-for="yarn in fabricYarnTotals(row).items" :key="yarn.item">{{ yarn.item }} · {{ number(yarn.qty) }} Kg</strong><strong>Total · {{ number(fabricYarnTotals(row).total) }} Kg</strong></div>
 				</div>
 			</template>
@@ -181,6 +184,7 @@ import DocumentLink from "../../components/common/DocumentLink.vue"
 import DebitEntryFields from "./DebitEntryFields.vue"
 import WorkOrderDebitTable from "./WorkOrderDebitTable.vue"
 import WorkOrderItemMatrix from "./WorkOrderItemMatrix.vue"
+import FabricDeliverablesMatrix from "./FabricDeliverablesMatrix.vue"
 import WorkOrderChangeItemPreview from "./WorkOrderChangeItemPreview.vue"
 import { pendingWorkOrderGroups } from "./workOrderClose.js"
 import { fabricClothTotal, recutGroupTotals, recutPieces, reworkTotals } from "./workOrderTotals.js"
@@ -189,7 +193,7 @@ import LinkField from "../../components/common/LinkField.vue"
 import { vEntryTable } from "../../components/common/childGrid/entryTable.js"
 import DocumentErrorDialog from "../../components/documents/DocumentErrorDialog.vue"
 import {
-	buildFabricPayload, canCalculateFabric, fabricColourError, fabricContractError, fabricContractLists, fabricEditableState, fabricEntryError, fabricEntryLabel,
+	buildFabricPayload, canCalculateFabric, carryFabricMatrixSelection, fabricColourError, fabricContractError, fabricContractLists, fabricEditableState, fabricEntryError, fabricEntryLabel,
 	fabricPlanningHint, fabricSourceProcess, fabricUnavailableMessage, fabricWarnings, fabricYarnTotals,
 	hydrateFabricRows, setFabricClothQuantity,
 } from "./fabricCalculate.js"
@@ -287,9 +291,11 @@ async function refreshFabricSource() {
 	const previousSourceProcess = fabricSourceProcess(fabricContext.value)
 	loading.value = true; error.value = ""
 	try {
+		const previousRows = fabricRows.value
 		fabricContext.value = await getWorkOrderFabricCalculationContext(props.workOrder.name, draft.source_process) || {}
 		draft.source_process = fabricSourceProcess(fabricContext.value)
 		fabricRows.value = hydrateFabricRows(fabricContext.value)
+		carryFabricMatrixSelection(fabricRows.value, previousRows)
 	} catch (reason) {
 		draft.source_process = previousSourceProcess
 		error.value = reason?.message || "Unable to fill quantities from the selected source process."

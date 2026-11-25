@@ -7,12 +7,15 @@ import "./supplier_whatsapp";
 import "./ipd_attributes";
 import { install_json_formatter } from "./json_format";
 import { isKnittingContract, renderKnittingContractDialog } from "./work_order_knitting_contract";
+import { createFabricMatrixState, mountFabricMatrices } from "./work_order_fabric_matrix";
 
 frappe.provide("frappe.yrp.work_order");
 frappe.provide("essdee_yrp");
 
 essdee_yrp.is_knitting_contract = isKnittingContract;
 essdee_yrp.render_knitting_contract_dialog = renderKnittingContractDialog;
+essdee_yrp.create_fabric_matrix_state = createFabricMatrixState;
+essdee_yrp.mount_fabric_matrices = mountFabricMatrices;
 
 // Register before any form is rendered, not in refresh after unsafe HTML ran.
 install_json_formatter(frappe.form.formatters);
