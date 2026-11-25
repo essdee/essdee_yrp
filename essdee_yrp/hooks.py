@@ -283,7 +283,11 @@ doctype_js = {
 		"public/js/production_order.js",
 		"public/js/production_order_workflow.js",
 	],
-	"YRP Work Order": ["public/js/work_order.js", "public/js/work_order_recalculate.js"],
+	"YRP Work Order": [
+		"public/js/work_order.js",
+		"public/js/work_order_recalculate.js",
+		"public/js/work_order_duplicates.js",
+	],
 	"Purchase Order": [
 		"public/js/purchase_order.js",
 		"public/js/purchase_order_attribute_values.js",

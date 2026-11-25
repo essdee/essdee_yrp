@@ -39,6 +39,10 @@ export function executeWorkOrderCommand(name, command, payload = {}, expectedMod
 	})
 }
 
+export function getDuplicateWorkOrders(workOrder) {
+	return callRead("essdee_yrp.work_order_duplicates.get_duplicate_work_orders", { work_order: workOrder })
+}
+
 export function getWorkOrderSelectionContext(lot, processName) {
 	return callMethod("essdee_yrp.api.work_order.get_work_order_selection_context", {
 		lot,
