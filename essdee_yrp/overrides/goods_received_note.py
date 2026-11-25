@@ -202,8 +202,11 @@ class EssdeeGoodsReceivedNote(GoodsReceivedNote):
 			from essdee_yrp.fabric_grn import validate_actual_dia_rows
 
 			validate_actual_dia_rows(self)
-			if self.get("correction_items"):
-				frappe.throw(_("Versioned cloth GRNs do not support correction rows."))
+			from essdee_yrp.work_order_correction_hooks import validate_exact_source_cloth_rows
+
+			validate_exact_source_cloth_rows(
+				frappe._dict(work_order=self.against_id, receivables=self.get("correction_items"))
+			)
 		if self.get("additional_grn"):
 			from essdee_yrp.additional_grn import validate_receivables, validate_submit_role
 

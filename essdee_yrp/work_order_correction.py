@@ -3,8 +3,10 @@ from frappe import _
 from frappe.utils import cint, flt, today
 from yrp.stock.shortage import get_stock_qty_precision
 
-from essdee_yrp.delivery_challan_hooks import requires_exact_source_lifecycle
-from essdee_yrp.work_order_correction_hooks import get_correction_deliverable_items
+from essdee_yrp.work_order_correction_hooks import (
+	get_correction_deliverable_items,
+	get_exact_source_cloth_item,
+)
 
 CORRECTION_DOCTYPE = "YRP Work Order Correction"
 WORK_ORDER_HEADER_FIELDS = (
@@ -20,13 +22,8 @@ WORK_ORDER_HEADER_FIELDS = (
 
 
 def is_correction_supported(work_order) -> bool:
-	"""Corrections need an open submitted WO outside the versioned exact-source cloth route."""
-	if cint(work_order.docstatus) != 1 or work_order.get("open_status") != "Open":
-		return False
-	if work_order.get("fabric_source_process"):
-		return False
-	probe = frappe._dict(doctype="YRP Delivery Challan", work_order=work_order.name, items=[])
-	return not requires_exact_source_lifecycle(probe)
+	"""Corrections need a submitted, open Work Order."""
+	return cint(work_order.docstatus) == 1 and work_order.get("open_status") == "Open"
 
 
 def can_create_correction(work_order) -> bool:
@@ -43,11 +40,11 @@ def get_work_order_correction_context(work_order: str) -> dict:
 	"""Popup context: whether a correction can be created and which deliverable Items are allowed."""
 	doc = frappe.get_doc("YRP Work Order", work_order)
 	doc.check_permission("read")
+	items = get_correction_deliverable_items(doc.production_detail) if doc.get("production_detail") else []
+	cloth_item = get_exact_source_cloth_item(doc.name)
 	return {
 		"can_create": can_create_correction(doc),
-		"deliverable_items": (
-			get_correction_deliverable_items(doc.production_detail) if doc.get("production_detail") else []
-		),
+		"deliverable_items": [item for item in items if item != cloth_item],
 	}
 
 
@@ -63,9 +60,7 @@ def create_work_order_correction(
 	doc.check_permission("write")
 	if not is_correction_supported(doc):
 		frappe.throw(
-			_("Work Order {0} must be submitted, open and outside the exact-source cloth route.").format(
-				frappe.bold(doc.name)
-			)
+			_("Work Order {0} must be submitted and open.").format(frappe.bold(doc.name))
 		)
 	correction = frappe.new_doc(CORRECTION_DOCTYPE)
 	correction.update({fieldname: doc.get(fieldname) for fieldname in WORK_ORDER_HEADER_FIELDS})

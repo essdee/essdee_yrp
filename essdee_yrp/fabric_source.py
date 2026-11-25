@@ -944,6 +944,24 @@ def _get_legacy_source_availability(
 		params,
 		as_dict=True,
 	)
+	reserved_rows += frappe.db.sql(
+		f"""
+		SELECT item.item_variant, item.qty, item.uom
+		FROM `tabYRP Work Order Deliverables` item
+		JOIN `tabYRP Work Order Correction` correction ON correction.name = item.parent
+		JOIN `tabYRP Work Order` target_wo ON target_wo.name = correction.work_order
+		WHERE item.parenttype = 'YRP Work Order Correction'
+			AND correction.docstatus = 1
+			AND target_wo.docstatus < 2
+			AND target_wo.name != %(current_work_order)s
+			AND target_wo.lot = %(lot)s
+			AND target_wo.item = %(cloth_item)s
+			{target_version_filter}
+			{source_filter}
+		""",
+		params,
+		as_dict=True,
+	)
 	reserved = _rows_in_stock_uom(reserved_rows)
 	variants = set(received) | set(reserved)
 	return {
