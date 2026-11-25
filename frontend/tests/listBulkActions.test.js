@@ -54,3 +54,10 @@ test("the runner keeps going after a failure and reports each failed document wi
 	assert.equal(bulkOutcome("delete", { done: [], failed: result.failed }).title, "Delete failed")
 	assert.equal(bulkOutcome("submit", { done: ["DC-1"], failed: [] }).notice, "1 document submitted.")
 })
+
+test("a page action may report rows as skipped instead of failed", () => {
+	const definition = { label: "Close", done: "closed", missed: "skipped" }
+	const outcome = bulkOutcome("close", { done: ["PO-1", "PO-2"], failed: [{ name: "PO-3", error: "Already closed." }] }, definition)
+	assert.equal(outcome.title, "Close result")
+	assert.equal(outcome.summary, "2 documents closed; 1 document skipped.")
+})

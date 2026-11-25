@@ -51,11 +51,11 @@ export async function runBulkRows(rows, perform, onProgress = () => {}) {
 }
 
 export function bulkOutcome(action, { done, failed }, definition = BULK_ACTIONS[action]) {
-	const { label = "Edit", done: verb = "updated" } = definition || {}
+	const { label = "Edit", done: verb = "updated", missed } = definition || {}
 	const documents = (count) => `${count} document${count === 1 ? "" : "s"}`
 	return {
-		title: `${label} ${done.length ? "partially completed" : "failed"}`,
-		summary: `${documents(done.length)} ${verb}; ${documents(failed.length)} failed.`,
+		title: missed ? `${label} result` : `${label} ${done.length ? "partially completed" : "failed"}`,
+		summary: `${documents(done.length)} ${verb}; ${documents(failed.length)} ${missed || "failed"}.`,
 		notice: `${documents(done.length)} ${verb}.`,
 		failed,
 	}

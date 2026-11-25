@@ -11,6 +11,7 @@
 			:status-options="purchaseOrderStatusOptions"
 			:default-columns="defaultColumns"
 			:extra-fields="['status', 'is_yrp_managed']"
+			:custom-bulk-actions="bulkActions"
 			viewport-bounded
 			clickable
 			@row-click="openPurchaseOrder"
@@ -35,12 +36,16 @@
 
 <script setup>
 import Button from "primevue/button"
+import { computed, onMounted, ref } from "vue"
 import { useRouter } from "vue-router"
+
+import { getPurchaseOrderClosePermission, setPurchaseOrdersOpenStatus } from "../../api/fabricStore.js"
 
 import ListView from "../../components/common/ListView.vue"
 import DocumentStatusBadge from "../../components/documents/DocumentStatusBadge.vue"
 import { openListDocument } from "../../router/listDocumentNavigation.js"
 import { purchaseOrderStatusLabel, purchaseOrderStatusOptions, purchaseOrderStatusTone } from "../../utils/purchaseOrderStatus.js"
+import { openStatusBulkActions } from "./purchaseOrderOpenStatusActions.js"
 
 const props = defineProps({
 	capability: { type: Object, required: true },
@@ -50,6 +55,16 @@ const props = defineProps({
 
 const router = useRouter()
 const defaultColumns = ["supplier", "transaction_date", "yrp_fulfillment_status", "grand_total"]
+const canCloseOrders = ref(false)
+const bulkActions = computed(() => (canCloseOrders.value ? openStatusBulkActions(setPurchaseOrdersOpenStatus) : []))
+
+onMounted(async () => {
+	try {
+		canCloseOrders.value = Boolean((await getPurchaseOrderClosePermission())?.is_close_manager)
+	} catch {
+		canCloseOrders.value = false
+	}
+})
 
 function purchaseOrderStatusBadgeProps(row) {
 	const label = purchaseOrderStatusLabel(row)
