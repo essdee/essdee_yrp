@@ -1850,8 +1850,8 @@ class TestMultiYarnClothIPD(IntegrationTestCase):
 		self.assertIn(f"{actual_dia} (actual, for {v['dia']})", qty_row["label"])
 		self.assertEqual(qty_row["source_available"], 30)
 
-		def calculate(qty):
-			entry = {key: qty_row[key] for key in ("key", "matrix_key", "out_attrs", "source_item_variant")}
+		def calculate(qty, fields=("key", "matrix_key", "out_attrs", "source_item_variant")):
+			entry = {key: qty_row[key] for key in fields}
 			return calculate_fabric_deliverables(
 				dye_wo.name,
 				[{"fabric_row": fabric["fabric_row"], "entries": [{**entry, "qty": qty}]}],
@@ -1860,7 +1860,8 @@ class TestMultiYarnClothIPD(IntegrationTestCase):
 
 		with self.assertRaisesRegex(frappe.ValidationError, "remains available"):
 			calculate(31)
-		calculate(25)
+		# A browser still running the pre-fix bundle sends only the row key.
+		calculate(25, fields=("key", "matrix_key", "out_attrs"))
 		dye_wo.reload()
 		self.assertEqual([(row.item_variant, flt(row.qty)) for row in dye_wo.deliverables], [(actual_greige, 25)])
 		self.assertEqual(

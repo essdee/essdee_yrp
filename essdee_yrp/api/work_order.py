@@ -1633,6 +1633,16 @@ def _source_principal(group, matrix, ipd, bucket):
 	return matches[0]
 
 
+def _legacy_source_variant(line):
+	"""Received Item of a legacy actual-Dia line; older clients send it only in the row key."""
+	if line.get("source_item_variant"):
+		return line["source_item_variant"]
+	key, matrix_key = line.get("key") or "", line.get("matrix_key") or ""
+	if matrix_key and key.startswith(f"{matrix_key}|"):
+		return key[len(matrix_key) + 1 :]
+	return None
+
+
 def _project_legacy_actual_dia(group, matrix, ipd, source_variant, out_combo):
 	"""Return the matrix input index and output attrs for a legacy actual-Dia source."""
 	from essdee_yrp.fabric_source import project_output_attributes
@@ -2071,8 +2081,8 @@ def calculate_fabric_deliverables(work_order, rows, modified=None, source_proces
 				parameters = _execution_parameters(
 					execution_key, matrix_key, line.get("source_bucket_key")
 				)
-			elif source and line.get("source_item_variant"):
-				legacy_source_variant = line["source_item_variant"]
+			elif source and _legacy_source_variant(line):
+				legacy_source_variant = _legacy_source_variant(line)
 				source_input_index, out_attrs = _project_legacy_actual_dia(
 					group, matrix, ipd, legacy_source_variant, out_combo
 				)
