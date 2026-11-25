@@ -1094,6 +1094,18 @@ class TestFabricReceiptExcess(unittest.TestCase):
 				self.assertEqual(target.pending_quantity, -10)
 				target.db_set.assert_called_once_with("pending_quantity", -10, update_modified=False)
 
+	def test_versioned_receipt_also_updates_correction_receivables(self):
+		from essdee_yrp.overrides.goods_received_note import EssdeeGoodsReceivedNote
+
+		for cancel in (False, True):
+			with self.subTest(cancel=cancel):
+				document = Mock()
+				document.flags = frappe._dict(cloth_execution_locked_work_order=frappe._dict(name="WO-1"))
+				with patch("essdee_yrp.overrides.goods_received_note._update_versioned_cloth_receivables") as update:
+					EssdeeGoodsReceivedNote.update_source_pending(document, cancel=cancel)
+				update.assert_called_once_with(document, document.flags.cloth_execution_locked_work_order, cancel=cancel)
+				document.update_correction_receivables.assert_called_once_with(cancel=cancel)
+
 	def test_only_cloth_ipd_receipts_skip_process_allowance(self):
 		from essdee_yrp.overrides.goods_received_note import EssdeeGoodsReceivedNote
 

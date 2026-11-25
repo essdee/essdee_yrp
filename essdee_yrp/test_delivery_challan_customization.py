@@ -722,6 +722,15 @@ class TestDeliveryChallanCustomization(FrappeTestCase):
 		self.assertEqual(target.pending_quantity, 6)
 		target.db_set.assert_called_once_with("pending_quantity", 6.0, update_modified=False)
 
+	def test_exact_dc_also_updates_correction_deliverables(self):
+		work_order = frappe._dict(deliverables=[])
+		doc = EssdeeDeliveryChallan({"doctype": "YRP Delivery Challan", "work_order": "WO-EXACT-1", "items": []})
+		doc.flags.cloth_execution_locked_work_order = work_order
+		for cancel in (False, True):
+			with patch.object(EssdeeDeliveryChallan, "update_correction_deliverables") as update:
+				doc.update_work_order_deliverables(cancel=cancel)
+			update.assert_called_once_with(cancel=cancel)
+
 	def test_exact_dc_validate_runs_after_all_base_validation(self):
 		doc = EssdeeDeliveryChallan({"doctype": "YRP Delivery Challan"})
 		events = []

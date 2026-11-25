@@ -202,11 +202,6 @@ class EssdeeGoodsReceivedNote(GoodsReceivedNote):
 			from essdee_yrp.fabric_grn import validate_actual_dia_rows
 
 			validate_actual_dia_rows(self)
-			from essdee_yrp.work_order_correction_hooks import validate_exact_source_cloth_rows
-
-			validate_exact_source_cloth_rows(
-				frappe._dict(work_order=self.against_id, receivables=self.get("correction_items"))
-			)
 		if self.get("additional_grn"):
 			from essdee_yrp.additional_grn import validate_receivables, validate_submit_role
 
@@ -369,11 +364,13 @@ class EssdeeGoodsReceivedNote(GoodsReceivedNote):
 
 	def update_source_pending(self, cancel=False):
 		if self.flags.get("cloth_execution_locked_work_order"):
-			return _update_versioned_cloth_receivables(
+			_update_versioned_cloth_receivables(
 				self,
 				self.flags.cloth_execution_locked_work_order,
 				cancel=cancel,
 			)
+			self.update_correction_receivables(cancel=cancel)
+			return
 		if not self._is_essdee_return():
 			return super().update_source_pending(cancel=cancel)
 		_update_returned_deliverables(self, cancel=cancel)

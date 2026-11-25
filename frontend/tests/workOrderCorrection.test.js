@@ -2,8 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { correctionItemEditor, hasCorrectionRows } from "../src/departments/fabric-store/workOrderCorrection.js"
 
-test("deliverable editor limits the Item picker to the sanctioned templates", () => {
-	assert.deepEqual(correctionItemEditor(["STYLE", "BOX"]).item_filters, { disabled: 0, variant_of: ["is", "not set"], name: ["in", ["STYLE", "BOX"]] })
+test("correction editor offers any Item template", () => {
 	assert.deepEqual(correctionItemEditor().item_filters, { disabled: 0, variant_of: ["is", "not set"] })
 	assert.deepEqual(correctionItemEditor().dimensions, [])
 })

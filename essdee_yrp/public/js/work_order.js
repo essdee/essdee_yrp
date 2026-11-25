@@ -269,9 +269,7 @@ function show_work_order_correction_dialog(frm, context) {
 	};
 	// The item pickers bind Frappe controls only once their root is in the visible modal.
 	dialog.$wrapper.one("shown.bs.modal", () => {
-		editors.deliverables = mount_editor("deliverables_html", __("Deliverables"), "work_order_deliverables", {
-			allowedItemNames: context.deliverable_items || [],
-		});
+		editors.deliverables = mount_editor("deliverables_html", __("Deliverables"), "work_order_deliverables");
 		editors.receivables = mount_editor("receivables_html", __("Receivables"), "work_order_receivables");
 	});
 	dialog.onhide = () => {

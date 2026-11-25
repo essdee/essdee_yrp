@@ -599,9 +599,6 @@ doc_events = {
 		"before_cancel": "essdee_yrp.erp_purchase_invoice.hold_bill_tracking_for_local_update",
 		"on_cancel": "essdee_yrp.erp_purchase_invoice.reopen_bill_tracking_on_erp_cancel",
 	},
-	"YRP Work Order Correction": {
-		"before_submit": "essdee_yrp.work_order_correction_hooks.validate_correction_ipd_items"
-	},
 	"YRP Goods Received Note": {
 		"before_print": "essdee_yrp.print_helpers.prepare_print_document",
 		"before_validate": [

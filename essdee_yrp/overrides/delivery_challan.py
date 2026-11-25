@@ -151,6 +151,7 @@ class EssdeeDeliveryChallan(DeliveryChallan):
 			work_order.set_status()
 			work_order.db_set("status", work_order.status, update_modified=False)
 			work_order.db_set("is_delivered", work_order.is_delivered, update_modified=False)
+		self.update_correction_deliverables(cancel=cancel)
 
 	def _lock_current_work_order(self):
 		"""Keep pending validation and mutation on one current locked image."""

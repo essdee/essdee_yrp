@@ -171,18 +171,6 @@ def validate_exact_source_limits(doc, method=None):
 	del method
 	if cint(doc.get("docstatus")) == 2 or not requires_exact_source_lifecycle(doc):
 		return
-	cloth_item = frappe.db.get_value("YRP Work Order", doc.work_order, "item")
-	if any(
-		flt(row.get("qty") or row.get("delivered_quantity")) > 0
-		and _item_belongs_to_template(row.get("item_variant"), cloth_item)
-		for row in doc.get("correction_items") or []
-	):
-		frappe.throw(
-			_(
-				"Work Order correction rows cannot dispatch exact-source cloth {0}."
-			).format(cloth_item)
-		)
-
 	pool = _prepare_dispatch_source_pool(doc)
 	if pool is None:
 		# Default Knitting has no predecessor GRN bucket. Its yarn dispatch keeps

@@ -12,10 +12,6 @@ from essdee_yrp.work_order_correction import (
 	is_correction_supported,
 	write_off_correction_stock,
 )
-from essdee_yrp.work_order_correction_hooks import (
-	get_correction_deliverable_items,
-	validate_correction_ipd_items,
-)
 
 
 class TestWorkOrderCorrectionHook(TestCase):
@@ -25,49 +21,13 @@ class TestWorkOrderCorrectionHook(TestCase):
 			self.assertTrue(is_correction_supported(work_order))
 		self.assertFalse(is_correction_supported(frappe._dict(work_order, open_status="Close")))
 
-	def _validate(self, deliverables=(), receivables=(), exact_source=True):
-		doc = frappe._dict(
-			work_order="WO-1",
-			production_detail=None,
-			deliverables=[frappe._dict(item_variant=v) for v in deliverables],
-			receivables=[frappe._dict(item_variant=v) for v in receivables],
-		)
-		with (
-			patch(f"{HOOKS}.requires_exact_source_lifecycle", return_value=exact_source),
-			patch(f"{HOOKS}.frappe.db.get_value", return_value="CLOTH"),
-			patch(f"{HOOKS}.get_parent_item", side_effect=lambda v: v.split("-")[0]),
-		):
-			validate_correction_ipd_items(doc)
-
-	def test_exact_source_route_rejects_cloth_correction_rows(self):
-		with self.assertRaises(frappe.ValidationError):
-			self._validate(deliverables=["CLOTH-32"])
-		with self.assertRaises(frappe.ValidationError):
-			self._validate(receivables=["CLOTH-32"])
-
-	def test_exact_source_route_allows_non_cloth_correction_rows(self):
-		self._validate(deliverables=["DYE-RED", "YARN-30"], receivables=["WASTE-1"])
-
-	def test_context_hides_exact_source_cloth_from_deliverable_items(self):
+	def test_context_has_no_item_restriction(self):
 		work_order = frappe._dict(name="WO-1", production_detail="IPD-1", check_permission=lambda _: None)
 		with (
 			patch(f"{MODULE}.frappe.get_doc", return_value=work_order),
 			patch(f"{MODULE}.can_create_correction", return_value=True),
-			patch(f"{MODULE}.get_correction_deliverable_items", return_value=["CLOTH", "YARN"]),
-			patch(f"{MODULE}.get_exact_source_cloth_item", return_value="CLOTH"),
 		):
-			self.assertEqual(get_work_order_correction_context("WO-1")["deliverable_items"], ["YARN"])
-
-	def test_legacy_fabric_source_route_allows_cloth_correction_rows(self):
-		self._validate(deliverables=["CLOTH-32"], receivables=["CLOTH-32"], exact_source=False)
-
-	def test_ipd_item_itself_is_a_sanctioned_deliverable(self):
-		ipd = frappe._dict(item="STYLE", item_bom=[frappe._dict(item="BOX")])
-		with (
-			patch("essdee_yrp.work_order_correction_hooks.frappe.get_cached_doc", return_value=ipd),
-			patch("essdee_yrp.work_order_correction_hooks.get_yarn_ratio_inputs", return_value=[]),
-		):
-			self.assertEqual(get_correction_deliverable_items("IPD-1"), ["BOX", "STYLE"])
+			self.assertEqual(get_work_order_correction_context("WO-1"), {"can_create": True})
 
 
 class TestCorrectionCloseWriteOff(TestCase):
@@ -150,7 +110,6 @@ class TestCorrectionCloseWriteOff(TestCase):
 
 
 MODULE = "essdee_yrp.work_order_correction"
-HOOKS = "essdee_yrp.work_order_correction_hooks"
 
 
 class TestWorkOrderCorrection(IntegrationTestCase):
@@ -162,10 +121,8 @@ class TestWorkOrderCorrection(IntegrationTestCase):
 		if not cls.work_order:
 			raise cls.skipTest(cls, "No open garment Work Order with deliverables on this site")
 
-	def test_context_lists_ipd_items_and_allows_creation(self):
-		context = get_work_order_correction_context(self.work_order.name)
-		self.assertTrue(context["can_create"])
-		self.assertIn(self.work_order.item, context["deliverable_items"])
+	def test_context_allows_creation(self):
+		self.assertTrue(get_work_order_correction_context(self.work_order.name)["can_create"])
 
 	def test_create_submits_correction_and_feeds_dc_and_grn_defaults(self):
 		wo = self.work_order
@@ -211,8 +168,7 @@ class TestWorkOrderCorrection(IntegrationTestCase):
 		wo = self.work_order
 		workspace = get_work_order_workspace(wo.name)
 		self.assertIn("create_work_order_correction", workspace["capabilities"])
-		context = execute_work_order_command(wo.name, "get_correction_context")
-		self.assertIn(wo.item, context["deliverable_items"])
+		self.assertTrue(execute_work_order_command(wo.name, "get_correction_context")["can_create"])
 		result = execute_work_order_command(
 			wo.name,
 			"create_work_order_correction",

@@ -3,11 +3,6 @@ from frappe import _
 from frappe.utils import cint, flt, today
 from yrp.stock.shortage import get_stock_qty_precision
 
-from essdee_yrp.work_order_correction_hooks import (
-	get_correction_deliverable_items,
-	get_exact_source_cloth_item,
-)
-
 CORRECTION_DOCTYPE = "YRP Work Order Correction"
 WORK_ORDER_HEADER_FIELDS = (
 	"process_name",
@@ -37,15 +32,10 @@ def can_create_correction(work_order) -> bool:
 
 @frappe.whitelist()
 def get_work_order_correction_context(work_order: str) -> dict:
-	"""Popup context: whether a correction can be created and which deliverable Items are allowed."""
+	"""Popup context: whether a correction can be created. Any Item may be added."""
 	doc = frappe.get_doc("YRP Work Order", work_order)
 	doc.check_permission("read")
-	items = get_correction_deliverable_items(doc.production_detail) if doc.get("production_detail") else []
-	cloth_item = get_exact_source_cloth_item(doc.name)
-	return {
-		"can_create": can_create_correction(doc),
-		"deliverable_items": [item for item in items if item != cloth_item],
-	}
+	return {"can_create": can_create_correction(doc)}
 
 
 @frappe.whitelist(methods=["POST"])

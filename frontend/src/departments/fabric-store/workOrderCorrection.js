@@ -1,8 +1,6 @@
 /** Work Order Correction popup: Item picker config and row checks. */
-export function correctionItemEditor(allowedItems = []) {
-	const item_filters = { disabled: 0, variant_of: ["is", "not set"] }
-	if (allowedItems.length) item_filters.name = ["in", [...allowedItems]]
-	return { dimensions: [], item_filters }
+export function correctionItemEditor() {
+	return { dimensions: [], item_filters: { disabled: 0, variant_of: ["is", "not set"] } }
 }
 
 export function hasCorrectionRows(groups) {

@@ -4,12 +4,12 @@
 			<Message severity="secondary" :closable="false">Add the extra deliverables and receivables for {{ workOrder.name }}. The correction is submitted immediately and its rows appear on the Delivery Challan and Goods Received Note for quantity entry.</Message>
 			<Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 			<label class="work-order-correction__reason"><span>Reason</span><Textarea v-model="reason" rows="2" auto-resize :disabled="busy" aria-label="Correction reason" /></label>
-			<section class="work-order-correction__section"><header><span>Inputs</span><h2>Deliverables</h2></header><StockItemComposer v-model="deliverableDetails" operation="work_order" :editor="deliverableEditor" :schema-loader="loadItemSchema" :disabled="busy || loading" row-comments natural-table-flow /></section>
-			<section class="work-order-correction__section"><header><span>Outputs</span><h2>Receivables</h2></header><StockItemComposer v-model="receivableDetails" operation="work_order" :editor="receivableEditor" :schema-loader="loadItemSchema" :disabled="busy || loading" row-comments natural-table-flow /></section>
+			<section class="work-order-correction__section"><header><span>Inputs</span><h2>Deliverables</h2></header><StockItemComposer v-model="deliverableDetails" operation="work_order" :editor="itemEditor" :schema-loader="loadItemSchema" :disabled="busy" row-comments natural-table-flow /></section>
+			<section class="work-order-correction__section"><header><span>Outputs</span><h2>Receivables</h2></header><StockItemComposer v-model="receivableDetails" operation="work_order" :editor="itemEditor" :schema-loader="loadItemSchema" :disabled="busy" row-comments natural-table-flow /></section>
 		</div>
 		<template #footer>
 			<Button label="Cancel" severity="secondary" text :disabled="busy" @click="close(false)" />
-			<Button label="Submit Correction" icon="pi pi-check" :loading="busy" :disabled="loading || !hasRows" @click="submit" />
+			<Button label="Submit Correction" icon="pi pi-check" :loading="busy" :disabled="!hasRows" @click="submit" />
 		</template>
 	</Dialog>
 </template>
@@ -34,27 +34,18 @@ const emit = defineEmits(["update:visible", "changed"])
 const reason = ref("")
 const deliverableDetails = ref([])
 const receivableDetails = ref([])
-const deliverableEditor = ref(correctionItemEditor())
-const receivableEditor = correctionItemEditor()
-const loading = ref(false)
+const itemEditor = correctionItemEditor()
 const busy = ref(false)
 const error = ref("")
 const hasRows = computed(() => hasCorrectionRows(deliverableDetails.value) || hasCorrectionRows(receivableDetails.value))
 
 watch(() => props.visible, (visible) => { if (visible) reset() })
 
-async function reset() {
+function reset() {
 	reason.value = ""
 	deliverableDetails.value = []
 	receivableDetails.value = []
 	error.value = ""
-	loading.value = true
-	try {
-		const context = await executeWorkOrderCommand(props.workOrder.name, "get_correction_context") || {}
-		deliverableEditor.value = correctionItemEditor(context.deliverable_items || [])
-	}
-	catch (failure) { error.value = failure?.message || "Unable to load the correction context." }
-	finally { loading.value = false }
 }
 
 function loadItemSchema(_operation, item) { return getWorkOrderItemSchema(item) }
