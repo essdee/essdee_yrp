@@ -95,10 +95,10 @@ def _step_kind(ipd, step):
 	return None
 
 
-def _apply_cloth_program_fill(qty_rows, row_kind, source_context, explicit_fill, lot, cloth_item):
+def _apply_cloth_program_fill(qty_rows, row_kind, source_context, lot, cloth_item):
 	"""Dyeing Fill from Knitting: greige stock is shared by every colour, so the
 	needed kg comes from the Lot's saved Cloth Program instead."""
-	if row_kind != "dyeing" or not explicit_fill:
+	if row_kind != "dyeing":
 		return
 	if not _is_default_knitting_process((source_context or {}).get("process_name")):
 		return
@@ -696,11 +696,7 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 					if any(option["value"] == saved_step for option in row_source_options)
 					else row_source_options[0]["value"]
 				)
-			dyeing_source = (
-				None
-				if auto_selected_source
-				else _dyeing_source_process(ipd, row_kind, row_source_options, selected_source_step)
-			)
+			dyeing_source = _dyeing_source_process(ipd, row_kind, row_source_options, selected_source_step)
 			if selected_source_step:
 				filled_source = fill_from_source_grns(
 					qty_rows,
@@ -712,9 +708,7 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 					allow_empty=auto_selected_source or bool(dyeing_source),
 				)
 				selected_source = _merge_source_context(selected_source, filled_source)
-				_apply_cloth_program_fill(
-					qty_rows, row_kind, filled_source, not auto_selected_source, lot, fabric.cloth_item
-				)
+				_apply_cloth_program_fill(qty_rows, row_kind, filled_source, lot, fabric.cloth_item)
 				if dyeing_source:
 					_apply_dyeing_receivable_fill(qty_rows, dyeing_source, lot.name, fabric.cloth_item)
 				if filled_source.get("unmatched"):
