@@ -50,7 +50,32 @@ class TestExactFabricSourceBuckets(TestCase):
 	def test_legacy_tolerance_remains_unchanged(self):
 		self.assertEqual(fabric_source.QTY_TOLERANCE, 0.001)
 
-	@patch.object(frappe.db, "sql", side_effect=[[], []])
+	@patch.object(
+		frappe.db,
+		"sql",
+		side_effect=[
+			[frappe._dict(item_variant="CLOTH-32", quantity=10, stock_qty=10)],
+			[frappe._dict(item_variant="CLOTH-32", qty=3, stock_qty=3)],
+			[frappe._dict(item_variant="CLOTH-32", qty=2, stock_qty=2)],
+		],
+	)
+	@patch.object(frappe.db, "has_column", return_value=True)
+	@patch("essdee_yrp.fabric_source._legacy_source_allows_versioned_washing", return_value=False)
+	def test_legacy_pool_reserves_submitted_correction_deliverables(self, _allows_washing, _has_column, sql):
+		availability = fabric_source._get_legacy_source_availability(
+			lot="LOT-1",
+			ipd="IPD-1",
+			cloth_item="CLOTH",
+			source_process="Knitting",
+			source_step="0::Knitting",
+			current_process="Dyeing",
+			current_work_order="NEW-WO",
+		)
+
+		self.assertIn("YRP Work Order Correction", sql.call_args_list[2].args[0])
+		self.assertEqual(availability["net"], {"CLOTH-32": 5})
+
+	@patch.object(frappe.db, "sql", side_effect=[[], [], []])
 	@patch.object(frappe.db, "has_column", return_value=True)
 	@patch("essdee_yrp.fabric_source._legacy_source_allows_versioned_washing", return_value=False)
 	def test_legacy_pool_excludes_versioned_source_receipts(
@@ -870,7 +895,7 @@ class TestExactFabricSourceBuckets(TestCase):
 			)
 
 	@patch("essdee_yrp.fabric_source._legacy_source_allows_versioned_washing", return_value=True)
-	@patch.object(frappe.db, "sql", side_effect=[[], []])
+	@patch.object(frappe.db, "sql", side_effect=[[], [], []])
 	@patch.object(frappe.db, "has_column", return_value=True)
 	def test_legacy_process_after_washing_can_still_read_washing_receipts(
 		self, _has_column, sql, _allows_washing

@@ -19,13 +19,47 @@ from essdee_yrp.work_order_correction_hooks import (
 
 
 class TestWorkOrderCorrectionHook(TestCase):
-	def test_exact_source_check_reads_the_yrp_work_order(self):
-		doc = frappe._dict(work_order="WO-1", production_detail=None, deliverables=[])
-		with patch(
-			"essdee_yrp.work_order_correction_hooks.frappe.db.get_value", return_value=None
-		) as get_value:
+	def test_supported_on_fabric_source_and_exact_source_work_orders(self):
+		work_order = frappe._dict(name="WO-1", docstatus=1, open_status="Open", fabric_source_process="Knitting")
+		with patch("essdee_yrp.delivery_challan_hooks.requires_exact_source_lifecycle", return_value=True):
+			self.assertTrue(is_correction_supported(work_order))
+		self.assertFalse(is_correction_supported(frappe._dict(work_order, open_status="Close")))
+
+	def _validate(self, deliverables=(), receivables=(), exact_source=True):
+		doc = frappe._dict(
+			work_order="WO-1",
+			production_detail=None,
+			deliverables=[frappe._dict(item_variant=v) for v in deliverables],
+			receivables=[frappe._dict(item_variant=v) for v in receivables],
+		)
+		with (
+			patch(f"{HOOKS}.requires_exact_source_lifecycle", return_value=exact_source),
+			patch(f"{HOOKS}.frappe.db.get_value", return_value="CLOTH"),
+			patch(f"{HOOKS}.get_parent_item", side_effect=lambda v: v.split("-")[0]),
+		):
 			validate_correction_ipd_items(doc)
-		get_value.assert_called_once_with("YRP Work Order", "WO-1", "fabric_source_process")
+
+	def test_exact_source_route_rejects_cloth_correction_rows(self):
+		with self.assertRaises(frappe.ValidationError):
+			self._validate(deliverables=["CLOTH-32"])
+		with self.assertRaises(frappe.ValidationError):
+			self._validate(receivables=["CLOTH-32"])
+
+	def test_exact_source_route_allows_non_cloth_correction_rows(self):
+		self._validate(deliverables=["DYE-RED", "YARN-30"], receivables=["WASTE-1"])
+
+	def test_context_hides_exact_source_cloth_from_deliverable_items(self):
+		work_order = frappe._dict(name="WO-1", production_detail="IPD-1", check_permission=lambda _: None)
+		with (
+			patch(f"{MODULE}.frappe.get_doc", return_value=work_order),
+			patch(f"{MODULE}.can_create_correction", return_value=True),
+			patch(f"{MODULE}.get_correction_deliverable_items", return_value=["CLOTH", "YARN"]),
+			patch(f"{MODULE}.get_exact_source_cloth_item", return_value="CLOTH"),
+		):
+			self.assertEqual(get_work_order_correction_context("WO-1")["deliverable_items"], ["YARN"])
+
+	def test_legacy_fabric_source_route_allows_cloth_correction_rows(self):
+		self._validate(deliverables=["CLOTH-32"], receivables=["CLOTH-32"], exact_source=False)
 
 	def test_ipd_item_itself_is_a_sanctioned_deliverable(self):
 		ipd = frappe._dict(item="STYLE", item_bom=[frappe._dict(item="BOX")])
@@ -116,6 +150,7 @@ class TestCorrectionCloseWriteOff(TestCase):
 
 
 MODULE = "essdee_yrp.work_order_correction"
+HOOKS = "essdee_yrp.work_order_correction_hooks"
 
 
 class TestWorkOrderCorrection(IntegrationTestCase):

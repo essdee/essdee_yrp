@@ -611,7 +611,25 @@ class TestEssdeeValuationContract(UnitTestCase):
 
 		with (
 			patch.object(dc_hooks, "qualifies_cloth_transaction", return_value=True),
-			self.assertRaisesRegex(frappe.ValidationError, "correction rows"),
+			patch.object(dc_hooks.frappe.db, "get_value", return_value="CLOTH-TEMPLATE"),
+			patch.object(dc_hooks, "_item_belongs_to_template", return_value=True),
+			self.assertRaisesRegex(frappe.ValidationError, "correction rows cannot dispatch exact-source cloth"),
+		):
+			dc_hooks.validate_exact_source_limits(doc)
+
+	def test_exact_dc_allows_non_cloth_correction_rows(self):
+		doc = frappe._dict(
+			doctype="YRP Delivery Challan",
+			work_order="WO-EXACT-1",
+			items=[],
+			correction_items=[frappe._dict(item_variant="DYE-RED", qty=1)],
+		)
+
+		with (
+			patch.object(dc_hooks, "qualifies_cloth_transaction", return_value=True),
+			patch.object(dc_hooks.frappe.db, "get_value", return_value="CLOTH-TEMPLATE"),
+			patch.object(dc_hooks, "_item_belongs_to_template", return_value=False),
+			patch.object(dc_hooks, "_prepare_dispatch_source_pool", return_value=None),
 		):
 			dc_hooks.validate_exact_source_limits(doc)
 
