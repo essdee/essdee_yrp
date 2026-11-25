@@ -24,6 +24,7 @@ from essdee_yrp.api.test_cloth_program import (
 	_reset_cpd,
 )
 from essdee_yrp.api.work_order import (
+	_apply_cloth_program_fill,
 	_consolidate_default_knitting_rows,
 	_consolidate_fabric_rows,
 	_execution_parameters,
@@ -452,6 +453,42 @@ class TestFabricSourceContext(TestCase):
 				self.assertEqual(rows, [{"prefill": 0, "source_available": 0}] * 2)
 				with self.assertRaisesRegex(frappe.ValidationError, "No unallocated submitted GRN"):
 					fill_from_source_grns(rows, **arguments)
+
+	def test_dyeing_fill_from_knitting_uses_the_cloth_program(self):
+		lot = frappe._dict(
+			lot_fabric_programs=[
+				frappe._dict(
+					cloth_item="Cloth", dia="12 Dia", colour="Black", weight=46, reference_item_variant="Cloth-12-Black"
+				)
+			]
+		)
+		knitting = {"process_name": "Knitting"}
+		cases = (
+			("dyeing", knitting, True, 46),
+			("dyeing", knitting, False, 5),
+			("dyeing", {"process_name": "Dyeing"}, True, 5),
+			("identity", knitting, True, 5),
+		)
+		for kind, source, explicit, expected in cases:
+			with (
+				self.subTest(kind=kind, source=source, explicit=explicit),
+				patch(
+					"essdee_yrp.api.work_order._is_default_knitting_process",
+					side_effect=lambda name: name == "Knitting",
+				),
+				patch("essdee_yrp.api.work_order.get_dia_attribute", return_value="Dia"),
+				patch("essdee_yrp.api.work_order.get_colour_attribute", return_value="Colour"),
+			):
+				rows = [
+					{
+						"out_attrs": {"Dia": "12 Dia", "Colour": "Black"},
+						"reference_item_variant": "Cloth-12-Black",
+						"source_available": 10,
+						"prefill": 5,
+					}
+				]
+				_apply_cloth_program_fill(rows, kind, source, explicit, lot, "Cloth")
+				self.assertEqual(rows[0]["prefill"], expected)
 
 	def test_any_unavailable_fabric_blocks_the_merged_context(self):
 		available = {"value": "1::Dyeing", "available": 20}

@@ -19,6 +19,7 @@ from frappe import _
 from frappe.utils import cint, cstr, flt
 from yrp.attribute_links import value as _attribute_value
 
+from essdee_yrp.cloth_program_fill import fill_from_cloth_program
 from essdee_yrp.essdee_yrp.doctype.sd_yrp_ipd_settings.sd_yrp_ipd_settings import (
 	get_colour_attribute,
 	get_dia_attribute,
@@ -90,6 +91,22 @@ def _step_kind(ipd, step):
 	if step["shape"] == "identity":
 		return "identity"
 	return None
+
+
+def _apply_cloth_program_fill(qty_rows, row_kind, source_context, explicit_fill, lot, cloth_item):
+	"""Dyeing Fill from Knitting: greige stock is shared by every colour, so the
+	needed kg comes from the Lot's saved Cloth Program instead."""
+	if row_kind != "dyeing" or not explicit_fill:
+		return
+	if not _is_default_knitting_process((source_context or {}).get("process_name")):
+		return
+	fill_from_cloth_program(
+		qty_rows,
+		lot.get("lot_fabric_programs") or [],
+		cloth_item,
+		dia_attribute=get_dia_attribute(),
+		colour_attribute=get_colour_attribute(),
+	)
 
 
 def _is_default_knitting_process(process_name):
@@ -645,6 +662,9 @@ def get_fabric_deliverable_context(work_order, source_process=None):
 					allow_empty=auto_selected_source,
 				)
 				selected_source = _merge_source_context(selected_source, filled_source)
+				_apply_cloth_program_fill(
+					qty_rows, row_kind, filled_source, not auto_selected_source, lot, fabric.cloth_item
+				)
 				if filled_source.get("unmatched"):
 					warnings.append(
 						_("{0} GRN receipt(s) do not enter this process and were ignored: {1}").format(
