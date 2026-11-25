@@ -48,7 +48,7 @@ def _grouped_row(received_type, quantity):
 	}
 
 
-def render_work_order_grn(groups):
+def render_work_order_grn(groups, corrections=()):
 	template = Path(
 		frappe.get_app_path("essdee_yrp", "templates", "print_formats", "essdee_goods_received_note.html")
 	)
@@ -56,7 +56,12 @@ def render_work_order_grn(groups):
 	return (
 		frappe.get_jenv()
 		.from_string(template.read_text())
-		.render(doc=doc, frappe=frappe, get_grn_structure=lambda name: groups)
+		.render(
+			doc=doc,
+			frappe=frappe,
+			get_grn_structure=lambda name: groups,
+			get_grn_correction_structure=lambda name: list(corrections),
+		)
 	)
 
 
@@ -264,3 +269,63 @@ class TestGoodsReceivedNotePrint(IntegrationTestCase):
 
 		self.assertEqual(options["default_format"], "Essdee Goods Received Note")
 		self.assertEqual(options["default_letter_head"], letter_head)
+
+	def test_work_order_grn_prints_each_correction_section_with_its_quantities(self):
+		groups = self.get_mixed_structure()
+		corrections = [
+			{"name": "WOC-TEST-1", "correction_date": "2026-11-20", "groups": self.get_mixed_structure()}
+		]
+		html = render_work_order_grn(groups, corrections)
+		self.assertIn("Work Order Corrections", html)
+		self.assertIn("WOC-TEST-1", html)
+		self.assertIn("20-11-2026", html)
+		self.assertEqual(len(table_rows(html)), 2 * len(table_rows(render_work_order_grn(groups))))
+
+	def test_correction_structure_groups_rows_by_correction(self):
+		rows = [
+			frappe._dict(work_order_correction="WOC-B", received_type="Accepted", row_index=1),
+			frappe._dict(work_order_correction="WOC-A", received_type="Accepted", row_index=2),
+			frappe._dict(work_order_correction="WOC-B", received_type="Rejected", row_index=1),
+		]
+		doc = frappe._dict(correction_items=rows, lot="L1")
+		with (
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch.object(frappe, "get_all", return_value=[("WOC-A", "2026-11-01"), ("WOC-B", "2026-11-02")]),
+			patch.object(print_helpers, "get_grn_groups", side_effect=lambda rows, lot: rows) as get_groups,
+		):
+			sections = print_helpers.get_grn_correction_structure("GRN-1")
+		self.assertEqual([section["name"] for section in sections], ["WOC-B", "WOC-A"])
+		self.assertEqual(sections[0]["groups"], [rows[0], rows[2]])
+		self.assertEqual(sections[1]["correction_date"], "2026-11-01")
+		get_groups.assert_called_with([rows[1]], "L1")
+
+	def test_saved_grn_prints_every_correction_row_quantity(self):
+		name = frappe.db.get_value(
+			"YRP Goods Received Note Item", {"parentfield": "correction_items", "docstatus": 1}, "parent"
+		)
+		if not name:
+			self.skipTest("Needs a submitted GRN with correction rows")
+		expected = frappe.db.sql(
+			"""select work_order_correction, sum(quantity) from `tabYRP Goods Received Note Item`
+			where parent = %s and parentfield = 'correction_items'
+			group by work_order_correction""",
+			name,
+		)
+		sections = print_helpers.get_grn_correction_structure(name)
+		self.assertEqual({section["name"] for section in sections}, {row[0] for row in expected})
+		quantities = {row[0]: row[1] for row in expected}
+		for section in sections:
+			printed = sum(
+				quantity
+				for group in section["groups"]
+				for item in group["items"]
+				for cell in item["values"].values()
+				for quantity in cell["types"].values()
+			)
+			self.assertAlmostEqual(printed, quantities[section["name"]], 3)
+		html = frappe.get_print(
+			"YRP Goods Received Note", name, "Essdee Goods Received Note", no_letterhead=1
+		)
+		self.assertIn("Work Order Corrections", html)
+		for correction in quantities:
+			self.assertIn(correction, html)
