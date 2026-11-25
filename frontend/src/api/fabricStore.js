@@ -253,6 +253,16 @@ export function executePurchaseOrderCommand(name, command, payload = {}, expecte
 	})
 }
 
+const YRP_PURCHASE_ORDER_METHOD = "yrp.yrp.doctype.yrp_purchase_order.yrp_purchase_order"
+
+export function getPurchaseOrderClosePermission() {
+	return callRead(`${YRP_PURCHASE_ORDER_METHOD}.get_close_permission`)
+}
+
+export function setPurchaseOrdersOpenStatus(names, close) {
+	return callMethod(`${YRP_PURCHASE_ORDER_METHOD}.close_or_open_purchase_orders`, { names, close })
+}
+
 const PURCHASE_ORDER_ATTRIBUTE_METHOD = "essdee_yrp.purchase_order_attribute_values"
 
 export function getPurchaseOrderAttributeRows(name) {
