@@ -1098,6 +1098,49 @@ class TestFabricSourceFill(TestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "no compatible input row"):
 			self._fill(rows, availability, variants)
 
+	@patch("essdee_yrp.fabric_source.get_dia_attribute", return_value="Dia")
+	def test_legacy_actual_dia_receipt_feeds_its_planned_dia_rows(self, _dia):
+		def row(dia, target):
+			result = _row("Greige", target)
+			result["input_specs"][0]["attrs"]["Dia"] = dia
+			result["out_attrs"]["Dia"] = dia
+			result["key"] = f"{dia}:{target}"
+			result["label"] = f"{dia}: Greige → {target}"
+			return result
+
+		rows = [row("24 Dia", "Red"), row("24 Dia", "Navy"), row("32 Dia", "Red")]
+		availability = {
+			"received": {"Greige-26": 367.5, "Greige-32": 10},
+			"reserved": {},
+			"net": {"Greige-26": 367.5, "Greige-32": 10},
+			"planned_dias": {"Greige-26": ["24 Dia"]},
+		}
+		variants = {
+			"Greige-26": {"item": "Test Cloth", "attrs": {"Dia": "26 Dia", "Colour": "Greige"}},
+			"Greige-32": {"item": "Test Cloth", "attrs": {"Dia": "32 Dia", "Colour": "Greige"}},
+		}
+
+		result = self._fill(rows, availability, variants)
+
+		self.assertEqual(result["unmatched"], [])
+		actual = [qty_row for qty_row in rows if qty_row.get("source_item_variant") == "Greige-26"]
+		self.assertEqual(
+			[qty_row["label"] for qty_row in actual],
+			[
+				"26 Dia (actual, for 24 Dia): Greige → Red",
+				"26 Dia (actual, for 24 Dia): Greige → Navy",
+			],
+		)
+		self.assertEqual(
+			[qty_row["out_attrs"] for qty_row in actual],
+			[{"Dia": "26 Dia", "Colour": "Red"}, {"Dia": "26 Dia", "Colour": "Navy"}],
+		)
+		self.assertEqual([qty_row["in_attrs"] for qty_row in actual], [{"Dia": "26 Dia", "Colour": "Greige"}] * 2)
+		self.assertEqual([qty_row["source_available"] for qty_row in actual], [367.5, 367.5])
+		self.assertEqual([qty_row["prefill"] for qty_row in actual], [0, 0])
+		self.assertEqual([qty_row["matrix_key"] for qty_row in actual], ["24 Dia:Red", "24 Dia:Navy"])
+		self.assertEqual(len({qty_row["key"] for qty_row in rows}), len(rows))
+
 	@patch("essdee_yrp.fabric_source._uses_exact_source_pool", return_value=True)
 	@patch("essdee_yrp.fabric_source.resolve_source_process")
 	def test_calculate_rejects_only_a_mixed_submitted_selection(

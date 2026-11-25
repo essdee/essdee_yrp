@@ -1736,6 +1736,50 @@ class TestMultiYarnClothIPD(IntegrationTestCase):
 			frappe.db.set_single_value("SD YRP IPD Settings", "default_knitting_process", old_knitting)
 			frappe.clear_cache(doctype="SD YRP IPD Settings")
 
+	def test_legacy_dyeing_delivers_knitting_actual_dia_receipt(self):
+		ipd, v = self._make_ipd()
+		actual_dia = _ensure_iav("Dia", f"_Test MY Actual Dia {frappe.generate_hash(length=6)}")
+		planned_greige = _resolve_variant(v["cloth"], {"Dia": v["dia"], "Colour": v["greige"]})
+		actual_greige = _resolve_variant(v["cloth"], {"Dia": actual_dia, "Colour": v["greige"]})
+		dye_wo = self._make_work_order(ipd, v, v["dyeing"])
+		dye_wo.db_set("cloth_execution_version", 0, update_modified=False)
+		source_process = get_fabric_deliverable_context(dye_wo.name)["source_process"]
+
+		knit_wo = frappe.copy_doc(dye_wo)
+		knit_wo.process_name = source_process["process_name"]
+		knit_wo.set("deliverables", [])
+		knit_wo.append("receivables", {"item_variant": planned_greige, "qty": 30, "pending_quantity": 30, "uom": "Kg"})
+		knit_wo.insert(ignore_permissions=True)
+		knit_wo.db_set("cloth_execution_version", 0, update_modified=False)
+		_insert_submitted_receipt(
+			knit_wo, knit_wo.receivables[0], 30, frappe.generate_hash(length=8), item_variant=actual_greige
+		)
+
+		context = get_fabric_deliverable_context(dye_wo.name)
+		self.assertEqual(context["warnings"], [])
+		fabric = context["rows"][0]
+		qty_row = next(row for row in fabric["qty_rows"] if row.get("source_item_variant") == actual_greige)
+		self.assertIn(f"{actual_dia} (actual, for {v['dia']})", qty_row["label"])
+		self.assertEqual(qty_row["source_available"], 30)
+
+		def calculate(qty):
+			entry = {key: qty_row[key] for key in ("key", "matrix_key", "out_attrs", "source_item_variant")}
+			return calculate_fabric_deliverables(
+				dye_wo.name,
+				[{"fabric_row": fabric["fabric_row"], "entries": [{**entry, "qty": qty}]}],
+				source_process=context["source_process"]["value"],
+			)
+
+		with self.assertRaisesRegex(frappe.ValidationError, "remains available"):
+			calculate(31)
+		calculate(25)
+		dye_wo.reload()
+		self.assertEqual([(row.item_variant, flt(row.qty)) for row in dye_wo.deliverables], [(actual_greige, 25)])
+		self.assertEqual(
+			[row.item_variant for row in dye_wo.receivables],
+			[_resolve_variant(v["cloth"], {"Dia": actual_dia, "Colour": v["red"]})],
+		)
+
 	def test_versioned_dyeing_and_washing_keep_exact_grn_row_lineage(self):
 		from essdee_yrp.cloth_execution import (
 			get_row_execution_parameters,
