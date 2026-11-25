@@ -440,6 +440,20 @@ def get_produced_by_dia_colour(
 	)
 
 
+def get_submitted_receivables_by_reference(lot, process_name, cloth_item):
+	"""{(final reference or "", dia, colour): kg} of submitted Work Orders' RECEIVABLES."""
+	return _sum_by_attributes(
+		"tabYRP Work Order Receivables",
+		lot,
+		process_name,
+		cloth_item,
+		None,
+		attributes=(get_dia_attribute(), get_colour_attribute()),
+		submitted_only=True,
+		split_by_reference=True,
+	)
+
+
 def get_consumed_by_dia(lot, process_name, cloth_item, exclude_wo=None):
 	"""{dia: kg} of calculated DELIVERABLES — greige already consumed (dyeing input)."""
 	return _sum_by_attributes(
@@ -483,6 +497,8 @@ def _sum_by_attributes(
 	attributes,
 	calculated_only=False,
 	reference_item_variant=None,
+	submitted_only=False,
+	split_by_reference=False,
 ):
 	# WO.lot is the site-configured stock-dimension Custom Field (created by
 	# yrp.stock.dimensions, never shipped as a fixture) — degrade gracefully
@@ -504,6 +520,8 @@ def _sum_by_attributes(
 		conditions += " AND wo.name != %(exclude_wo)s"
 	if calculated_only:
 		conditions += " AND IFNULL(child.is_calculated, 0) = 1"
+	if submitted_only:
+		conditions += " AND wo.docstatus = 1"
 	params = {
 		"lot": lot,
 		"process_name": process_name,
@@ -541,6 +559,11 @@ def _sum_by_attributes(
 	)
 	result = {}
 	for row in rows:
+		if split_by_reference:
+			for reference, qty in (get_reference_allocations(row, row.qty) or {"": row.qty}).items():
+				key = (reference or "", row.v0, row.v1)
+				result[key] = result.get(key, 0) + flt(qty)
+			continue
 		if reference_item_variant is None:
 			qty = flt(row.qty)
 		else:

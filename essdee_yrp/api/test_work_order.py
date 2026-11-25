@@ -25,8 +25,10 @@ from essdee_yrp.api.test_cloth_program import (
 )
 from essdee_yrp.api.work_order import (
 	_apply_cloth_program_fill,
+	_apply_dyeing_receivable_fill,
 	_consolidate_default_knitting_rows,
 	_consolidate_fabric_rows,
+	_dyeing_source_process,
 	_execution_parameters,
 	_fabric_execution_key,
 	_guard_untransacted_fabric_calculation,
@@ -489,6 +491,47 @@ class TestFabricSourceContext(TestCase):
 				]
 				_apply_cloth_program_fill(rows, kind, source, explicit, lot, "Cloth")
 				self.assertEqual(rows[0]["prefill"], expected)
+
+	def test_only_rows_after_a_dyeing_source_fill_from_dyeing_receivables(self):
+		options = [{"value": "1::Dyeing", "process_name": "Dyeing"}, {"value": "0::Knitting", "process_name": "Knitting"}]
+		kinds = {"Dyeing": "dyeing", "Knitting": "knitting"}
+		cases = (
+			("compacting", "1::Dyeing", "Dyeing"),
+			("identity", "1::Dyeing", "Dyeing"),
+			("compacting", "0::Knitting", None),
+			("dyeing", "1::Dyeing", None),
+			("compacting", None, None),
+		)
+		for kind, step, expected in cases:
+			with (
+				self.subTest(kind=kind, step=step),
+				patch(
+					"essdee_yrp.api.work_order._source_step_kind",
+					side_effect=lambda _ipd, process: kinds[process],
+				),
+			):
+				self.assertEqual(_dyeing_source_process(frappe._dict(), kind, options, step), expected)
+
+	def test_fill_after_dyeing_puts_the_full_dyeing_receivables(self):
+		with (
+			patch(
+				"essdee_yrp.api.work_order.get_submitted_receivables_by_reference",
+				return_value={("", "30 Dia", "Black"): 1.4},
+			) as receivables,
+			patch("essdee_yrp.api.work_order.get_dia_attribute", return_value="Dia"),
+			patch("essdee_yrp.api.work_order.get_colour_attribute", return_value="Colour"),
+		):
+			rows = [
+				{
+					"in_attrs": {"Dia": "30 Dia", "Colour": "Black"},
+					"out_attrs": {"Dia": "32 Dia", "Colour": "Black"},
+					"prefill": 0.3,
+				}
+			]
+			with patch("essdee_yrp.api.work_order._variant_dia_colours", return_value={}):
+				_apply_dyeing_receivable_fill(rows, "Dyeing", "LOT-1", "Cloth")
+			self.assertEqual(rows[0]["prefill"], 1.4)
+			receivables.assert_called_with("LOT-1", "Dyeing", "Cloth")
 
 	def test_any_unavailable_fabric_blocks_the_merged_context(self):
 		available = {"value": "1::Dyeing", "available": 20}
@@ -2125,8 +2168,15 @@ class TestMultiYarnClothIPD(IntegrationTestCase):
 				self.assertEqual(row["prefill"], 0)
 				self.assertEqual(row["source_available"], 0)
 			source_process = unavailable["source_process"]["value"]
-			with self.assertRaisesRegex(frappe.ValidationError, "No unallocated submitted GRN"):
-				get_fabric_deliverable_context(second_wash.name, source_process=source_process)
+			# Fill after Dyeing shows the submitted Dyeing receivables even with no
+			# stock left; Calculate stays blocked by the source check below.
+			dye_wo.db_set("docstatus", 1, update_modified=False)
+			filled = get_fabric_deliverable_context(second_wash.name, source_process=source_process)
+			self.assertTrue(filled["source_process"]["unavailable"])
+			self.assertEqual(
+				sum(flt(row["prefill"]) for row in filled["rows"][0]["qty_rows"]),
+				flt(dye_output.qty),
+			)
 			with self.assertRaisesRegex(frappe.ValidationError, "no longer available|only 0"):
 				calculate_fabric_deliverables(
 					second_wash.name,
