@@ -1560,6 +1560,21 @@ def _source_principal(group, matrix, ipd, bucket):
 	return matches[0]
 
 
+def _project_legacy_actual_dia(group, matrix, ipd, source_variant, out_combo):
+	"""Return the matrix input index and output attrs for a legacy actual-Dia source."""
+	from essdee_yrp.fabric_source import project_output_attributes
+
+	index, source_input = _source_principal(
+		group, matrix, ipd, {"item_variant": source_variant, "source_grn_item": source_variant}
+	)
+	out_attrs = project_output_attributes(
+		_variant_attrs(source_variant),
+		source_input.get("attrs") or {},
+		out_combo.get("attrs") or {},
+	)
+	return index, out_attrs
+
+
 def _project_exact_output(
 	lot,
 	ipd,
@@ -1960,6 +1975,7 @@ def calculate_fabric_deliverables(work_order, rows, modified=None, source_proces
 			source = source_demands.get(ipd.name)
 			source_bucket = None
 			source_input_index = None
+			legacy_source_variant = None
 			execution_key = None
 			parameters = None
 			if source and source.get("selection_mode") == "exact":
@@ -1981,6 +1997,11 @@ def calculate_fabric_deliverables(work_order, rows, modified=None, source_proces
 				)
 				parameters = _execution_parameters(
 					execution_key, matrix_key, line.get("source_bucket_key")
+				)
+			elif source and line.get("source_item_variant"):
+				legacy_source_variant = line["source_item_variant"]
+				source_input_index, out_attrs = _project_legacy_actual_dia(
+					group, matrix, ipd, legacy_source_variant, out_combo
 				)
 			elif versioned_execution and not source_process:
 				execution_key = _fabric_execution_key(
@@ -2038,11 +2059,12 @@ def calculate_fabric_deliverables(work_order, rows, modified=None, source_proces
 					is_source_input = bool(
 						source_bucket and input_index == source_input_index
 					)
-					variant = (
-						source_bucket["item_variant"]
-						if is_source_input
-						else _resolve_variant(input_item, inp.get("attrs") or {})
-					)
+					if is_source_input:
+						variant = source_bucket["item_variant"]
+					elif legacy_source_variant and input_index == source_input_index:
+						variant = legacy_source_variant
+					else:
+						variant = _resolve_variant(input_item, inp.get("attrs") or {})
 					source_item = source_bucket.get("source_grn_item") if is_source_input else ""
 					row_parameters = parameters if (is_source_input or not source_process) else None
 					key = (
