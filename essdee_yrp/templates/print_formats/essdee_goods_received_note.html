@@ -1,150 +1,3 @@
-{% macro grn_items(items) %}
-        <div class="border-style" style="text-align: center;">
-            Particulars
-        </div>
-        <div>
-            <table style="width:100%;">
-                {% for i in items %}
-                    <tr>
-                        {% if i.primary_attribute %}
-                            <td>
-                                {% if i.items() %}
-                                    <div style="width: 100%;display:flex;height:15px;">
-                                        <div style="width: 50%;">Item name:<span class="font_weight">{{i['items'][0]['name']}}</span></div>
-                                        <div style="width: 50%;">Lot : <span class="font_weight">{{i.lot}}</span></div>
-                                    </div>
-                                    <table style="width:100%;">
-                                        {% set primary_values = {} %}
-                                        <tr>
-                                            <td class="font_weight">S.No.</td>
-                                            {% for attr in i.attributes %}
-                                                <td class="font_weight">{{attr}}</td>
-                                            {% endfor %}
-                                            <td class="font_weight">Type</td>
-                                            {% for attr in i.primary_attribute_values %}
-                                                {% set _ = primary_values.update({attr: 0}) %}
-                                                <td class="font_weight">{{attr}}</td>
-                                            {% endfor %}
-                                            <td class="font_weight">Total</td>
-                                            <td class="font_weight">Comments</td>
-                                        </tr>	
-                                        {% for j in i['items'] %}
-                                            {% for t in j['types']%}
-                                                <tr>
-                                                    <td>{{loop.index}}</td>
-                                                    {% for attr in i.attributes %}
-                                                        <td>
-                                                            {% if j.attributes[attr]%}
-                                                                {{ j.attributes[attr] }}
-                                                            {% endif %}
-                                                        </td>
-                                                    {% endfor %}
-                                                    <td>{{t}}</td>
-                                                    {% set total = {"total":0} %}
-                                                    {% for attr in j['values'] %}
-                                                        {% if j['values'][attr]['types']%}
-                                                            {% set types_dict = get_dict_object(j['values'][attr]['types']) %}
-                                                            {% for ty in types_dict %}
-                                                                {% if ty == t %}
-                                                                    <td>
-                                                                        {% set attr_qty = primary_values[attr] + types_dict[ty] %}
-                                                                        {% if primary_values.update({attr:attr_qty })%}{% endif %}
-                                                                        {% set qty = total["total"] + types_dict[ty] %}
-                                                                        {% if total.update({"total":qty })%}{% endif %}
-                                                                        {{types_dict[ty] | round(3)  }}
-                                                                        {% if j.default_uom %}
-                                                                            <span>{{ " " + j.default_uom }}</span>
-                                                                        {% endif %}
-                                                                    </td>
-                                                                {% endif %}	
-                                                            {% endfor %}	
-                                                        {% else %}
-                                                            <td></td>
-                                                        {% endif %}
-                                                    {% endfor %}
-                                                    <td class="font_weight" >{{total["total"] | round(3) }}</td>
-                                                    <td style="white-space:pre-line;">{{ j.type_comments[t] if j.type_comments and j.type_comments[t] }}</td>
-                                                </tr>
-                                            {% endfor %}	
-                                        {% endfor %}
-                                        <tr>
-                                            {% set total_table_qty = {"total": 0} %}
-                                            <td class="font_weight">Total</td>
-                                            {% for attr in i.attributes %}
-                                                <td></td>
-                                            {% endfor %}
-                                            <td></td>
-                                            {% for attr in i.primary_attribute_values %}
-                                                <td class="font_weight">{{primary_values[attr] | round(3) }}</td>
-                                                {% set temp = primary_values[attr] + total_table_qty["total"] %}
-                                                {% if total_table_qty.update({"total": temp}) %}{% endif %}
-                                            {% endfor %}
-                                            <td class="font_weight">{{ total_table_qty["total"] }}</td>
-                                            <td></td>
-                                        </tr>
-                                    </table>
-                                {% endif %}
-                            </td>	
-                        {% else %}
-                            <td>
-                                {% if i.items() %}
-                                    <div style="height:15px;">Lot: <span class="font_weight">{{i.lot}}</span></div>
-                                    <table style="width:100%;">
-                                        <tr>
-                                            <td class="font_weight">S.No.</td>
-                                            <td class="font_weight">Item</td>
-                                            {% for attr in i.attributes %}
-                                                <td class="font_weight">{{attr}}</td>
-                                            {% endfor %}
-                                            <td class="font_weight">Type</td>
-                                            <td class="font_weight">Received qty</td>
-                                            <td class="font_weight">Comments</td>
-                                        </tr>
-                                        {% set total = {"total":0} %}
-                                        {% for j in i['items'] %}
-                                            {% for t in j['types']%}
-                                                <tr>
-                                                    <td>{{ loop.index }}</td>
-                                                    <td>{{ j.name }}</td>
-                                                    {% for attr in i.attributes %}
-                                                        <td>{{ j.attributes[attr] }}</td>
-                                                    {% endfor %}
-                                                    <td>{{t}}</td>
-                                                    <td>
-                                                        {% set type_qty = j['values']["default"]['types'][t] %}
-                                                        {% if type_qty > 0 %}
-                                                            {% set _ = total["total"] + type_qty %}
-                                                            {% if total.update({ "total":_ }) %}{% endif %}
-                                                            {{ type_qty | round(3) }}
-                                                            {% if j.default_uom %}
-                                                                <span>{{ " " + j.default_uom }}</span>
-                                                            {% endif %}	
-                                                        {% endif %}		
-                                                    </td>
-                                                    <td style="white-space:pre-line;">{{ j.type_comments[t] if j.type_comments and j.type_comments[t] }}</td>
-                                                </tr>
-                                            {% endfor %}	
-                                        {% endfor %}
-                                        <tr>
-                                            <td></td>
-                                            <td class="font_weight">Total</td>
-                                            {% for attr in i.attributes %}
-                                                <td></td>
-                                            {% endfor %}
-                                            <td></td>
-                                            <td class="font_weight">{{ total["total"] | round(3) }}</td>
-                                            <td></td>
-                                        </tr>
-                                    </table>
-                                {% endif %}	
-                            </td>
-                        {% endif %}
-                    </tr>	    
-                {% endfor %}
-            </table>
-        </div>
-{% endmacro %}
-
 {% if doc.against == "Purchase Order" %}
     <div style="border:1px solid #aaa; border-radius: 0px; border-collapse: collapse;" class="container-fluid">
         {% if doc.docstatus == 0 or doc.docstatus == 2 %}
@@ -362,12 +215,151 @@
                 
             </div>
         </div>
-        {{ grn_items(get_grn_structure(doc.name)) }}
-        {% for correction in get_grn_correction_structure(doc.name) %}
-            {% if loop.first %}<div class="border-style font_weight" style="text-align:center;margin-top:8px;">Work Order Corrections</div>{% endif %}
-            <div class="border-style" style="padding:3px 5px;">Correction: <span class="font_weight">{{ correction.name }}</span> &nbsp; Date: <span class="font_weight">{{ get_created_date(correction.correction_date) }}</span></div>
-            {{ grn_items(correction.groups) }}
-        {% endfor %}
+        <div class="border-style" style="text-align: center;">
+            Particulars
+        </div>
+        <div>
+            {% set items = get_grn_structure(doc.name) %}
+            <table style="width:100%;">
+                {% for i in items %}
+                    <tr>
+                        {% if i.primary_attribute %}
+                            <td>
+                                {% if i.items() %}
+                                    <div style="width: 100%;display:flex;height:15px;">
+                                        <div style="width: 50%;">Item name:<span class="font_weight">{{i['items'][0]['name']}}</span></div>
+                                        <div style="width: 50%;">Lot : <span class="font_weight">{{i.lot}}</span></div>
+                                    </div>
+                                    <table style="width:100%;">
+                                        {% set primary_values = {} %}
+                                        <tr>
+                                            <td class="font_weight">S.No.</td>
+                                            {% for attr in i.attributes %}
+                                                <td class="font_weight">{{attr}}</td>
+                                            {% endfor %}
+                                            <td class="font_weight">Type</td>
+                                            {% for attr in i.primary_attribute_values %}
+                                                {% set _ = primary_values.update({attr: 0}) %}
+                                                <td class="font_weight">{{attr}}</td>
+                                            {% endfor %}
+                                            <td class="font_weight">Total</td>
+                                            <td class="font_weight">Comments</td>
+                                        </tr>	
+                                        {% for j in i['items'] %}
+                                            {% for t in j['types']%}
+                                                <tr>
+                                                    <td>{{loop.index}}</td>
+                                                    {% for attr in i.attributes %}
+                                                        <td>
+                                                            {% if j.attributes[attr]%}
+                                                                {{ j.attributes[attr] }}
+                                                            {% endif %}
+                                                        </td>
+                                                    {% endfor %}
+                                                    <td>{{t}}</td>
+                                                    {% set total = {"total":0} %}
+                                                    {% for attr in j['values'] %}
+                                                        {% if j['values'][attr]['types']%}
+                                                            {% set types_dict = get_dict_object(j['values'][attr]['types']) %}
+                                                            {% for ty in types_dict %}
+                                                                {% if ty == t %}
+                                                                    <td>
+                                                                        {% set attr_qty = primary_values[attr] + types_dict[ty] %}
+                                                                        {% if primary_values.update({attr:attr_qty })%}{% endif %}
+                                                                        {% set qty = total["total"] + types_dict[ty] %}
+                                                                        {% if total.update({"total":qty })%}{% endif %}
+                                                                        {{types_dict[ty] | round(3)  }}
+                                                                        {% if j.default_uom %}
+                                                                            <span>{{ " " + j.default_uom }}</span>
+                                                                        {% endif %}
+                                                                    </td>
+                                                                {% endif %}	
+                                                            {% endfor %}	
+                                                        {% else %}
+                                                            <td></td>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    <td class="font_weight" >{{total["total"] | round(3) }}</td>
+                                                    <td style="white-space:pre-line;">{{ j.type_comments[t] if j.type_comments and j.type_comments[t] }}</td>
+                                                </tr>
+                                            {% endfor %}	
+                                        {% endfor %}
+                                        <tr>
+                                            {% set total_table_qty = {"total": 0} %}
+                                            <td class="font_weight">Total</td>
+                                            {% for attr in i.attributes %}
+                                                <td></td>
+                                            {% endfor %}
+                                            <td></td>
+                                            {% for attr in i.primary_attribute_values %}
+                                                <td class="font_weight">{{primary_values[attr] | round(3) }}</td>
+                                                {% set temp = primary_values[attr] + total_table_qty["total"] %}
+                                                {% if total_table_qty.update({"total": temp}) %}{% endif %}
+                                            {% endfor %}
+                                            <td class="font_weight">{{ total_table_qty["total"] }}</td>
+                                            <td></td>
+                                        </tr>
+                                    </table>
+                                {% endif %}
+                            </td>	
+                        {% else %}
+                            <td>
+                                {% if i.items() %}
+                                    <div style="height:15px;">Lot: <span class="font_weight">{{i.lot}}</span></div>
+                                    <table style="width:100%;">
+                                        <tr>
+                                            <td class="font_weight">S.No.</td>
+                                            <td class="font_weight">Item</td>
+                                            {% for attr in i.attributes %}
+                                                <td class="font_weight">{{attr}}</td>
+                                            {% endfor %}
+                                            <td class="font_weight">Type</td>
+                                            <td class="font_weight">Received qty</td>
+                                            <td class="font_weight">Comments</td>
+                                        </tr>
+                                        {% set total = {"total":0} %}
+                                        {% for j in i['items'] %}
+                                            {% for t in j['types']%}
+                                                <tr>
+                                                    <td>{{ loop.index }}</td>
+                                                    <td>{{ j.name }}</td>
+                                                    {% for attr in i.attributes %}
+                                                        <td>{{ j.attributes[attr] }}</td>
+                                                    {% endfor %}
+                                                    <td>{{t}}</td>
+                                                    <td>
+                                                        {% set type_qty = j['values']["default"]['types'][t] %}
+                                                        {% if type_qty > 0 %}
+                                                            {% set _ = total["total"] + type_qty %}
+                                                            {% if total.update({ "total":_ }) %}{% endif %}
+                                                            {{ type_qty | round(3) }}
+                                                            {% if j.default_uom %}
+                                                                <span>{{ " " + j.default_uom }}</span>
+                                                            {% endif %}	
+                                                        {% endif %}		
+                                                    </td>
+                                                    <td style="white-space:pre-line;">{{ j.type_comments[t] if j.type_comments and j.type_comments[t] }}</td>
+                                                </tr>
+                                            {% endfor %}	
+                                        {% endfor %}
+                                        <tr>
+                                            <td></td>
+                                            <td class="font_weight">Total</td>
+                                            {% for attr in i.attributes %}
+                                                <td></td>
+                                            {% endfor %}
+                                            <td></td>
+                                            <td class="font_weight">{{ total["total"] | round(3) }}</td>
+                                            <td></td>
+                                        </tr>
+                                    </table>
+                                {% endif %}	
+                            </td>
+                        {% endif %}
+                    </tr>	    
+                {% endfor %}
+            </table>
+        </div>
         {% if doc.comments %}
         <div class="border-style" style="height:auto;width:100%">
             <strong>Comments:</strong><br><span style="display:block;padding-left:20px;"> {{ doc.comments.replace("\n", "<br>") | safe }}</span>
