@@ -205,6 +205,7 @@ def fill_from_source_grns(
 				current_process,
 				selected,
 				mark_mode=True,
+				planned_dias=(legacy_availability or {}).get("planned_dias"),
 			)
 			qty_rows.extend(legacy_rows)
 			unmatched.extend(legacy_unmatched)
@@ -233,6 +234,7 @@ def fill_from_source_grns(
 		current_process,
 		selected,
 		mark_mode=versioned_target,
+		planned_dias=availability.get("planned_dias"),
 	)
 	return {
 		"value": selected["value"],
@@ -254,6 +256,7 @@ def _fill_legacy_variant_rows(
 	selected,
 	*,
 	mark_mode=False,
+	planned_dias=None,
 ):
 	row_matches = []
 	match_counts = Counter()
@@ -274,6 +277,11 @@ def _fill_legacy_variant_rows(
 		row_matches.append((qty_row, matched, capacity))
 		all_matched.update(matched)
 		match_counts.update(matched)
+
+	actual_dia_matches = _match_actual_dia_receipts(
+		qty_rows, set(positive) - all_matched, variant_info, planned_dias or {}
+	)
+	all_matched.update(variant for variant, _qty_row, _spec in actual_dia_matches)
 
 	if not all_matched:
 		labels = ", ".join(_variant_label(variant, variant_info[variant]) for variant in sorted(positive))
@@ -301,9 +309,62 @@ def _fill_legacy_variant_rows(
 		if mark_mode:
 			qty_row["source_mode"] = "legacy"
 
+	_insert_actual_dia_rows(qty_rows, actual_dia_matches, positive, variant_info)
 	return [
 		_variant_label(variant, variant_info[variant]) for variant in sorted(set(positive) - all_matched)
 	]
+
+
+def _match_actual_dia_receipts(qty_rows, variants, variant_info, planned_dias):
+	"""Match receipts a GRN recorded at an actual Dia to the rows of their planned Dia."""
+	dia = get_dia_attribute()
+	matches = []
+	for variant in sorted(variants):
+		allowed_dias = planned_dias.get(variant)
+		for qty_row in qty_rows:
+			for spec in qty_row.get("input_specs") or []:
+				if flt(spec.get("qty")) <= 0 or not _matches_input(
+					variant_info[variant], spec, allow_dia_variance=True
+				):
+					continue
+				if not allowed_dias or (spec.get("attrs") or {}).get(dia) in allowed_dias:
+					matches.append((variant, qty_row, spec))
+	return matches
+
+
+def _insert_actual_dia_rows(qty_rows, matches, positive, variant_info):
+	"""Add one popup row per actual-Dia receipt, right after its planned row."""
+	counts = Counter(variant for variant, _qty_row, _spec in matches)
+	added = defaultdict(list)
+	for variant, qty_row, spec in matches:
+		added[id(qty_row)].append(
+			_actual_dia_row(variant, qty_row, spec, positive[variant], variant_info[variant], counts[variant] > 1)
+		)
+	qty_rows[:] = [row for qty_row in qty_rows for row in (qty_row, *added[id(qty_row)])]
+
+
+def _actual_dia_row(variant, qty_row, spec, available, info, shared):
+	actual_attrs = dict(info.get("attrs") or {})
+	capacity = flt(available * (flt(qty_row.get("output_qty")) or 1) / flt(spec.get("qty")), 3)
+	row = deepcopy(qty_row)
+	row.update(
+		{
+			"key": f"{qty_row.get('key')}|{variant}",
+			"matrix_key": qty_row.get("matrix_key") or qty_row.get("key"),
+			"source_item_variant": variant,
+			"in_attrs": actual_attrs,
+			"out_attrs": project_output_attributes(
+				actual_attrs, spec.get("attrs") or {}, qty_row.get("out_attrs") or {}
+			),
+			"source_available": capacity,
+			"source_shared": shared,
+			"source_pool_key": variant,
+			"prefill": 0 if shared else capacity,
+		}
+	)
+	dia = get_dia_attribute()
+	_label_actual_dia(row, (spec.get("attrs") or {}).get(dia), actual_attrs.get(dia))
+	return row
 
 
 def validate_source_demands(
@@ -863,10 +924,13 @@ def _get_legacy_source_availability(
 	)
 	received_rows = frappe.db.sql(
 		f"""
-		SELECT item.item_variant, item.stock_qty, item.quantity, item.uom
+		SELECT item.item_variant, item.stock_qty, item.quantity, item.uom,
+			receivable.item_variant AS planned_item,
+			receivable.fabric_reference_variant AS route_item
 		FROM `tabYRP Goods Received Note Item` item
 		JOIN `tabYRP Goods Received Note` grn ON grn.name = item.parent
 		JOIN `tabYRP Work Order` source_wo ON source_wo.name = grn.against_id
+		LEFT JOIN `tabYRP Work Order Receivables` receivable ON receivable.name = item.ref_docname
 		WHERE item.parenttype = 'YRP Goods Received Note'
 			AND grn.docstatus = 1
 			AND grn.against = 'YRP Work Order'
@@ -970,7 +1034,36 @@ def _get_legacy_source_availability(
 		"net": {
 			variant: flt(flt(received.get(variant)) - flt(reserved.get(variant)), 3) for variant in variants
 		},
+		"planned_dias": get_planned_dias(received_rows),
 	}
+
+
+def get_planned_dias(receipt_rows):
+	"""Planned Dias per received Item whose GRN recorded a different actual Dia."""
+	planned_fields = ("planned_item", "route_item")
+	candidates = [
+		row
+		for row in receipt_rows
+		if any(row.get(field) and row.get(field) != row.get("item_variant") for field in planned_fields)
+	]
+	if not candidates:
+		return {}
+	info = _variant_info(
+		{row.get(field) for row in candidates for field in ("item_variant", *planned_fields) if row.get(field)}
+	)
+	dia = get_dia_attribute()
+
+	def dia_of(item):
+		return ((info.get(item) or {}).get("attrs") or {}).get(dia)
+
+	result = defaultdict(set)
+	for row in candidates:
+		actual = dia_of(row.get("item_variant"))
+		for field in planned_fields:
+			planned = dia_of(row.get(field))
+			if actual and planned and planned != actual:
+				result[row.get("item_variant")].add(planned)
+	return {item: sorted(dias) for item, dias in result.items()}
 
 
 def _legacy_source_allows_versioned_washing(ipd, source_process):

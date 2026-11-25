@@ -93,3 +93,18 @@ test("unavailable predecessor stock keeps the blocking explanation", async () =>
 	assert.match(html, /No predecessor stock available/)
 	assert.match(html, /Submit an unallocated Knitting GRN/)
 })
+
+test("legacy actual-Dia source rows send the received Item to Calculate", () => {
+	const row = {
+		fabric_row: "FABRIC-1", kind: "dyeing", cloth_item: "Cloth",
+		qty_rows: [{
+			key: "M:0|Cloth-26-Greige", matrix_key: "M:0", out_attrs: { Dia: "26 Dia", Colour: "Red" },
+			label: "26 Dia (actual, for 24 Dia): Greige → Red", source_process: "Knitting", source_available: 30,
+			source_item_variant: "Cloth-26-Greige", prefill: 0,
+		}],
+	}
+	const [hydrated] = hydrateFabricRows({ rows: [row] })
+	hydrated.entries[0].qty = 25
+	const [payload] = buildFabricPayload({}, [hydrated]).rows
+	assert.deepEqual(payload.entries, [{ key: "M:0|Cloth-26-Greige", matrix_key: "M:0", out_attrs: { Dia: "26 Dia", Colour: "Red" }, qty: 25, source_item_variant: "Cloth-26-Greige" }])
+})

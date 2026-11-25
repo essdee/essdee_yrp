@@ -1344,6 +1344,7 @@ function render_fabric_dialog(frm, ctx) {
 					source_stock_available: qr.source_stock_available,
 					source_stock_per_output: qr.source_stock_per_output,
 					reference_item_variant: qr.reference_item_variant || null,
+					source_item_variant: qr.source_item_variant || null,
 					cloth_qty: flt(qr.prefill),
 					manual_inputs: manualInputs,
 				});
@@ -1456,6 +1457,7 @@ function render_fabric_dialog(frm, ctx) {
 						qty,
 					};
 					if (m.source_bucket_key) line.source_bucket_key = m.source_bucket_key;
+					if (m.source_item_variant) line.source_item_variant = m.source_item_variant;
 					if (m.source_mode) line.source_mode = m.source_mode;
 					if (frappe.yrp.attribute_value(m.colour)) line.colour = frappe.yrp.attribute_value(m.colour);
 					if (row.manual_io) {

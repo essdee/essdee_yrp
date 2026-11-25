@@ -177,6 +177,7 @@ function buildEntry(entry, manual) {
 	const line = { key: entry.key, matrix_key: entry.matrix_key || entry.key, out_attrs: entry.out_attrs, qty: roundQuantity(quantity(entry.qty)) }
 	if (entry.colour) line.colour = entry.colour
 	if (entry.source_bucket_key) line.source_bucket_key = entry.source_bucket_key
+	if (entry.source_item_variant) line.source_item_variant = entry.source_item_variant
 	if (entry.source_mode) line.source_mode = entry.source_mode
 	if (manual) line.inputs = entry.inputs.map((input) => ({ key: input.key, qty: roundQuantity(quantity(input.qty)) }))
 	return line
