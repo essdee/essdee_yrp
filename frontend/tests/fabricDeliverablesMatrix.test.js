@@ -76,7 +76,7 @@ test("row availability is the shared greige stock of that Dia", () => {
 	assert.deepEqual(available, { "12 Dia": 274, "16 Dia": 284, "20 Dia": 0, "22 → 20 Dia": 414.2 })
 })
 
-test("totals sum rows, columns and grand total and flag rows over availability", () => {
+test("totals sum rows, columns and grand total without availability flags", () => {
 	const [matrix] = buildFabricMatrices(dyeingRows(), ATTRIBUTES)
 	const quantities = arrayQuantities([0, 300, 10, 0, 200, 4, 5])
 	const totals = matrixTotals(matrix, quantities)
@@ -85,8 +85,7 @@ test("totals sum rows, columns and grand total and flag rows over availability",
 	assert.equal(totals.columns.Black, 314)
 	assert.equal(totals.columns.Maroon, 205)
 	assert.equal(totals.grand, 519)
-	assert.deepEqual([...totals.over], ["22 Dia|20 Dia"])
-	assert.deepEqual(totals.overLabels, ["22 → 20 Dia"])
+	assert.equal(totals.over, undefined)
 })
 
 test("unticking a Dia zeroes and disables its cells; reticking keeps them at zero", () => {
@@ -240,8 +239,7 @@ test("matrix renders colour headers, Dia rows, hatched and disabled cells withou
 	assert.doesNotMatch(html, /Avail 0/)
 	assert.match(html, /fabric-matrix__cell--na/)
 	assert.match(html, /disabled aria-label="Black, 16 Dia, Quantity"/)
-	assert.match(html, /fabric-matrix__total--over/)
-	assert.match(html, /More than available: 22 → 20 Dia/)
+	assert.doesNotMatch(html, /fabric-matrix__total--over|More than available/)
 	assert.doesNotMatch(html, /Shared|Required|Available output|Stock 1|Quantity to receive/)
 })
 
@@ -250,16 +248,16 @@ test("panel shows the matrix instead of per-route cards for matrix rows", () => 
 	assert.match(panelTemplate, /v-else-if="row.matrices"/)
 })
 
-test("matrix rows leave source warnings to the matrix hint", () => {
+test("quantities above source GRN availability never warn", () => {
 	const [row] = hydrateFabricRows(dyeingContext())
 	fabricMatrixQuantities(row).set(1, 500)
 	assert.deepEqual(fabricWarnings([row]), [])
 	const [old] = hydrateFabricRows({ rows: dyeingContext().rows })
 	old.entries[1].qty = 500
-	assert.equal(fabricWarnings([old]).length, 1)
+	assert.deepEqual(fabricWarnings([old]), [])
 })
 
-test("per-colour stock (washing) checks each colour's own pool and hides the Dia availability", () => {
+test("per-colour stock (washing) hides the Dia availability", () => {
 	const rows = [
 		qtyRow("Maroon", "28 Dia", { pool: "Cloth-28 Dia-Maroon", available: 386.8 }),
 		qtyRow("Black", "28 Dia", { pool: "", available: 0 }),
@@ -268,7 +266,4 @@ test("per-colour stock (washing) checks each colour's own pool and hides the Dia
 	const [matrix] = buildFabricMatrices(rows, ATTRIBUTES)
 	assert.equal(matrix.rows[0].available, null)
 	assert.equal(matrix.rows[1].available, 148.5)
-	assert.deepEqual([...matrixTotals(matrix, arrayQuantities([300, 0, 0])).over], [])
-	assert.deepEqual([...matrixTotals(matrix, arrayQuantities([390, 0, 0])).over], ["28 Dia"])
-	assert.deepEqual([...matrixTotals(matrix, arrayQuantities([0, 5, 0])).over], ["28 Dia"])
 })

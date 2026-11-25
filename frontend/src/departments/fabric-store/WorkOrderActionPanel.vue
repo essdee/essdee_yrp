@@ -27,7 +27,6 @@
 
 			<template v-else-if="mode === 'calculate_fabric'">
 				<div v-if="fabricContext.source_process_options?.length" class="work-order-action-panel__field"><label for="wo-source-process">Fill from source process</label><Select id="wo-source-process" v-model="draft.source_process" :options="fabricContext.source_process_options" option-label="label" option-value="value" fluid @change="refreshFabricSource" /></div>
-				<Message v-if="fabricUnavailable" severity="warn" :closable="false"><strong>No predecessor stock available</strong><br />{{ fabricUnavailable }}</Message>
 				<Message v-for="warning in fabricContext.warnings || []" :key="warning" severity="warn" :closable="false">{{ warning }}</Message>
 				<Message v-for="warning in fabricQuantityWarnings" :key="warning" severity="warn" :closable="false">{{ warning }}</Message>
 				<div v-for="row in fabricRows" :key="row.fabric_row" class="work-order-fabric-row">
@@ -194,7 +193,7 @@ import { vEntryTable } from "../../components/common/childGrid/entryTable.js"
 import DocumentErrorDialog from "../../components/documents/DocumentErrorDialog.vue"
 import {
 	buildFabricPayload, canCalculateFabric, carryFabricMatrixSelection, fabricColourError, fabricContractError, fabricContractLists, fabricEditableState, fabricEntryError, fabricEntryLabel,
-	fabricPlanningHint, fabricSourceProcess, fabricUnavailableMessage, fabricWarnings, fabricYarnTotals,
+	fabricPlanningHint, fabricSourceProcess, fabricWarnings, fabricYarnTotals,
 	hydrateFabricRows, setFabricClothQuantity,
 } from "./fabricCalculate.js"
 
@@ -217,7 +216,6 @@ const garmentPrimaryValues = ref([])
 const garmentDisplayAttributes = ref([])
 const fabricRows = ref([])
 const fabricContext = ref({})
-const fabricUnavailable = computed(() => fabricUnavailableMessage(fabricContext.value))
 const fabricQuantityWarnings = computed(() => fabricWarnings(fabricRows.value))
 const closeContext = ref({})
 const closeConfirmVisible = ref(false)
@@ -254,7 +252,7 @@ const actionLabels = {
 const submitLabel = computed(() => props.mode === "create_rework" ? "Create Work Order" : props.mode.startsWith("calculate_") ? "Calculate" : actionLabels[props.mode] || "Continue")
 const canSubmit = computed(() => {
 	if (props.mode === "calculate_garment") return garmentMatrixRows.value.some((row) => row.selected && garmentRowTotal(row) > 0)
-	if (props.mode === "calculate_fabric") return canCalculateFabric(fabricContext.value, fabricRows.value)
+	if (props.mode === "calculate_fabric") return canCalculateFabric(fabricRows.value)
 	if (isCloseMode.value) return Boolean(String(draft.close_reason || "").trim()) && (draft.close_reason !== "Others" || Boolean(String(draft.close_other_reason || "").trim())) && (!draft.with_debit || Boolean(String(draft.debit_no || "").trim()) && Number(draft.debit_value || 0) > 0 && Boolean(String(draft.debit_reason || "").trim()))
 	if (props.mode === "create_debit") return !uploading.value && Boolean(String(draft.debit_no || "").trim()) && Number(draft.debit_value || 0) > 0 && Boolean(String(draft.reason || "").trim())
 	if (props.mode === "create_rework") return reworkRows.value.some((row) => Number(row.qty || 0) > 0) && (draft.supplier_type !== "Different Supplier" || Boolean(draft.supplier))

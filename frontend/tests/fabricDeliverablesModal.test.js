@@ -7,7 +7,7 @@ import { renderToString } from "@vue/server-renderer"
 import * as Vue from "vue"
 import { collectManualKnittingContract, createFabricEntries } from "../src/composables/useFabricDeliverableContext.js"
 
-import { buildFabricPayload, canCalculateFabric, fabricColourError, fabricContractError, fabricContractLists, fabricEntryError, fabricEntryLabel, fabricPlanningHint, fabricUnavailableMessage, fabricWarnings, fabricYarnTotals, hydrateFabricRows } from "../src/departments/fabric-store/fabricCalculate.js"
+import { buildFabricPayload, canCalculateFabric, fabricColourError, fabricContractError, fabricContractLists, fabricEntryError, fabricEntryLabel, fabricPlanningHint, fabricWarnings, fabricYarnTotals, hydrateFabricRows } from "../src/departments/fabric-store/fabricCalculate.js"
 import { fabricClothTotal } from "../src/departments/fabric-store/workOrderTotals.js"
 
 const source = fs.readFileSync(new URL("../src/departments/fabric-store/WorkOrderActionPanel.vue", import.meta.url), "utf8")
@@ -25,7 +25,6 @@ async function renderPanel(row, sourceProcess = {}, hydrated = null) {
 			fabricRows: hydrated ? [hydrated] : hydrateFabricRows({ rows: [row] }), isCloseMode: false, canApply: true, discardVisible: false,
 		}),
 		computed: {
-			fabricUnavailable() { return fabricUnavailableMessage(this.fabricContext) },
 			fabricQuantityWarnings() { return fabricWarnings(this.fabricRows) },
 		},
 		methods: {
@@ -76,7 +75,7 @@ test("manual knitting shows one Greige receivable per Dia and saves per finished
 	receivables.items[0].qty = 100
 	deliverables.items[0].qty = 465
 	assert.equal(fabricContractError(hydrated), "")
-	assert.equal(canCalculateFabric({}, [hydrated]), true)
+	assert.equal(canCalculateFabric([hydrated]), true)
 	const [payload] = buildFabricPayload({}, [hydrated]).rows
 	assert.equal(payload.entries.length, 10)
 	const total = (filter, pick) => Math.round(payload.entries.filter(filter).reduce((sum, line) => sum + pick(line), 0) * 1000) / 1000
@@ -88,10 +87,9 @@ test("manual knitting shows one Greige receivable per Dia and saves per finished
 	assert.match(fabricContractError(hydrated), /Enter a fabric receivable quantity before sending Yarn/)
 })
 
-test("unavailable predecessor stock keeps the blocking explanation", async () => {
+test("unavailable predecessor stock neither nags nor blocks Calculate", async () => {
 	const html = await renderPanel({ fabric_row: "FABRIC-1", entries: [] }, { unavailable: true, label: "Knitting" })
-	assert.match(html, /No predecessor stock available/)
-	assert.match(html, /Submit an unallocated Knitting GRN/)
+	assert.doesNotMatch(html, /No predecessor stock available|Submit an unallocated/)
 })
 
 test("legacy actual-Dia source rows send the received Item to Calculate", () => {

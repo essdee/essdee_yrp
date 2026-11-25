@@ -36,7 +36,7 @@
 								@blur="drafts[matrixCellIndex(matrix, matrixRow.key, column.key)] = undefined"
 							/>
 						</td>
-						<td class="fabric-matrix__total" :class="{ 'fabric-matrix__total--over': totals.over.has(matrixRow.key) }">{{ display(totals.rows[matrixRow.key]) }}</td>
+						<td class="fabric-matrix__total">{{ display(totals.rows[matrixRow.key]) }}</td>
 					</tr>
 				</tbody>
 				<tfoot>
@@ -48,7 +48,6 @@
 				</tfoot>
 			</table>
 		</div>
-		<p v-if="totals.overLabels.length" class="fabric-matrix__hint" role="alert">More than available: {{ totals.overLabels.join(", ") }}</p>
 	</section>
 </template>
 
@@ -139,9 +138,7 @@ function moveFocus(event) {
 .fabric-matrix__cell--off input { color: var(--erp-text-muted); cursor: not-allowed; }
 .fabric-matrix__off .fabric-matrix__dia-name, thead .fabric-matrix__off { color: var(--erp-text-muted); }
 .fabric-matrix__total, .fabric-matrix__table tfoot td { min-width: 80px; padding: 8px 10px !important; text-align: right; color: var(--erp-text-secondary); font-weight: 500; white-space: nowrap; }
-.fabric-matrix__table .fabric-matrix__total--over { color: var(--erp-danger); background: var(--erp-danger-soft); }
 .fabric-matrix__table tfoot th, .fabric-matrix__table tfoot td { position: sticky; bottom: 0; z-index: 2; background: var(--erp-surface-muted); border-top: 1px solid var(--erp-border-strong); border-bottom: 0; }
 .fabric-matrix__grand { color: var(--erp-text) !important; font-weight: 650 !important; }
-.fabric-matrix__hint { margin: 0; color: var(--erp-danger); font-size: var(--erp-font-size-caption); }
 @media (max-width: 640px) { .fabric-matrix__table .fabric-matrix__dia { min-width: 84px; } .fabric-matrix__cell { min-width: 80px; } }
 </style>

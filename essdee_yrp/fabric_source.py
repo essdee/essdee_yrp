@@ -95,7 +95,7 @@ def _require_immediate_source(ipd, current_process, selected):
 
 
 def fill_from_source_grns(
-	qty_rows, *, lot, ipd, current_process, current_work_order, source_process, allow_empty=False
+	qty_rows, *, lot, ipd, current_process, current_work_order, source_process
 ):
 	"""Mutate popup rows with fillable output quantities from source GRNs.
 
@@ -136,34 +136,28 @@ def fill_from_source_grns(
 		if qty > QTY_TOLERANCE
 	}
 	if not positive and not legacy_positive:
-		if allow_empty:
-			for qty_row in qty_rows:
-				qty_row["prefill"] = 0
-				qty_row["source_available"] = 0
-			return {
-				"value": selected["value"],
-				"process_name": selected["process_name"],
-				"label": selected["label"],
-				"received": flt(
-					sum(availability["received"].values())
-					+ sum((legacy_availability or {}).get("received", {}).values()),
-					3,
-				),
-				"reserved": flt(
-					sum(availability["reserved"].values())
-					+ sum((legacy_availability or {}).get("reserved", {}).values()),
-					3,
-				),
-				"available": 0,
-				"unavailable": True,
-				"unmatched": [],
-				"sources": [],
-			}
-		frappe.throw(
-			_("No unallocated submitted GRN quantity is available from process {0}.").format(
-				selected["process_name"]
-			)
-		)
+		for qty_row in qty_rows:
+			qty_row["prefill"] = 0
+			qty_row["source_available"] = 0
+		return {
+			"value": selected["value"],
+			"process_name": selected["process_name"],
+			"label": selected["label"],
+			"received": flt(
+				sum(availability["received"].values())
+				+ sum((legacy_availability or {}).get("received", {}).values()),
+				3,
+			),
+			"reserved": flt(
+				sum(availability["reserved"].values())
+				+ sum((legacy_availability or {}).get("reserved", {}).values()),
+				3,
+			),
+			"available": 0,
+			"unavailable": True,
+			"unmatched": [],
+			"sources": [],
+		}
 
 	if availability.get("buckets"):
 		from essdee_yrp.fabric_substitution import get_process_conversion_index
@@ -377,7 +371,7 @@ def validate_source_demands(
 	current_work_order,
 	source_process,
 ):
-	"""Recheck source availability during Calculate; the popup may be stale."""
+	"""Resolve the Calculate source; quantities are not checked against GRN stock."""
 	selected = resolve_source_process(ipd, current_process, source_process)
 	if _uses_exact_source_pool(current_work_order):
 		selected_rows = [row for row in demands or [] if flt(row.get("qty")) > ZERO_QTY_EPSILON]
@@ -398,32 +392,8 @@ def validate_source_demands(
 			if pool.get("source_mode") == "invalid":
 				_throw_source_mode_error("invalid")
 			return {**selected, "source_mode": "exact", "pool": pool}
-		# No submitted row selected an exact bucket. Use the unchanged legacy
-		# validation; Task 4 persists the one allowed first-calculation downgrade.
-	# Serialize calculations for the same Lot and hold every currently submitted
-	# source receipt until this request commits.  The second concurrent Work Order
-	# therefore sees the first one's saved reservation; a source GRN cannot be
-	# cancelled between this availability check and the Work Order save.
-	_lock_source_transactions(lot, cloth_item, selected["process_name"], ipd=ipd)
-	availability = get_source_availability(
-		lot=lot,
-		ipd=ipd.name,
-		cloth_item=cloth_item,
-		source_process=selected["process_name"],
-		source_step=selected["value"],
-		current_process=current_process,
-		current_work_order=current_work_order,
-	)
-	requested = _rows_in_stock_uom(demands)
-	for variant, qty in requested.items():
-		available = max(flt(availability["net"].get(variant)), 0)
-		if qty > available + QTY_TOLERANCE:
-			frappe.throw(
-				_(
-					"{0}: requested {1} Kg from {2}, but only {3} Kg remains available "
-					"in submitted GRNs. Reopen Fill Quantity."
-				).format(variant, flt(qty, 3), selected["process_name"], flt(available, 3))
-			)
+		# No submitted row selected an exact bucket; Task 4 persists the one
+		# allowed first-calculation legacy downgrade.
 	return {**selected, "source_mode": "legacy"}
 
 
@@ -1085,42 +1055,6 @@ def _legacy_source_allows_versioned_washing(ipd, source_process):
 	)
 
 
-def _lock_source_transactions(lot, cloth_item, source_process, *, ipd=None):
-	"""Lock the shared pool during Calculate, never during popup reads."""
-	version_filter = (
-		"AND IFNULL(source_wo.cloth_execution_version, 0) = 0"
-		if (
-			frappe.db.has_column("YRP Work Order", "cloth_execution_version")
-			and not _legacy_source_allows_versioned_washing(ipd, source_process)
-		)
-		else ""
-	)
-	frappe.db.sql(
-		"SELECT name FROM `tabSD YRP Lot` WHERE name = %s FOR UPDATE",
-		lot,
-	)
-	frappe.db.sql(
-		f"""
-		SELECT grn.name
-		FROM `tabYRP Goods Received Note` grn
-		JOIN `tabYRP Work Order` source_wo ON source_wo.name = grn.against_id
-		WHERE grn.docstatus = 1
-			AND grn.against = 'YRP Work Order'
-			AND IFNULL(grn.is_return, 0) = 0
-			AND source_wo.lot = %(lot)s
-			AND source_wo.item = %(cloth_item)s
-			AND source_wo.process_name = %(source_process)s
-			{version_filter}
-		FOR UPDATE
-		""",
-		{
-			"lot": lot,
-			"cloth_item": cloth_item,
-			"source_process": source_process,
-		},
-	)
-
-
 def _rows_in_stock_uom(rows, quantity_field="qty"):
 	from yrp.stock.utils import get_conversion_factor
 
@@ -1358,13 +1292,13 @@ def _build_source_buckets(
 	return result
 
 
-def consume_source_bucket(pool, bucket_key, required_stock_qty):
+def consume_source_bucket(pool, bucket_key, required_stock_qty, *, check_available=True):
 	bucket = (pool.get("buckets") or {}).get(bucket_key)
 	if not bucket:
 		frappe.throw(_("The selected source GRN row is no longer available. Reopen Calculate."))
 	required_stock_qty = flt(required_stock_qty, 6)
 	available = flt(bucket.get("remaining_stock_qty"), 6)
-	if _exceeds_available(required_stock_qty, available):
+	if check_available and _exceeds_available(required_stock_qty, available):
 		frappe.throw(
 			_(
 				"The exact source GRN row {0} / {1} has only {2} Kg available; "
@@ -1736,7 +1670,7 @@ def validate_work_order_source_allocations(work_order):
 		stock_qty = flt(row.get("qty"), 6) * _conversion_factor(
 			row.get("item_variant"), row.get("uom")
 		)
-		bucket = consume_source_bucket(pool, bucket_key, stock_qty)
+		bucket = consume_source_bucket(pool, bucket_key, stock_qty, check_available=False)
 		expected_execution_key = _execution_key(
 			bucket_key,
 			parameters.get("matrix_key"),

@@ -965,32 +965,9 @@ function render_garment_calculate_dialog(frm, context) {
 	updateTotals();
 }
 
-// Non-blocking preview; the server rechecks exact source availability.
+// Non-blocking preview of Knitting quantities above the Lot plan balance.
 function warn_balance_overshoot(ctx, manifest, values) {
 	const overs = [];
-	if (ctx.source_process) {
-		const pools = {};
-		manifest.forEach((m) => {
-			if (!m.source_bucket_key || !m.source_stock_per_output) return;
-			if (!pools[m.source_bucket_key]) {
-				pools[m.source_bucket_key] = {
-					label: m.source_grn || m.input_label || m.label,
-					demand: 0,
-					available: m.source_stock_available,
-				};
-			}
-			pools[m.source_bucket_key].demand += (
-				(flt(values[m.fieldname]) || 0) * flt(m.source_stock_per_output)
-			);
-		});
-		Object.values(pools).forEach((pool) => {
-			if (pool.available != null && pool.demand > pool.available + FABRIC_QTY_EPSILON) {
-				overs.push(
-					`${pool.label}: ${flt(pool.demand, 3)} Kg > ${__("source GRN available")} ${pool.available} Kg`
-				);
-			}
-		});
-	}
 	ctx.rows.forEach((row, i) => {
 		const fields = manifest.filter((m) => m.row === i);
 		if (row.kind === "knitting") {
@@ -1005,14 +982,6 @@ function warn_balance_overshoot(ctx, manifest, values) {
 			Object.entries(per_dia).forEach(([dia, agg]) => {
 				if (agg.limit != null && agg.sum > agg.limit + FABRIC_QTY_EPSILON) {
 					overs.push(`${row.cloth_item} · ${dia}: ${agg.sum} > ${__("balance")} ${agg.limit}`);
-				}
-			});
-		} else if (!fields.some((m) => m.source_bucket_key)
-			&& (row.kind === "dyeing" || row.kind === "compacting")) {
-			fields.forEach((m) => {
-				const qty = flt(values[m.fieldname]);
-				if (qty && m.available != null && qty > m.available + FABRIC_QTY_EPSILON) {
-					overs.push(`${row.cloth_item} · ${m.label}: ${qty} > ${__("previous stage available")} ${m.available}`);
 				}
 			});
 		}
@@ -1147,15 +1116,6 @@ function render_fabric_dialog(frm, ctx, previous_dialog = null) {
 	const manifest = [];
 	const styled_quantity_fields = [];
 	let d = null;
-	if (ctx.source_process?.unavailable) {
-		fields.push({
-			fieldtype: "HTML",
-			options: `<div class="alert alert-warning small">`
-				+ `<b>${__("No predecessor stock available")}</b><br>`
-				+ `${__("Submit an unallocated {0} GRN, then reopen Calculate.", [ctx.source_process.label || ctx.source_process.process_name])}`
-				+ `</div>`,
-		});
-	}
 
 	const recompute_yarn = (i) => {
 		const row = ctx.rows[i];
@@ -1441,10 +1401,6 @@ function render_fabric_dialog(frm, ctx, previous_dialog = null) {
 		fields,
 		primary_action_label: __("Calculate"),
 		primary_action(values) {
-			if (ctx.source_process?.unavailable) {
-				frappe.msgprint(__("No submitted predecessor GRN stock is available."));
-				return;
-			}
 			matrix_states.forEach((state) => state.values.forEach((qty, j) => {
 				values[`qty_${state.row}_${j}`] = qty;
 			}));
@@ -1569,7 +1525,6 @@ function render_fabric_dialog(frm, ctx, previous_dialog = null) {
 		essdee_yrp.mount_fabric_matrices(d.fields_dict[state.fieldname].$wrapper[0], state);
 	});
 	apply_fabric_dialog_hierarchy(d, styled_quantity_fields);
-	if (ctx.source_process?.unavailable) d.get_primary_btn().prop("disabled", true);
 	// Pre-filled balances must reflect in the auto yarn figure immediately,
 	// not only after the first manual edit.
 	ctx.rows.forEach((row, i) => {
