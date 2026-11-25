@@ -443,6 +443,25 @@ def get_work_order_challan_items(doc, table):
 	return sort_grouped_attributes(groups)
 
 
+def get_work_order_correction_challan_items(doc, table):
+	"""Each submitted Work Order Correction's deliverables or receivables in the challan print's grouped shape."""
+	if table not in WORK_ORDER_CHALLAN_TABLES:
+		frappe.throw(f"Work Order challan print cannot show {table}")
+	corrections = frappe.get_all(
+		"YRP Work Order Correction",
+		filters={"work_order": doc.name, "docstatus": 1},
+		fields=["name", "correction_date"],
+		order_by="correction_date asc, creation asc",
+	)
+	output = []
+	for correction in corrections:
+		rows = frappe.get_doc("YRP Work Order Correction", correction.name).get(table) or []
+		if rows:
+			groups = _group_items(rows, WORK_ORDER_CHALLAN_TABLES[table], lot=doc.get("lot"))
+			output.append({**correction, "groups": sort_grouped_attributes(groups)})
+	return output
+
+
 def get_grn_structure(doc_name):
 	"""Group GRN rows like MRP's Work Order GRN print: one row per item and received type."""
 	doc = frappe.get_doc("YRP Goods Received Note", doc_name)
