@@ -100,36 +100,35 @@ class TestDeliveryChallanPrint(IntegrationTestCase):
 			self.assertIn("<td>0</td>", format_data)
 			self.assertNotIn("<td>--</td>", format_data)
 
-	def test_saved_dc_prints_every_correction_row_quantity(self):
+	def test_correction_rows_never_share_a_main_row_index(self):
+		rows = print_helpers.with_correction_rows(
+			[frappe._dict(row_index=1)],
+			[
+				frappe._dict(row_index=1, work_order_correction="WOC-A"),
+				frappe._dict(row_index=None, work_order_correction="WOC-A"),
+			],
+		)
+		self.assertEqual([row["row_index"] for row in rows], [1, "correction:WOC-A:1", None])
+
+	def test_saved_dc_prints_correction_rows_in_the_main_table(self):
 		name = frappe.db.get_value(
 			"YRP Delivery Challan Item", {"parentfield": "correction_items", "docstatus": 1}, "parent"
 		)
 		if not name:
 			self.skipTest("Needs a submitted Delivery Challan with correction rows")
 		expected = frappe.db.sql(
-			"""select work_order_correction, sum(delivered_quantity) from `tabYRP Delivery Challan Item`
-			where parent = %s and parentfield = 'correction_items'
-			group by work_order_correction""",
+			"""select sum(delivered_quantity) from `tabYRP Delivery Challan Item`
+			where parent = %s and parentfield in ('items', 'correction_items')""",
 			name,
+		)[0][0]
+		groups = print_helpers.get_dc_structure(name)[0]
+		printed = sum(
+			cell["delivered_quantity"]
+			for group in groups
+			for item in group["items"]
+			for cell in item["values"].values()
 		)
-		sections = print_helpers.get_dc_correction_structure(name)
-		self.assertEqual({section["name"] for section in sections}, {row[0] for row in expected})
-		quantities = {row[0]: row[1] for row in expected}
-		for section in sections:
-			printed = sum(
-				cell["delivered_quantity"]
-				for group in section["groups"]
-				for item in group["items"]
-				for cell in item["values"].values()
-			)
-			self.assertAlmostEqual(printed, quantities[section["name"]], 3)
-			self.assertTrue(section["correction_date"])
+		self.assertAlmostEqual(printed, expected, 3)
 		html = frappe.get_print("YRP Delivery Challan", name, "Essdee Delivery Challan", no_letterhead=1)
-		self.assertIn("Work Order Corrections", html)
-		for correction in quantities:
-			self.assertIn(correction, html)
-
-	def test_dc_without_correction_rows_prints_no_corrections_section(self):
-		doc = self.make_doc(correction_items=[])
-		with patch.object(frappe, "get_doc", return_value=doc):
-			self.assertEqual(print_helpers.get_dc_correction_structure("DC-TEST"), [])
+		self.assertNotIn("Work Order Corrections", html)
+		self.assertEqual(html.count("Particulars"), 1)

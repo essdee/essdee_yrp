@@ -30,7 +30,6 @@
         </div>
     </div>
     {{ challan_items(get_work_order_challan_items(doc, table), "Quantity") }}
-    {% if caller %}{{ caller() }}{% endif %}
     {{ challan_comments(doc.comments) }}
     {{ challan_footer(doc.terms_and_condition) }}
 </div>

@@ -411,7 +411,13 @@ def get_cloth_program_matrix(lot_doc, program_rows, fabric_types):
 
 def get_dc_structure(doc_name):
 	doc = frappe.get_doc("YRP Delivery Challan", doc_name)
-	items = get_dc_groups(doc.get("items"), _delivery_challan_lot(doc))
+	lot = frappe.db.get_value("YRP Work Order", doc.work_order, "lot") if doc.get("work_order") else None
+	rows = with_correction_rows(doc.get("items"), doc.get("correction_items"))
+	items = _group_items(rows, "YRP Delivery Challan", lot=lot)
+	if sum(len(group.get("items") or []) for group in items) > 1:
+		# F15's get_item_group_index sorted attribute lists in place once a second row was grouped.
+		for group in items:
+			group["attributes"] = sorted(group.get("attributes") or [])
 	expected_delivery_date = (
 		frappe.db.get_value(
 			"YRP Work Order",
@@ -424,45 +430,16 @@ def get_dc_structure(doc_name):
 	return items, expected_delivery_date
 
 
-def get_dc_groups(rows, lot):
-	groups = _group_items(rows or [], "YRP Delivery Challan", lot=lot)
-	if sum(len(group.get("items") or []) for group in groups) > 1:
-		# F15's get_item_group_index sorted attribute lists in place once a second row was grouped.
-		for group in groups:
-			group["attributes"] = sorted(group.get("attributes") or [])
-	return groups
-
-
-def get_dc_correction_structure(doc_name):
-	"""The Delivery Challan's Work Order Correction rows, one grouped section per correction."""
-	doc = frappe.get_doc("YRP Delivery Challan", doc_name)
-	lot = _delivery_challan_lot(doc)
-	return get_correction_sections(doc.get("correction_items"), lambda rows: get_dc_groups(rows, lot))
-
-
-def get_correction_sections(rows, build_groups):
-	"""Split correction rows by their Work Order Correction, in row order, with each correction's date."""
-	rows_by_correction = OrderedDict()
-	for row in rows or []:
-		rows_by_correction.setdefault(row.get("work_order_correction"), []).append(row)
-	if not rows_by_correction:
-		return []
-	dates = dict(
-		frappe.get_all(
-			"YRP Work Order Correction",
-			filters={"name": ["in", list(rows_by_correction)]},
-			fields=["name", "correction_date"],
-			as_list=True,
-		)
-	)
-	return [
-		{"name": name, "correction_date": dates.get(name), "groups": build_groups(correction_rows)}
-		for name, correction_rows in rows_by_correction.items()
-	]
-
-
-def _delivery_challan_lot(doc):
-	return frappe.db.get_value("YRP Work Order", doc.work_order, "lot") if doc.get("work_order") else None
+def with_correction_rows(rows, correction_rows):
+	"""Rows followed by Work Order Correction rows, re-keyed so a correction row never shares a main row's row_index."""
+	output = list(rows or [])
+	for row in correction_rows or []:
+		row = row.as_dict() if callable(getattr(row, "as_dict", None)) else dict(row)
+		if row.get("row_index") not in (None, ""):
+			correction = row.get("work_order_correction") or row.get("parent")
+			row["row_index"] = f"correction:{correction}:{row['row_index']}"
+		output.append(row)
+	return output
 
 
 WORK_ORDER_CHALLAN_TABLES = {
@@ -472,55 +449,36 @@ WORK_ORDER_CHALLAN_TABLES = {
 
 
 def get_work_order_challan_items(doc, table):
-	"""A Work Order's deliverables or receivables in the Delivery Challan print's grouped shape."""
-	if table not in WORK_ORDER_CHALLAN_TABLES:
-		frappe.throw(f"Work Order challan print cannot show {table}")
-	groups = _group_items(doc.get(table) or [], WORK_ORDER_CHALLAN_TABLES[table], lot=doc.get("lot"))
-	return sort_grouped_attributes(groups)
-
-
-def get_work_order_correction_challan_items(doc, table):
-	"""Each submitted Work Order Correction's deliverables or receivables in the challan print's grouped shape."""
+	"""A Work Order's deliverables or receivables, plus its submitted corrections' rows, in the Delivery Challan print's grouped shape."""
 	if table not in WORK_ORDER_CHALLAN_TABLES:
 		frappe.throw(f"Work Order challan print cannot show {table}")
 	corrections = frappe.get_all(
 		"YRP Work Order Correction",
 		filters={"work_order": doc.name, "docstatus": 1},
-		fields=["name", "correction_date"],
+		pluck="name",
 		order_by="correction_date asc, creation asc",
 	)
-	output = []
-	for correction in corrections:
-		rows = frappe.get_doc("YRP Work Order Correction", correction.name).get(table) or []
-		if rows:
-			groups = _group_items(rows, WORK_ORDER_CHALLAN_TABLES[table], lot=doc.get("lot"))
-			output.append({**correction, "groups": sort_grouped_attributes(groups)})
-	return output
+	correction_rows = [
+		row
+		for name in corrections
+		for row in frappe.get_doc("YRP Work Order Correction", name).get(table) or []
+	]
+	rows = with_correction_rows(doc.get(table), correction_rows)
+	groups = _group_items(rows, WORK_ORDER_CHALLAN_TABLES[table], lot=doc.get("lot"))
+	return sort_grouped_attributes(groups)
 
 
 def get_grn_structure(doc_name):
 	"""Group GRN rows like MRP's Work Order GRN print: one row per item and received type."""
 	doc = frappe.get_doc("YRP Goods Received Note", doc_name)
-	return get_grn_groups(doc.get("items"), doc.get("lot"))
-
-
-def get_grn_groups(rows, lot):
-	rows = rows or []
+	rows = with_correction_rows(doc.get("items"), doc.get("correction_items"))
 	type_positions = {}
 	for position, row in enumerate(rows):
 		type_positions.setdefault((str(row.get("row_index") or ""), row.get("received_type") or ""), position)
-	groups = _group_items(rows, "YRP Goods Received Note", lot=lot)
+	groups = _group_items(rows, "YRP Goods Received Note", lot=doc.get("lot"))
 	for group in groups:
 		group["items"] = merge_received_types(group.get("items") or [], type_positions)
 	return sort_grouped_attributes(groups)
-
-
-def get_grn_correction_structure(doc_name):
-	"""The GRN's Work Order Correction rows, one grouped section per correction."""
-	doc = frappe.get_doc("YRP Goods Received Note", doc_name)
-	return get_correction_sections(
-		doc.get("correction_items"), lambda rows: get_grn_groups(rows, doc.get("lot"))
-	)
 
 
 def merge_received_types(items, type_positions=None):
