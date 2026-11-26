@@ -6,6 +6,7 @@ import * as duplicateAction from "../src/composables/useDuplicateAction.js"
 import * as merchViews from "../src/departments/merch/lot/merchLotViews.js"
 import * as lotLayout from "../src/departments/merch/lot/lotLayout.js"
 import * as lotViews from "../src/departments/merch/lot/lotViews.js"
+import * as lotValuation from "../src/departments/merch/lot/valuation/lotValuation.js"
 
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await Vue.nextTick() }
 const stub = type => (props, { slots }) => Vue.h(type, props, Object.values(slots || {}).map(slot => slot?.({ headingId: "h" })))
@@ -39,6 +40,8 @@ function mountMerchLot(workspace) {
 		"./LotEmptyState.vue": stub("empty"),
 		"./LotPurchaseOrderDialog.vue": stub("po-dialog"),
 		"./lotPurchaseActions.js": purchaseActions,
+		"../../../components/navigation/sessionUser.js": { hasSystemManagerRole: () => false },
+		"./valuation/lotValuation.js": lotValuation,
 		"../merchViews.js": { MERCH_ROUTES: { lotEdit: "merch-lot-edit", lotNew: "merch-lot-new" } },
 		"../../../composables/useDuplicateAction.js": duplicateAction,
 		"./merchLotViews.js": merchViews,

@@ -22,7 +22,7 @@ test("Merch legacy tab links land on the Lot tab with the matching section", () 
 test("Merch Lot page and editor use the shared four-tab Lot layout; the page adds Time and Action", () => {
 	const page = source("MerchLotPage.vue")
 	assert.match(page, /<LotViewMain\b/)
-	assert.match(page, /useLotLayout\(\[\.\.\.LOT_TABS, TIME_AND_ACTION_TAB\], /)
+	assert.match(page, /useLotLayout\(valuationTabs\(\[\.\.\.LOT_TABS, TIME_AND_ACTION_TAB\], isSystemManager\), /)
 	assert.match(page, /<LotBomPanel\b/)
 	assert.doesNotMatch(page, /value="(details|order-items|order-details|ppo|ocr)"/)
 	const editor = source("MerchLotEditor.vue")

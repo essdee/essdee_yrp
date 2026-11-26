@@ -42,7 +42,7 @@
 					</Message>
 					<Tabs v-model:value="activeTab" scrollable class="lot-tabs erp-tabs">
 						<TabList class="lot-tablist">
-							<Tab v-for="tab in timeAndAction.withTab(LOT_VIEW_TABS)" :key="tab.key" :value="tab.key">
+							<Tab v-for="tab in valuationTabs(timeAndAction.withTab(LOT_VIEW_TABS), isSystemManager)" :key="tab.key" :value="tab.key">
 								{{ tab.label }}
 								<span v-if="lotTabCount(workspace, tab.key) !== null">{{ lotTabCount(workspace, tab.key) }}</span>
 							</Tab>
@@ -77,6 +77,9 @@
 							</TabPanel>
 							<TabPanel v-else-if="activeTab === 'time-and-action' && timeAndAction.canRead" value="time-and-action">
 								<LotTimeAndActionTab v-bind="timeAndAction.tabProps" @create="timeAndAction.createVisible = true" @reverted="timeAndAction.changed" />
+							</TabPanel>
+							<TabPanel v-else-if="activeTab === VALUATION_TAB.key && isSystemManager" :value="VALUATION_TAB.key">
+								<LotValuationTab :lot="lotId" />
 							</TabPanel>
 						</TabPanels>
 					</Tabs>
@@ -141,7 +144,7 @@ import TabPanel from "primevue/tabpanel"
 import TabPanels from "primevue/tabpanels"
 import Tabs from "primevue/tabs"
 import { useToast } from "primevue/usetoast"
-import { computed, onBeforeUnmount, ref, watch } from "vue"
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { executeMerchLotCommand, getMerchLotWorkspace } from "../../../api/merch.js"
 import DepartmentPage from "../../../components/DepartmentPage.vue"
@@ -173,6 +176,8 @@ import MerchLotPpoPanel from "./MerchLotPpoPanel.vue"
 import CreateTimeAndActionDialog from "../../planning/time-and-action/CreateTimeAndActionDialog.vue"
 import LotTimeAndActionTab from "../../planning/time-and-action/LotTimeAndActionTab.vue"
 import { TIME_AND_ACTION_TAB, useLotTimeAndActionTab } from "../../planning/time-and-action/useLotTimeAndActionTab.js"
+import { hasSystemManagerRole } from "../../../components/navigation/sessionUser.js"
+import { VALUATION_TAB, valuationTabs } from "./valuation/lotValuation.js"
 import "./lot.css"
 import "./merchLot.css"
 const props = defineProps({ lotId: { type: String, required: true } })
@@ -199,7 +204,9 @@ const header = computed(() =>
 const shellWorkspace = computed(() =>
 	workspace.value.name ? { record: { ...workspace.value, doctype: "SD YRP Lot" } } : {},
 )
-const { activeTab, expanded, scrollTo } = useLotLayout([...LOT_TABS, TIME_AND_ACTION_TAB], useRoute(), router)
+const isSystemManager = hasSystemManagerRole()
+const LotValuationTab = defineAsyncComponent(() => import("./valuation/LotValuationTab.vue"))
+const { activeTab, expanded, scrollTo } = useLotLayout(valuationTabs([...LOT_TABS, TIME_AND_ACTION_TAB], isSystemManager), useRoute(), router)
 const timeAndAction = useLotTimeAndActionTab({ lotId: () => props.lotId, department: "merch", activeTab, onChanged: load })
 if (!expanded.value.includes("process-flow")) expanded.value = [...expanded.value, "process-flow"]
 const duplicateAction = useDuplicateAction({
