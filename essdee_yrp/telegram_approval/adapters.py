@@ -154,9 +154,13 @@ def _apply_purchase_invoice_action(doc, route, action_key, action_name, target_f
 def _validate_purchase_invoice_work_orders(doc):
 	if doc.against != "YRP Work Order":
 		return
-	if frappe.db.get_single_value("YRP Settings", "override_pi_approve"):
+	from yrp.yrp.doctype.yrp_purchase_invoice.yrp_purchase_invoice import (
+		check_all_wo_closed,
+		is_work_order_close_check_skipped,
+	)
+
+	if is_work_order_close_check_skipped():
 		return
-	from yrp.yrp.doctype.yrp_purchase_invoice.yrp_purchase_invoice import check_all_wo_closed
 
 	result = check_all_wo_closed(doc.name)
 	if result["all_closed"]:

@@ -98,7 +98,7 @@ class TestWorkOrderCloseDetails(TestCase):
 		with (
 			patch.object(frappe, "get_doc", return_value=doc),
 			patch.object(purchase_invoice, "get_merch_roles", return_value="merch_manager"),
-			patch.object(purchase_invoice, "_override_pi_approve", return_value=False),
+			patch.object(purchase_invoice, "is_work_order_close_check_skipped", return_value=False),
 			patch.object(
 				purchase_invoice,
 				"check_all_wo_closed",
@@ -113,6 +113,24 @@ class TestWorkOrderCloseDetails(TestCase):
 			),
 		):
 			purchase_invoice.approve_invoice("PI-1")
+
+	def test_telegram_pi_approval_skips_work_order_close_check_for_system_manager(self):
+		from essdee_yrp.telegram_approval import adapters
+
+		doc = frappe._dict(name="PI-1", against="YRP Work Order")
+		status = {"all_closed": False, "open_work_orders": ["WO-OPEN"], "close_request_wos": []}
+		for roles, blocked in ((["System Manager"], False), (["Merch Manager"], True)):
+			with (
+				self.subTest(roles=roles),
+				patch.object(frappe, "get_roles", return_value=roles),
+				patch.object(purchase_invoice, "_override_pi_approve", return_value=False),
+				patch.object(purchase_invoice, "check_all_wo_closed", return_value=status),
+			):
+				if blocked:
+					with self.assertRaisesRegex(adapters.TelegramApprovalStateError, "WO-OPEN"):
+						adapters._validate_purchase_invoice_work_orders(doc)
+				else:
+					adapters._validate_purchase_invoice_work_orders(doc)
 
 
 class TestSewingPlanSkipNotice(TestCase):
