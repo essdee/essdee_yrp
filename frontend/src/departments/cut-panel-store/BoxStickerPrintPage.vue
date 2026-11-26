@@ -125,7 +125,10 @@
 										v-model="row.size"
 										doctype="YRP Item Attribute Value"
 										placeholder="Search Size…"
-										:filters="{ attribute_name: 'Size' }"
+										:search-handler="searchSizes"
+										create-value-field="attribute_value"
+										:create-values="{ attribute_name: 'Size' }"
+										:show-open-button="false"
 										:aria-label="`Size for row ${index + 1}`"
 										:disabled="busy"
 										@update:model-value="markDirty"
@@ -181,8 +184,8 @@
 									/>
 									<span v-else>{{ number(row.allow_excess_percentage) }}%</span>
 								</td>
-								<td class="box-sticker-number-cell"><span>{{ authoritativeNumber(row.allowed_quantity) }}</span></td>
-								<td class="box-sticker-number-cell"><span>{{ authoritativeNumber(row.remaining_quantity) }}</span></td>
+								<td class="box-sticker-number-cell"><span>{{ authoritativeNumber(allowedQuantity(row)) }}</span></td>
+								<td class="box-sticker-number-cell"><span>{{ authoritativeNumber(remainingQuantity(row)) }}</span></td>
 								<td class="box-sticker-print-quantity">
 									<InputNumber
 										v-model="row.print_quantity"
@@ -268,6 +271,7 @@
 <script setup>
 import DocumentPrintButton from "../../components/documents/DocumentPrintButton.vue"
 import DocumentDeleteButton from "../../components/documents/DocumentDeleteButton.vue"
+import { callMethod } from "../../api/frappe.js"
 import Button from "primevue/button"
 import Checkbox from "primevue/checkbox"
 import InputNumber from "primevue/inputnumber"
@@ -583,6 +587,24 @@ function documentValueChanged() {
 function addRow() {
 	rows.value.push(...normaliseRows([{ size: "", allow_excess_percentage: 5 }]))
 	markDirty()
+}
+
+/** Size choices as plain values, the same form the fetched rows use. */
+async function searchSizes(text) {
+	const values = await callMethod("yrp.yrp.doctype.yrp_item.yrp_item.search_item_attribute_values", { txt: text, attribute: "Size", page_len: 20 })
+	return (values || []).map((value) => ({ name: value, label: value }))
+}
+
+/** Mirrors the server's allowed quantity: unlimited when excess is allowed, else quantity plus the excess percentage. */
+function allowedQuantity(row) {
+	if (row.allow_excess_quantity) return null
+	const quantity = Number(row.quantity || 0)
+	return quantity + Math.ceil(quantity * Number(row.allow_excess_percentage || 0) / 100)
+}
+
+function remainingQuantity(row) {
+	const allowed = allowedQuantity(row)
+	return allowed === null ? null : Math.max(allowed - Number(row.printed_quantity || 0), 0)
 }
 
 function removeRow(index) {
