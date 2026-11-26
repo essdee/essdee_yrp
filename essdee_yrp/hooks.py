@@ -738,9 +738,9 @@ scheduler_events = {
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "essdee_yrp.custom.task.CustomTaskMixin"
-# }
+extend_doctype_class = {
+	"Item": "essdee_yrp.overrides.item.EssdeeItemMixin",
+}
 
 # Base YRP owns ordinary GRNs. This subclass activates only the Essdee
 # Finishing return transaction (is_return), including its two-warehouse stock
