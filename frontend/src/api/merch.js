@@ -175,3 +175,15 @@ export function getPendingGrammageLaySheets(filters) {
 export function approveGrammageLaySheets(laysheets) {
 	return callMethod(`${GRAMMAGE_METHOD}.approve_laysheets`, { laysheets })
 }
+
+const VALUATION_METHOD = "essdee_yrp.valuation_tree.api"
+
+/** Last computed valuation tree of a Lot and its job status; never computes. */
+export function getLotValuation(lot) {
+	return callMethod(`${VALUATION_METHOD}.get_lot_valuation`, { lot })
+}
+
+/** Queues the Lot's valuation job; a job already queued or running for the Lot is reused. */
+export function enqueueLotValuation(lot) {
+	return callMethod(`${VALUATION_METHOD}.enqueue_lot_valuation`, { lot })
+}

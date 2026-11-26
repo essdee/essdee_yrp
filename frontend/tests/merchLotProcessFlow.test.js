@@ -69,7 +69,7 @@ test("work order and report links open Merch pages", () => {
 test("Summary tab replaces the Lot label and shows the process flow instead of OCR", () => {
 	assert.match(source("lotLayout.js"), /tab\.key === "lot" \? \{ \.\.\.tab, label: "Summary" \}/)
 	assert.match(source("lotLayout.js"), /\{ key: "lot", label: "Lot" \}/)
-	assert.match(source("MerchLotPage.vue"), /<Tab v-for="tab in timeAndAction\.withTab\(LOT_VIEW_TABS\)"/)
+	assert.match(source("MerchLotPage.vue"), /<Tab v-for="tab in valuationTabs\(timeAndAction\.withTab\(LOT_VIEW_TABS\), isSystemManager\)"/)
 	const view = source("LotViewMain.vue")
 	assert.match(view, /<LotProcessFlow\b/)
 	assert.doesNotMatch(view, /<LotOcrTable\b/)
