@@ -90,7 +90,7 @@ function page(bindings) {
 		window: { addEventListener() {}, removeEventListener() {} },
 		...bindings,
 	}
-	return new Function(...Object.keys(values), `${script}\nreturn { load, form, rows, dirty, documentActions, addRow, removeRow, editableRows }`)(...Object.values(values))
+	return new Function(...Object.keys(values), `${script}\nreturn { load, form, rows, dirty, documentActions, addRow, removeRow, editableRows, searchSizes, allowedQuantity, remainingQuantity }`)(...Object.values(values))
 }
 
 test("Duplicate copies the header and the typed MRP and quantities but not the printed quantities", async () => {
@@ -115,8 +115,11 @@ test("Duplicate copies the header and the typed MRP and quantities but not the p
 
 test("Add Row appends an editable size row that is saved with the others, and rows can be removed", () => {
 	assert.match(PAGE, /<Button v-if="canEdit" label="Add Row"[^>]*@click="addRow"/)
-	assert.match(PAGE, /<LinkField\s+v-if="canEdit && !row\.name"\s+v-model="row\.size"\s+doctype="YRP Item Attribute Value"[\s\S]*?:filters="\{ attribute_name: 'Size' \}"/)
-	const box = page({})
+	assert.match(PAGE, /<LinkField\s+v-if="canEdit && !row\.name"\s+v-model="row\.size"[^>]*:search-handler="searchSizes"/)
+	const box = page({ callMethod: async (method, args) => {
+		assert.deepEqual([method, args.attribute, args.txt], ["yrp.yrp.doctype.yrp_item.yrp_item.search_item_attribute_values", "Size", "10"])
+		return ["105 cm"]
+	} })
 	box.rows.value = [{ name: "D-1", size: "S", mrp: 125, quantity: 8, allow_excess_percentage: 5 }]
 	box.addRow()
 	box.rows.value[1].size = "IAV-XL"
@@ -125,4 +128,15 @@ test("Add Row appends an editable size row that is saved with the others, and ro
 	assert.deepEqual(box.editableRows({ includeMrp: true }).map((row) => [row.name, row.size, row.quantity]), [["D-1", "S", 8], [undefined, "IAV-XL", 6]])
 	box.removeRow(0)
 	assert.deepEqual(box.rows.value.map((row) => row.size), ["IAV-XL"])
+	return box.searchSizes("10").then((options) => assert.deepEqual(options, [{ name: "105 cm", label: "105 cm" }]))
+})
+
+test("Allowed and Remaining follow the typed quantity and excess like the server", () => {
+	assert.match(PAGE, /authoritativeNumber\(allowedQuantity\(row\)\)/)
+	assert.match(PAGE, /authoritativeNumber\(remainingQuantity\(row\)\)/)
+	const box = page({})
+	assert.equal(box.allowedQuantity({ quantity: 7, allow_excess_percentage: 5 }), 8)
+	assert.equal(box.remainingQuantity({ quantity: 7, allow_excess_percentage: 5, printed_quantity: 3 }), 5)
+	assert.equal(box.allowedQuantity({ quantity: 7, allow_excess_quantity: 1 }), null)
+	assert.equal(box.remainingQuantity({ quantity: 7, allow_excess_quantity: 1 }), null)
 })
