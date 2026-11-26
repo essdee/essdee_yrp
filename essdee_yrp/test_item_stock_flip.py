@@ -76,10 +76,24 @@ class TestItemStockFlip(IntegrationTestCase):
 		set_stock_item(item.name, 1)
 		self.assertEqual(frappe.db.get_value("Item", item.name, "is_stock_item"), 1)
 
-	def test_disabling_maintain_stock_stays_blocked_by_documents(self):
+	def test_documents_without_stock_do_not_block_disabling_maintain_stock(self):
 		item = make_item(is_stock_item=1)
-		add_submitted_row("Purchase Invoice Item", "Purchase Invoice", item.name)
-		with self.assertRaises(frappe.ValidationError):
+		for doctype, parenttype in DOCUMENT_ROWS:
+			if doctype != "Stock Entry Detail":
+				add_submitted_row(doctype, parenttype, item.name)
+		set_stock_item(item.name, 0)
+		self.assertEqual(frappe.db.get_value("Item", item.name, "is_stock_item"), 0)
+
+	def test_disabling_maintain_stock_stays_blocked_by_stock_ledger(self):
+		item = make_item(is_stock_item=1)
+		insert_row(
+			"Stock Ledger Entry",
+			item_code=item.name,
+			voucher_type="Stock Entry",
+			voucher_no=f"_Test {frappe.generate_hash(length=8)}",
+			is_cancelled=0,
+		)
+		with self.assertRaisesRegex(frappe.ValidationError, "Maintain Stock"):
 			set_stock_item(item.name, 0)
 
 	def test_disabling_maintain_stock_stays_blocked_by_yrp_stock(self):
@@ -93,7 +107,7 @@ class TestItemStockFlip(IntegrationTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "YRP stock exists"):
 			set_stock_item(item.name, 0)
 
-	def test_template_flip_reaches_variants_with_history(self):
+	def make_template_with_variants(self):
 		if not frappe.db.exists("Item Attribute", ATTRIBUTE):
 			frappe.get_doc(
 				{
@@ -107,6 +121,20 @@ class TestItemStockFlip(IntegrationTestCase):
 			create_variant(template.name, {ATTRIBUTE: value}).insert(ignore_permissions=True).name
 			for value in VALUES
 		]
+		return template, variants
+
+	def test_template_save_copies_maintain_stock_off_to_variants_without_stock(self):
+		template, (stock_variant, plain_variant) = self.make_template_with_variants()
+		set_stock_item(stock_variant, 1)
+		add_submitted_row("Purchase Invoice Item", "Purchase Invoice", stock_variant)
+		template = frappe.get_doc("Item", template.name)
+		template.description = "Edited template"
+		template.save(ignore_permissions=True)
+		self.assertEqual(frappe.db.get_value("Item", stock_variant, "is_stock_item"), 0)
+		self.assertEqual(frappe.db.get_value("Item", plain_variant, "is_stock_item"), 0)
+
+	def test_template_flip_reaches_variants_with_history(self):
+		template, variants = self.make_template_with_variants()
 		for variant in variants:
 			add_full_history(variant)
 		set_stock_item(template.name, 1)
