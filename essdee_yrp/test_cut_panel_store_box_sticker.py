@@ -130,7 +130,7 @@ class TestCutPanelStoreBoxStickerWorkspace(UnitTestCase):
 		lot.check_permission.assert_called_with("read")
 		fg_item.check_permission.assert_called_with("read")
 
-	def test_source_preview_rejects_missing_or_forged_sizes(self):
+	def test_source_preview_keeps_rows_the_user_added(self):
 		with (
 			patch(f"{MODULE}.frappe.has_permission", return_value=True),
 			patch(f"{MODULE}.frappe.get_doc", return_value=MagicMock()),
@@ -138,13 +138,32 @@ class TestCutPanelStoreBoxStickerWorkspace(UnitTestCase):
 				f"{MODULE}.get_fg_details",
 				return_value=[{"size": "S", "mrp": 125}, {"size": "M", "mrp": 135}],
 			),
-			self.assertRaises(frappe.ValidationError),
 		):
-			preview_box_sticker_source(
+			payload = preview_box_sticker_source(
 				"LOT-1",
 				"FG-1",
-				{"rows": [{"size": "XL", "quantity": 8}]},
+				{
+					"rows": [
+						{"size": "S", "quantity": 8},
+						{"size": "M", "quantity": 4},
+						{"size": "XL", "mrp": 150, "quantity": 6},
+					]
+				},
 			)
+
+		self.assertEqual([row["size"] for row in payload["rows"]], ["S", "M", "XL"])
+		self.assertEqual([row["mrp"] for row in payload["rows"]], [125.0, 135.0, 150.0])
+		self.assertEqual(payload["rows"][2]["quantity"], 6)
+
+	def test_source_preview_rejects_duplicate_or_blank_sizes(self):
+		for rows in ([{"size": "S"}, {"size": "S"}], [{"size": ""}]):
+			with (
+				patch(f"{MODULE}.frappe.has_permission", return_value=True),
+				patch(f"{MODULE}.frappe.get_doc", return_value=MagicMock()),
+				patch(f"{MODULE}.get_fg_details", return_value=[{"size": "S", "mrp": 125}]),
+				self.assertRaises(frappe.ValidationError),
+			):
+				preview_box_sticker_source("LOT-1", "FG-1", {"rows": rows})
 
 	def test_save_rejects_stale_existing_document(self):
 		doc = box_doc(docstatus=0, modified="NEW")
