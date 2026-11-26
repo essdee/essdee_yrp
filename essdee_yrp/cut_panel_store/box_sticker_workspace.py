@@ -183,10 +183,9 @@ def _canonical_source_rows(
 			frappe.throw(_("FG Item size rows are incomplete or duplicated. Correct the FG Item before continuing."))
 		server_order.append(size)
 		server_by_size[size] = row
-	if not server_order:
-		frappe.throw(_("FG Item {0} has no Box Sticker sizes.").format(fg_item))
-
 	client_rows, supplied = _client_rows(values)
+	if not server_order and not supplied:
+		frappe.throw(_("FG Item {0} has no Box Sticker sizes.").format(fg_item))
 	if not isinstance(client_rows, list):
 		frappe.throw(_("Box Sticker rows must be a list."))
 	client_by_size = {}
@@ -194,11 +193,9 @@ def _canonical_source_rows(
 		if not isinstance(row, dict):
 			frappe.throw(_("Every Box Sticker row must be an object."))
 		size = _size_key(row.get("size"))
-		if not size or size in client_by_size or size not in server_by_size:
-			frappe.throw(_("Box Sticker sizes changed or contain an unknown row. Refresh the FG Item rows."))
+		if not size or size in client_by_size:
+			frappe.throw(_("Every Box Sticker row needs a unique Size."))
 		client_by_size[size] = row
-	if supplied and set(client_by_size) != set(server_by_size):
-		frappe.throw(_("Box Sticker sizes changed. Refresh the FG Item rows before saving."))
 
 	existing_by_size = {}
 	for row in existing_rows or []:
@@ -208,8 +205,8 @@ def _canonical_source_rows(
 		existing_by_size[size] = row
 
 	result = []
-	for size in server_order:
-		server = server_by_size[size]
+	for size in client_by_size if supplied else server_order:
+		server = server_by_size.get(size, {})
 		client = client_by_size.get(size, {})
 		existing = existing_by_size.get(size)
 		client_name = client.get("name") or client.get("doc_name")

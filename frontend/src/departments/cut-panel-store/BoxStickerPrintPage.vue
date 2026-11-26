@@ -95,7 +95,10 @@
 			<section class="box-sticker-rows" aria-label="Box Sticker size rows">
 				<header class="box-sticker-section-head">
 					<div><h3>Box Sticker Print Details</h3></div>
-					<strong>{{ rows.length }} {{ rows.length === 1 ? "size" : "sizes" }}</strong>
+					<div>
+						<strong>{{ rows.length }} {{ rows.length === 1 ? "size" : "sizes" }}</strong>
+						<Button v-if="canEdit" label="Add Row" icon="pi pi-plus" size="small" severity="secondary" outlined :disabled="busy" @click="addRow" />
+					</div>
 				</header>
 
 				<div v-if="rows.length" ref="tableWrap" class="box-sticker-table-wrap" tabindex="0" role="region" aria-label="Box Sticker quantities">
@@ -111,11 +114,24 @@
 								<th>Allowed</th>
 								<th>Remaining</th>
 								<th :class="{ 'box-sticker-print-column': canPrint }">Print Quantity</th>
+								<th v-if="canEdit"><span class="p-hidden-accessible">Remove</span></th>
 							</tr>
 						</thead>
 						<tbody>
 							<tr v-for="(row, index) in rows" :key="row.name || `${row.size}-${index}`">
-								<td><strong>{{ row.size || "Not set" }}</strong></td>
+								<td>
+									<LinkField
+										v-if="canEdit && !row.name"
+										v-model="row.size"
+										doctype="YRP Item Attribute Value"
+										placeholder="Search Size…"
+										:filters="{ attribute_name: 'Size' }"
+										:aria-label="`Size for row ${index + 1}`"
+										:disabled="busy"
+										@update:model-value="markDirty"
+									/>
+									<strong v-else>{{ row.size || "Not set" }}</strong>
+								</td>
 								<td class="box-sticker-number-cell">
 									<InputNumber
 										v-if="canEdit"
@@ -178,6 +194,9 @@
 										fluid
 										@update:model-value="printHint = ''"
 									/>
+								</td>
+								<td v-if="canEdit">
+									<Button icon="pi pi-trash" severity="danger" text size="small" :aria-label="`Remove row ${index + 1}`" :disabled="busy" @click="removeRow(index)" />
 								</td>
 							</tr>
 						</tbody>
@@ -559,6 +578,16 @@ async function loadSourceRows(values = sourcePreviewValues()) {
 function documentValueChanged() {
 	markDirty()
 	revokePreviewUrl()
+}
+
+function addRow() {
+	rows.value.push(...normaliseRows([{ size: "", allow_excess_percentage: 5 }]))
+	markDirty()
+}
+
+function removeRow(index) {
+	rows.value.splice(index, 1)
+	markDirty()
 }
 
 function markDirty() {
