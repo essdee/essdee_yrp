@@ -20,7 +20,7 @@
 			>
 				<LotStatusPill :status="card.status" />
 				<b>{{ formatQuantity(card.count) }}</b>
-				<small v-if="card.isUnlinked">open PPOs with no open lot</small>
+				<small v-if="card.ppoCaption">{{ card.ppoCaption }}</small>
 				<small v-else>lots · {{ formatQuantity(card.pieces) }} pcs{{ card.isNoWorkOrder ? " planned" : "" }}</small>
 			</button>
 		</div>

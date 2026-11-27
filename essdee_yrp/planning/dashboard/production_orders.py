@@ -36,6 +36,42 @@ def get_lots(production_orders):
 	)
 
 
+def get_linked_lots(production_orders):
+	"""{PPO: {lot: status}} of every SD YRP Lot linked by Lot.production_order or an ordered-detail lot row."""
+	if not production_orders:
+		return {}
+	names = list(production_orders)
+	lots = frappe.get_all(
+		"SD YRP Lot",
+		filters={"production_order": ["in", names]},
+		fields=["name", "status", "production_order"],
+		limit_page_length=0,
+	)
+	details = frappe.get_all(
+		"YRP Production Ordered Detail",
+		filters={"parenttype": PPO, "parent": ["in", names], "lot": ["is", "set"]},
+		fields=["parent", "lot"],
+		distinct=True,
+		limit_page_length=0,
+	)
+	statuses = {lot["name"]: lot["status"] for lot in lots}
+	missing = {row["lot"] for row in details} - set(statuses)
+	if missing:
+		extra = frappe.get_all(
+			"SD YRP Lot",
+			filters={"name": ["in", list(missing)]},
+			fields=["name", "status", "production_order"],
+			limit_page_length=0,
+		)
+		statuses.update({lot["name"]: lot["status"] for lot in extra})
+	linked = defaultdict(dict)
+	for lot in lots:
+		linked[lot["production_order"]][lot["name"]] = lot["status"]
+	for row in details:
+		linked[row["parent"]][row["lot"]] = statuses.get(row["lot"])
+	return dict(linked)
+
+
 def get_lots_with_work_orders(lot_names):
 	if not lot_names:
 		return set()

@@ -3,8 +3,11 @@ import { csvText, plural } from "./dashboardFormat.js"
 export const NO_WORK_ORDER = "No Work Order yet"
 export const PO_CREATED = "PO Created"
 export const LOT_NOT_LINKED = "Lot not linked"
+export const LOTS_CLOSED = "Lots closed, PPO open"
+/** Statuses of an Open PPO shown without a lot row, with their status card caption. */
+export const PPO_ONLY_CAPTIONS = { [LOT_NOT_LINKED]: "open PPOs with no lot", [LOTS_CLOSED]: "open PPOs whose lots are all closed" }
 export const LADDER_TONE = {
-	[LOT_NOT_LINKED]: "red", [PO_CREATED]: "amber", "Yarn / Fabric Received": "blue",
+	[LOT_NOT_LINKED]: "red", [LOTS_CLOSED]: "red", [PO_CREATED]: "amber", "Yarn / Fabric Received": "blue",
 	"Fabric not received": "amber", "Waiting for cutting": "amber", "In cutting": "amber",
 	"Waiting for sewing": "blue", "In sewing": "blue", "Ready for packing": "blue",
 	"Packing in progress": "amber", Dispatched: "green",
@@ -29,6 +32,9 @@ export function rowBuckets(row) {
 	const split = row.purchase_split
 	return split ? [split, { ...own, pieces: Math.max((Number(pieces) || 0) - split.pieces, 0) }] : [own]
 }
+
+/** A PPO row without a lot (ungrouped, or a PPO group with no lot rows). */
+export const isPpoOnlyRow = (row) => row.status in PPO_ONLY_CAPTIONS && !(row.isGroup ? row.lotCount : row.lot)
 
 const rowStatuses = (row) => rowBuckets(row).map((bucket) => bucket.status)
 
@@ -63,12 +69,12 @@ export function dashboardOptions(rows, filters, kind, ppos = {}) {
 	const statuses = kind === "status" ? orderStatuses(matching) : null
 	const entries = [...counts.entries()].sort((a, b) => (statuses ? statuses.indexOf(a[0]) - statuses.indexOf(b[0]) : String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true })))
 	if (kind === "ppo") return entries.map(([value]) => ({ value, hint: `${ppos[value]?.item_name || ppos[value]?.item || ""} · ${ppoLotHint(matching, value)}` }))
-	return entries.map(([value, count]) => ({ value, hint: plural(count, value === LOT_NOT_LINKED ? "PPO" : "lot") }))
+	return entries.map(([value, count]) => ({ value, hint: plural(count, value in PPO_ONLY_CAPTIONS ? "PPO" : "lot") }))
 }
 
 function ppoLotHint(rows, ppo) {
 	const count = rows.filter((row) => row.ppo === ppo && row.lot).length
-	return count ? plural(count, "lot") : LOT_NOT_LINKED
+	return count ? plural(count, "lot") : rows.find((row) => row.ppo === ppo)?.status
 }
 
 /** {PPO: {ppoQty, lotQty}} of `rows`, each PPO's share summed over its lots in `rows`. */
@@ -133,7 +139,7 @@ export function statusCards(rows) {
 	const buckets = rows.flatMap(rowBuckets)
 	return orderStatuses(rows).map((status) => {
 		const matching = buckets.filter((bucket) => bucket.status === status)
-		return { status, isNoWorkOrder: status === NO_WORK_ORDER, isUnlinked: status === LOT_NOT_LINKED, count: matching.length, pieces: sum(matching, (bucket) => bucket.pieces) }
+		return { status, isNoWorkOrder: status === NO_WORK_ORDER, ppoCaption: PPO_ONLY_CAPTIONS[status], count: matching.length, pieces: sum(matching, (bucket) => bucket.pieces) }
 	})
 }
 
@@ -158,6 +164,7 @@ export function groupDashboardRows(rows) {
 			ppo, isGroup: true, lots, items, mix, status, status_rank, ...sums,
 			is_set: lots.some((row) => row.is_set),
 			lot: lots.map((row) => row.lot).filter(Boolean).join(", "),
+			closed_lots: lots.map((row) => row.closed_lots).filter(Boolean).join(", ") || null,
 			lotCount: lots.filter((row) => row.lot).length,
 			item: items.length === 1 ? items[0] : `${items.length} items`,
 			product_category: categories.length > 1 ? `${categories.length} categories` : categories[0] || null,
@@ -198,7 +205,7 @@ export function sortDashboardRows(rows, sort, ppos = {}) {
 export function dashboardCsv(rows, grouped, ppos = {}) {
 	const header = ["#", "PPO", grouped ? "Lots" : "Lot", "Item", "Product Category", "Status", "PPO Qty", "Lot Qty", "Cut Qty", "Stitching Qty", "Packed Qty", "Dispatched Qty", "Moved to alternative", "Balance"]
 	const lines = rows.map((row, index) => [
-		index + 1, row.ppo, row.lot, row.item, row.product_category || "", row.status, row.ppo_qty,
+		index + 1, row.ppo, row.lot || row.closed_lots || "", row.item, row.product_category || "", row.status, row.ppo_qty,
 		row.qty, row.cut, row.stitch, row.packed, row.dispatch, row.to_alternative || 0, row.balance,
 	])
 	return csvText([header, ...lines])
