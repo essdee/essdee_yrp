@@ -234,6 +234,8 @@ class TestAccountsReportGrants(TestCase):
 				"ironing_dpr",
 				"audit_pending_finishing_plans",
 				"lot_cut_quantity",
+				"grn_report",
+				"dc_report",
 			],
 		)
 		self._assert_report_endpoints_run()
@@ -334,6 +336,8 @@ class TestAccountsReportGrants(TestCase):
 			"sewing DPR": lambda: get_sewing_plan_dpr_data("E2E-AHR-NO-SUPPLIER", "2099-01-01"),
 			"finishing dispatch": lambda: get_dispatch_report("2099-01-01", "2099-01-01"),
 			"ironing DPR": lambda: get_ironing_dpr(date="2099-01-01"),
+			"GRN report": lambda: run("SD YRP GRN Report", {"from_date": "2099-01-01", "to_date": "2099-01-02"}),
+			"DC report": lambda: run("SD YRP DC Report", {"from_date": "2099-01-01", "to_date": "2099-01-02"}),
 		}
 		for label, action in checks.items():
 			with self.subTest(report=label):

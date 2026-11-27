@@ -48,7 +48,7 @@ export function quantityTiles(totals, count) {
 			key: "balance", label: "Balance", value: formatQuantity(totals.balance), foot: "pcs · PPO Qty − Dispatched",
 			help: {
 				formula: "Balance = PPO Qty − Dispatched",
-				lines: [`= ${pcs(totals.ppoQty)} − ${pcs(dispatched)} (moved to alternative counts as dispatched).`, "Same as the sum of the table's Balance column."],
+				lines: [`= ${pcs(totals.ppoQty)} − ${pcs(totals.dispatched)} (PPO Qty already excludes pieces moved to alternative).`, "Same as the sum of the table's Balance column."],
 			},
 		},
 	]

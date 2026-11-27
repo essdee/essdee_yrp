@@ -215,10 +215,14 @@ class TestLotQuantities(TestCase):
 		orders = [{"name": "WO-1", "process_name": "Stitching", "includes_packing": 0}] * 2
 		self.assertEqual(self.quantities(orders, {"WO-1": 50})["stitch"], 50)
 
-	def test_balance_is_ppo_share_less_dispatched_and_moved(self):
-		self.assertEqual(ladder.get_balance(ppo_quantity=120, dispatch=50, to_alternative=20), 50)
-		self.assertEqual(ladder.get_balance(ppo_quantity=120, dispatch=150, to_alternative=0), -30)
-		self.assertEqual(ladder.get_balance(ppo_quantity=1000, dispatch=0, to_alternative=0), 1000)
+	def test_balance_is_ppo_share_less_dispatched(self):
+		self.assertEqual(ladder.get_balance(ppo_quantity=120, dispatch=50), 70)
+		self.assertEqual(ladder.get_balance(ppo_quantity=120, dispatch=150), -30)
+		self.assertEqual(ladder.get_balance(ppo_quantity=1000, dispatch=0), 1000)
+
+	def test_balance_does_not_subtract_moved_pieces_again(self):
+		# PPO-00039 / F0426-82/1: the 4,095 share already excludes the 4,483 pcs moved to the alternative item.
+		self.assertEqual(ladder.get_balance(ppo_quantity=4095, dispatch=4520), -425)
 
 
 class TestSewingProcesses(TestCase):

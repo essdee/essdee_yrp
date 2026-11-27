@@ -84,10 +84,20 @@ class TestMrpRolePermissions(IntegrationTestCase):
 		self.assertTrue(permissions["read"])
 		self.assertFalse(any(permissions[ptype] for ptype in ("write", "create", "submit", "cancel", "delete")))
 
+	def test_accounts_roles_report_on_dc_and_grn(self):
+		for doctype in ("YRP Delivery Challan", "YRP Goods Received Note"):
+			for role in ("Accounts User", "Accounts Manager"):
+				permissions = self.role_permissions(doctype, role)
+				self.assertTrue(permissions["read"] and permissions["report"])
+
 	def test_merch_roles_run_stock_balance(self):
 		for report, roles in MRP_REPORT_ROLES.items():
 			custom_role = frappe.get_doc("Custom Role", {"report": report})
 			self.assertTrue(set(roles) <= {row.role for row in custom_role.roles})
+
+	def test_accounts_roles_run_dc_report(self):
+		custom_role = frappe.get_doc("Custom Role", {"report": "SD YRP DC Report"})
+		self.assertTrue({"Accounts User", "Accounts Manager"} <= {row.role for row in custom_role.roles})
 
 	def test_process_cost_workflow_uses_merch_roles(self):
 		workflow = frappe.get_doc("Workflow", PROCESS_COST_WORKFLOW)

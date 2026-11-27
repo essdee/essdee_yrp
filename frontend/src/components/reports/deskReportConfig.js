@@ -172,6 +172,7 @@ const grnDepartments = ["cutting", "fabric-store", "cut-panel-store", "accessory
 export function departmentDeskReports(department, capabilities, allowed = true) {
 	if (!allowed || ![...grnDepartments, "accounts"].includes(department)) return []
 	const keys = grnDepartments.includes(department) ? ["grn-report", "grn-summary", "dc-report", "stock-entry-report", "stock-reconciliation-report", "stock-update-report"] : []
+	if (department === "accounts") keys.push("grn-report", "dc-report")
 	if (["purchase", "accessory-store", "fabric-store", "accounts"].includes(department)) {
 		keys.push("jobwork-issued-items", "non-jobwork-issued-items", "non-grn-received-items", "lot-wise-stock-ageing", "stock-ageing")
 	}

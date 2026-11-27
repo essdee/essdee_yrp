@@ -65,6 +65,11 @@ test("PPO figures cover every lot of the PPO and flag Cut over PPO", () => {
 	assert.equal(ppoFigures(ppos["PPO-2"]).balance, null)
 })
 
+test("PPO balance does not subtract pieces moved to an alternative lot", () => {
+	const ppo = { pieces: 4095, work_order_lots: [{ lot: "F0426-82/1", qty: 4095, cut_pcs: 9000, dispatch: 4520, to_alternative: 4483 }] }
+	assert.deepEqual([ppoFigures(ppo).balance, ppoFigures(ppo).moved], [-425, 4483])
+})
+
 test("hidden-dispatch note offers show only when the hidden lots are dispatched", () => {
 	const note = hiddenDispatchNote(ppos["PPO-1"], [lots[0]], false)
 	assert.deepEqual(note, { count: 1, pieces: 500, canShow: true })
@@ -122,10 +127,10 @@ test("purchase units carry received % per unit", () => {
 	assert.deepEqual(purchaseUnits(null), [])
 })
 
-test("balance card is the Balance column: PPO share less dispatched, moved pieces counted as dispatched", () => {
-	const moved = { ...lots[0], to_alternative: 150, balance: -50 }
+test("balance card is the Balance column: PPO share less dispatched, moved pieces not subtracted again", () => {
+	const moved = { ...lots[0], to_alternative: 150, balance: 100 }
 	const summary = trackingSummary(data, [moved])
-	assert.deepEqual([summary.balance, summary.ppoQty - summary.dispatched - summary.moved, summary.moved], [-50, -50, 150])
+	assert.deepEqual([summary.balance, summary.ppoQty - summary.dispatched, summary.moved], [100, 100, 150])
 	const tiles = Object.fromEntries(trackingTiles(summary).map((tile) => [tile.key, tile]))
 	assert.equal(tiles.dispatched.value, "1,050")
 	assert.equal(tiles.dispatched.foot, "pcs · incl. 150 pcs moved to alternative")

@@ -18,11 +18,15 @@ MRP_ROLE_GRANTS = {
 		"Store Manager": STORE_ENTRY,
 		"Finishing User": FINISHING_DC,
 		"Production Planner": STORE_MANAGER_ENTRY,
+		"Accounts User": QA_VIEW,
+		"Accounts Manager": QA_VIEW,
 	},
 	"YRP Goods Received Note": {
 		"Store User": STORE_ENTRY,
 		"Store Manager": STORE_ENTRY,
 		"Finishing User": STORE_MANAGER_ENTRY,
+		"Accounts User": QA_VIEW,
+		"Accounts Manager": QA_VIEW,
 	},
 	"YRP Debit": {
 		"Brand QA User": STORE_ENTRY,
@@ -80,7 +84,11 @@ MRP_ROLE_REVOKES = {
 PROCESS_COST_WORKFLOW = "Process Cost Workflow"
 WORKFLOW_ROLE_MAP = {"Purchase User": "Merch User", "Purchase Manager": "Merch Manager"}
 # Report -> roles production allowed to run it.
-MRP_REPORT_ROLES = {"YRP Stock Balance": ("Merch User", "Merch Manager")}
+MRP_REPORT_ROLES = {
+	"YRP Stock Balance": ("Merch User", "Merch Manager"),
+	# Accounts Reports lists it; the GRN Report already allows Accounts roles.
+	"SD YRP DC Report": ("Accounts User", "Accounts Manager"),
+}
 
 
 def ensure_mrp_role_permissions():

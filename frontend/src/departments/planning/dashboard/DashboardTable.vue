@@ -85,7 +85,7 @@ const COLUMNS = [
 	{ key: "stitch", label: "Stitching Qty", isNumber: true, title: "" },
 	{ key: "packed", label: "Packed Qty", isNumber: true, title: "Pcs received from the lot's packing Work Orders (Includes Packing); each WO counted once" },
 	{ key: "dispatch", label: "Dispatched Qty", isNumber: true, title: "Dispatch pcs (as in PPO Tracking); pieces moved to an alternative lot show below" },
-	{ key: "balance", label: "Balance", isNumber: true, title: "PPO Qty − Dispatched − Moved to alternative" },
+	{ key: "balance", label: "Balance", isNumber: true, title: "PPO Qty − Dispatched; PPO Qty already excludes pieces moved to an alternative lot" },
 ]
 const sort = ref({ key: "ppo", direction: 1 })
 const isGrouped = ref(false)
