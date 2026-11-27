@@ -61,6 +61,7 @@
 		<WorkOrderActionPanel v-model:visible="actionVisible" :mode="actionMode" :work-order="workspace.record || {}" :editor="actionEditor" @changed="actionChanged" />
 		<WorkOrderCorrectionDialog v-model:visible="correctionVisible" :work-order="workspace.record || {}" @changed="actionChanged" />
 		<WorkOrderRecalculateDialog v-model:visible="recalculateVisible" :work-order="workspace.record || {}" @changed="actionChanged" />
+		<WorkOrderSecondaryQtyDialog v-model:visible="secondaryQtyVisible" :work-order="workspace.record || {}" @changed="actionChanged" />
 		<RelatedDocumentWorkspaceDialog v-model:visible="relatedVisible" :doctype="relatedDoctype" :name="relatedName" :source-context="relatedSourceContext" @changed="relatedChanged" @closed="relatedClosed" />
 		<DocumentConfirmationDialog v-model:visible="lifecycleConfirmVisible" :title="lifecycleConfirmTitle" :message="lifecycleConfirmMessage" :confirm-label="lifecycleConfirmLabel" :busy="Boolean(acting)" @confirm="confirmLifecycleAction" />
 		<WorkOrderDuplicateDialog ref="duplicateDialog" />
@@ -108,6 +109,7 @@ import WorkOrderActionPanel from "./fabric-store/WorkOrderActionPanel.vue"
 import WorkOrderActivityRail from "./fabric-store/WorkOrderActivityRail.vue"
 import WorkOrderCorrectionDialog from "./fabric-store/WorkOrderCorrectionDialog.vue"
 import WorkOrderRecalculateDialog from "./fabric-store/WorkOrderRecalculateDialog.vue"
+import WorkOrderSecondaryQtyDialog from "./fabric-store/WorkOrderSecondaryQtyDialog.vue"
 import WorkOrderDetails from "./fabric-store/WorkOrderDetails.vue"
 import WorkOrderDuplicateDialog from "./fabric-store/WorkOrderDuplicateDialog.vue"
 import WorkOrderOverview from "./fabric-store/WorkOrderOverview.vue"
@@ -137,6 +139,7 @@ const canCreateQualityInspection = ref(false)
 const actionVisible = ref(false)
 const correctionVisible = ref(false)
 const recalculateVisible = ref(false)
+const secondaryQtyVisible = ref(false)
 const actionMode = ref("")
 const actionEditor = ref({})
 const actionSourceId = ref("")
@@ -236,6 +239,7 @@ const workOrderActions = computed(() => {
 	add("change_delivery_date", "Change Delivery Date", "pi pi-calendar", () => openAction("change_delivery_date"), { menuOnly: true })
 	add("change_item", "Change Item", "pi pi-sync", () => openAction("change_item"), { menuOnly: true })
 	add("recalculate_deliverables", "Recalculate Deliverables", "pi pi-refresh", () => { recalculateVisible.value = true }, { menuOnly: true })
+	if (deliverables.value.length || receivables.value.length) add("edit_secondary_qty", "Secondary Qty", "pi pi-pencil", () => { secondaryQtyVisible.value = true })
 	add("request_close", "Request Close", "pi pi-lock", () => openAction("request_close"), { menuOnly: true })
 	add("close", "Close", "pi pi-lock", () => openAction("close"), { menuOnly: true })
 	add("approve_close", "Approve Close", "pi pi-check-circle", () => openAction("approve_close"), { menuOnly: true })
@@ -269,6 +273,7 @@ async function loadWorkspace(refresh = false) {
 		actionVisible.value = false
 		correctionVisible.value = false
 		recalculateVisible.value = false
+		secondaryQtyVisible.value = false
 		actionSourceId.value = ""
 		relatedVisible.value = false
 		relatedName.value = ""

@@ -18,6 +18,7 @@
 							<th v-for="attribute in identityAttributes(section.group)" :key="attribute">{{ attribute }}</th>
 							<th class="erp-number">Quantity</th>
 							<th class="erp-number matrix-pending-heading">Pending</th>
+							<th v-if="hasSecondary(section.group)" class="erp-number">Secondary Qty</th>
 							<th v-if="hasCost(section.group)" class="erp-number matrix-cost-heading">Unit Cost</th>
 							<th v-if="hasTotalCost(section.group)" class="erp-number matrix-cost-heading">Total Cost</th>
 							<th v-if="hasProcessCost(section.group)">Process Cost</th>
@@ -44,6 +45,7 @@
 							</td>
 							<td class="erp-number matrix-quantity"><strong>{{ quantity(metric(item, "default", "planned")) }}</strong></td>
 							<td class="erp-number matrix-pending">{{ pendingQuantity(metric(item, "default", "pending")) }}</td>
+							<td v-if="hasSecondary(section.group)" class="erp-number matrix-secondary">{{ secondaryText(item) }}</td>
 							<td v-if="hasCost(section.group)" class="erp-number matrix-cost">{{ money(item.values?.default?.cost) }}</td>
 							<td v-if="hasTotalCost(section.group)" class="erp-number matrix-cost">{{ money(item.values?.default?.total_cost) }}</td>
 							<td v-if="hasProcessCost(section.group)" class="matrix-process-cost"><DocumentLink doctype="YRP Process Cost" :name="item.process_cost" :label="item.process_cost || '—'" /></td>
@@ -80,6 +82,7 @@
 							<th v-if="identityAttributes(section.group).length" :colspan="identityAttributes(section.group).length">Total</th>
 							<td class="erp-number">{{ quantity(sectionTotal(section, "planned")?.total) }}</td>
 							<td class="erp-number matrix-pending">{{ pendingQuantity(sectionTotal(section, "pending")?.total) }}</td>
+							<td v-if="hasSecondary(section.group)" class="erp-number">{{ quantity(sectionTotal(section, "secondary_qty")?.total) }}</td>
 							<td v-if="hasCost(section.group)" class="erp-number matrix-cost" />
 							<td v-if="hasTotalCost(section.group)" class="erp-number matrix-cost">{{ money(sectionTotal(section, "total_cost")?.total) }}</td>
 							<td v-if="hasProcessCost(section.group)" />
@@ -154,6 +157,12 @@ function hasValueField(group, fieldname) {
 }
 
 function hasCost(group) { return hasValueField(group, "cost") }
+function hasSecondary(group) { return props.mode === "items" && (group.items || []).some((item) => Object.values(item.values || {}).some((value) => Number(value?.secondary_qty || 0) !== 0)) }
+function secondaryText(item) {
+	const value = item.values?.default || {}
+	if (!Number(value.secondary_qty || 0)) return "—"
+	return `${quantity(value.secondary_qty)} ${value.secondary_uom || item.secondary_uom || ""}`.trim()
+}
 function hasTotalCost(group) { return hasValueField(group, "total_cost") }
 function hasProcessCost(group) { return (group.items || []).some((item) => Boolean(item.process_cost)) }
 function hasComments(section) { return props.mode === "items" && section.items.some((item) => String(item.comments || "").trim()) }
@@ -198,6 +207,7 @@ function valueTotal(item, group, key) {
 
 function itemStages(item, group) {
 	const definitions = [["planned", "Quantity"], ["pending", "Pending"]]
+	if (hasSecondary(group)) definitions.push(["secondary_qty", "Secondary"])
 	if (hasCost(group)) definitions.push(["cost", "Unit cost"])
 	if (hasTotalCost(group)) definitions.push(["total_cost", "Total cost"])
 	return definitions.map(([key, label]) => ({

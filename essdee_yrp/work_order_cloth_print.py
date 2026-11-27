@@ -78,6 +78,8 @@ class ClothRowResolver:
 						"dia": dia,
 						"colour": colour or "No Colour",
 						"qty": flt(row.get("qty")) * share,
+						"secondary_qty": flt(row.get("secondary_qty")) * share,
+						"secondary_uom": row.get("secondary_uom") or "",
 					}
 				)
 		return entries
@@ -139,18 +141,36 @@ def build_cloth_table(item, uom, entries):
 				"fabric_type": entry["fabric_type"],
 				"routes": OrderedDict(),
 				"colour_totals": dict.fromkeys(colours, 0),
+				"colour_secondary": {colour: {} for colour in colours},
 			},
 		)
 		route = group["routes"].setdefault(
-			entry["dia"], {"dia": entry["dia"], "quantities": dict.fromkeys(colours, 0), "total": 0}
+			entry["dia"],
+			{
+				"dia": entry["dia"],
+				"quantities": dict.fromkeys(colours, 0),
+				"total": 0,
+				"secondary": {colour: {} for colour in colours},
+				"secondary_total": {},
+			},
 		)
 		route["quantities"][entry["colour"]] += entry["qty"]
 		route["total"] += entry["qty"]
 		group["colour_totals"][entry["colour"]] += entry["qty"]
+		secondary = get_entry_secondary(entry)
+		add_secondary(route["secondary"][entry["colour"]], secondary)
+		add_secondary(route["secondary_total"], secondary)
+		add_secondary(group["colour_secondary"][entry["colour"]], secondary)
+	colour_secondary = {colour: {} for colour in colours}
 	for group in groups.values():
 		group["routes"] = [round_quantities(route) for route in group["routes"].values()]
 		group["colour_totals"] = rounded(group["colour_totals"])
 		group["total"] = flt(sum(group["colour_totals"].values()), 3)
+		group["colour_secondary"] = round_secondary(group["colour_secondary"])
+		group["secondary_total"] = sum_secondary(group["colour_secondary"].values())
+		for colour in colours:
+			add_secondary(colour_secondary[colour], group["colour_secondary"][colour])
+	secondary_total = sum_secondary(colour_secondary.values())
 	return {
 		"item": item,
 		"uom": uom,
@@ -162,7 +182,33 @@ def build_cloth_table(item, uom, entries):
 		},
 		"total": flt(sum(group["total"] for group in groups.values()), 3),
 		"has_fabric_type": any(entry["fabric_type"] for entry in entries),
+		"colour_secondary": round_secondary(colour_secondary),
+		"secondary_total": secondary_total,
+		"has_secondary": bool(secondary_total),
 	}
+
+
+def get_entry_secondary(entry):
+	"""{Secondary UOM: qty} of an entry; empty when no Secondary Qty was entered."""
+	if not entry.get("secondary_qty") or not entry.get("secondary_uom"):
+		return {}
+	return {entry["secondary_uom"]: entry["secondary_qty"]}
+
+
+def add_secondary(target, quantities):
+	for secondary_uom, qty in quantities.items():
+		target[secondary_uom] = target.get(secondary_uom, 0) + qty
+
+
+def sum_secondary(quantities_list):
+	total = {}
+	for quantities in quantities_list:
+		add_secondary(total, quantities)
+	return rounded(total)
+
+
+def round_secondary(by_colour):
+	return {colour: rounded(quantities) for colour, quantities in by_colour.items()}
 
 
 def rounded(quantities):
@@ -170,4 +216,10 @@ def rounded(quantities):
 
 
 def round_quantities(route):
-	return {**route, "quantities": rounded(route["quantities"]), "total": flt(route["total"], 3)}
+	return {
+		**route,
+		"quantities": rounded(route["quantities"]),
+		"total": flt(route["total"], 3),
+		"secondary": round_secondary(route["secondary"]),
+		"secondary_total": rounded(route["secondary_total"]),
+	}
