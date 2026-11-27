@@ -80,6 +80,7 @@ class TestDashboardCategory(ItemFixtures):
 			patch.object(
 				dashboard, "get_ppo_details", return_value={"PPO-1": {"delivery": None, "lot_shares": {}}}
 			),
+			patch.object(dashboard, "get_linked_production_orders", return_value={"PPO-1"}),
 			patch.object(dashboard, "get_lots_with_work_orders", return_value={"L-1"}),
 			patch.object(dashboard, "get_sewing_processes", return_value=[]),
 			patch.object(dashboard, "LotMetrics", return_value=metrics),

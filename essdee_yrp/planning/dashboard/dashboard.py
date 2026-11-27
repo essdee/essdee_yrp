@@ -6,6 +6,7 @@ from essdee_yrp.planning.dashboard.lot_metrics import LotMetrics, get_sewing_pro
 from essdee_yrp.planning.dashboard.production_orders import (
 	OPEN_PPO_FILTERS,
 	PPO,
+	get_linked_production_orders,
 	get_lots,
 	get_lots_with_work_orders,
 	get_ppo_details,
@@ -31,7 +32,7 @@ def get_dashboard_data():
 	ppos = get_ppo_details(
 		production_orders, lots, {lot["name"]: metrics.get_lot_quantity(lot["name"]) for lot in lots}
 	)
-	linked = {lot["production_order"] for lot in lots}
+	linked = get_linked_production_orders([row["name"] for row in production_orders])
 	unlinked = [row["name"] for row in production_orders if row["name"] not in linked]
 	categories = get_product_categories(
 		[*(lot["item"] for lot in lots), *(ppos[name]["item"] for name in unlinked)]
@@ -55,7 +56,7 @@ def get_dashboard_data():
 
 
 def get_unlinked_row(name, ppo):
-	"""An Open PPO with no open lot: PPO item and quantity only, lot figures left empty."""
+	"""An Open PPO with no lot at all: PPO item and quantity only, lot figures left empty."""
 	return {
 		"lot": None,
 		"ppo": name,

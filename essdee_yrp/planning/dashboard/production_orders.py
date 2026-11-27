@@ -36,6 +36,31 @@ def get_lots(production_orders):
 	)
 
 
+def get_linked_production_orders(production_orders):
+	"""PPOs with any SD YRP Lot, whatever its status, by Lot.production_order or an ordered-detail lot row."""
+	if not production_orders:
+		return set()
+	by_lot = frappe.get_all(
+		"SD YRP Lot",
+		filters={"production_order": ["in", list(production_orders)]},
+		pluck="production_order",
+		distinct=True,
+		limit_page_length=0,
+	)
+	by_ordered_detail = frappe.get_all(
+		"YRP Production Ordered Detail",
+		filters={
+			"parenttype": PPO,
+			"parent": ["in", list(production_orders)],
+			"lot": ["is", "set"],
+		},
+		pluck="parent",
+		distinct=True,
+		limit_page_length=0,
+	)
+	return {*by_lot, *by_ordered_detail}
+
+
 def get_lots_with_work_orders(lot_names):
 	if not lot_names:
 		return set()
