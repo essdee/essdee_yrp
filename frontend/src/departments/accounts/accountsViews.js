@@ -26,7 +26,7 @@ export const ACCOUNTS_WORKSPACES = [
 	{
 		key: "reports",
 		label: "Reports",
-		description: "Stock, cutting, sewing, dispatch, ironing and Lot Cut Quantity reports.",
+		description: "Stock, cutting, sewing, dispatch, ironing, Lot Cut Quantity, GRN and DC reports.",
 		icon: "pi pi-chart-bar",
 		to: "/accounts/reports",
 	},

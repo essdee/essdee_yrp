@@ -89,6 +89,10 @@ class TestMrpRolePermissions(IntegrationTestCase):
 			custom_role = frappe.get_doc("Custom Role", {"report": report})
 			self.assertTrue(set(roles) <= {row.role for row in custom_role.roles})
 
+	def test_accounts_roles_run_dc_report(self):
+		custom_role = frappe.get_doc("Custom Role", {"report": "SD YRP DC Report"})
+		self.assertTrue({"Accounts User", "Accounts Manager"} <= {row.role for row in custom_role.roles})
+
 	def test_process_cost_workflow_uses_merch_roles(self):
 		workflow = frappe.get_doc("Workflow", PROCESS_COST_WORKFLOW)
 		roles = {row.allowed for row in workflow.transitions} | {row.allow_edit for row in workflow.states}

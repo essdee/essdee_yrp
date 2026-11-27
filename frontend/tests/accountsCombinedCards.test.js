@@ -31,3 +31,13 @@ test("Accounts Reports lists Lot Cut Quantity with the Cutting Plan link flag", 
 	assert.deepEqual(tabs.map((tab) => [tab.value, tab.componentProps]), [["lot-cut-quantity", { canReadCuttingPlan: true }]])
 	assert.deepEqual(accountsReportTabs({ lot_cut_quantity: { can_read: false } }), [])
 })
+
+test("Accounts Reports lists the GRN Report and DC Report desk reports", () => {
+	const tabs = accountsReportTabs({ grn_report: { can_read: true }, dc_report: { can_read: true } })
+
+	assert.deepEqual(tabs.map((tab) => [tab.value, tab.label, tab.componentProps]), [
+		["grn-report", "GRN Report", { reportKey: "grn-report" }],
+		["dc-report", "DC Report", { reportKey: "dc-report" }],
+	])
+	assert.deepEqual(accountsReportTabs({ grn_report: { can_read: false }, dc_report: { can_read: false } }), [])
+})

@@ -22,7 +22,7 @@ const stockReports = [
 ]
 
 const issuedReports = [
-	["dc-report", "sd_yrp_dc_report", "SD YRP DC Report", departments],
+	["dc-report", "sd_yrp_dc_report", "SD YRP DC Report", [...departments, "accounts"]],
 	["jobwork-issued-items", "sd_yrp_jobwork_issued_items", "SD YRP Jobwork Issued Items", ["purchase", "accessory-store", "fabric-store", "accounts"]],
 ]
 
@@ -77,9 +77,10 @@ test("GRN menus cover exactly the requested departments and respect report capab
 		assert.deepEqual(tabs.map(tab => tab.value), ["grn-report", "grn-summary"])
 		assert.deepEqual(departmentDeskReports(department, {}), [])
 	}
-	for (const department of ["sales", "pd", "hr", "accounts", "planning"]) {
+	for (const department of ["sales", "pd", "hr", "planning"]) {
 		assert.deepEqual(departmentDeskReports(department, { grn_report: { can_read: true } }), [])
 	}
+	assert.deepEqual(departmentDeskReports("accounts", { grn_report: { can_read: true }, grn_summary: { can_read: true } }).map(tab => tab.value), ["grn-report"])
 	const capabilities = { purchase_order_log: { can_read: true }, finishing_inward_updates: { can_read: true } }
 	assert.deepEqual(departmentDeskReports("purchase", capabilities).map(tab => tab.value), ["purchase-order-log"])
 	assert.deepEqual(departmentDeskReports("sewing", capabilities).map(tab => tab.value), ["finishing-inward-updates"])
@@ -321,7 +322,7 @@ test("GRN Summary sends each selected status including Draft as a string", async
 test("Accounts integrates shared Desk reports and passes the selected report props", async () => {
 	const { accountsReportTabs } = await import("../src/departments/accounts/accountsViews.js")
 	const capabilities = { jobwork_issued_items: { can_read: true }, dc_report: { can_read: true }, stock_balance: { can_read: true } }
-	assert.deepEqual(accountsReportTabs(capabilities).map(tab => tab.value), ["stock-balance", "jobwork-issued-items"])
+	assert.deepEqual(accountsReportTabs(capabilities).map(tab => tab.value), ["stock-balance", "dc-report", "jobwork-issued-items"])
 	assert.deepEqual(accountsReportTabs(capabilities).at(-1).componentProps, { reportKey: "jobwork-issued-items" })
 	assert.deepEqual(accountsReportTabs({ jobwork_issued_items: { can_read: false } }), [])
 	const source = readFileSync(new URL("../src/departments/accounts/AccountsReports.vue", import.meta.url), "utf8")

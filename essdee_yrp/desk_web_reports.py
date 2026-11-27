@@ -82,6 +82,8 @@ def department_report_capabilities(department, allowed):
 	if not allowed or department not in (*GRN_DEPARTMENTS, "accounts"):
 		return {}
 	keys = ["grn_report", "grn_summary", "dc_report", "stock_entry_report", "stock_reconciliation_report", "stock_update_report"] if department in GRN_DEPARTMENTS else []
+	if department == "accounts":
+		keys.extend(("grn_report", "dc_report"))
 	if department in STOCK_MOVEMENT_DEPARTMENTS:
 		keys.extend(STOCK_MOVEMENT_REPORTS)
 	if department in ("purchase", "accessory-store", "fabric-store", "cutting"):
