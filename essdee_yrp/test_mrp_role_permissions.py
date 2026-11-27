@@ -79,6 +79,11 @@ class TestMrpRolePermissions(IntegrationTestCase):
 		self.assertTrue(permissions["read"])
 		self.assertFalse(any(permissions[ptype] for ptype in ("write", "create", "submit", "cancel", "delete")))
 
+	def test_accounts_user_only_reads_process_costs(self):
+		permissions = self.role_permissions("YRP Process Cost", "Accounts User")
+		self.assertTrue(permissions["read"])
+		self.assertFalse(any(permissions[ptype] for ptype in ("write", "create", "submit", "cancel", "delete")))
+
 	def test_merch_roles_run_stock_balance(self):
 		for report, roles in MRP_REPORT_ROLES.items():
 			custom_role = frappe.get_doc("Custom Role", {"report": report})

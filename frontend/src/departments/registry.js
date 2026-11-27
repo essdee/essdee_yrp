@@ -133,7 +133,7 @@ export const departments = [
 		shortLabel: "AC",
 		path: "/accounts",
 		combines: ["merch", "pd"],
-		combinedSections: ["lots", "lotwise_item_profits"],
+		combinedSections: ["lots", "process_costs", "lotwise_item_profits"],
 		sections: { lots: "lots", debits: "debits", purchase_invoices: "purchase-invoices", bill_tracking: "bill-tracking", reports: "reports" },
 		component: landing("accounts", () => import("./Accounts.vue")),
 	},

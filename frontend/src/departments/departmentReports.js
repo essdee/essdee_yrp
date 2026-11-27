@@ -1,6 +1,6 @@
 import { combinedDeskReports, departmentDeskReports } from "../components/reports/deskReportConfig.js"
 
-const lotCutQuantityProps = (report) => ({ canReadCuttingPlan: Boolean(report?.can_read_cutting_plan) })
+export const lotCutQuantityProps = (report) => ({ canReadCuttingPlan: Boolean(report?.can_read_cutting_plan) })
 const readable = (definitions, reports) => definitions.filter((report) => reports?.[report.key]?.can_read)
 	.map((report) => ({ ...report, props: { ...report.props, ...report.capabilityProps?.(reports[report.key]) } }))
 
