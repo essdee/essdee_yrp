@@ -297,7 +297,7 @@ function prepareQuantities(existing = null) {
 	clearReactive(receiptRates)
 	const values = activePrimaryValues.value.length ? activePrimaryValues.value : ["default"]
 	for (const value of values) {
-		const hasExistingValue = Boolean(existing && Object.prototype.hasOwnProperty.call(existing, value))
+		const hasExistingValue = existing?.[value]?.qty != null
 		quantities[value] = hasExistingValue
 			? Number(existing[value]?.qty || 0)
 			: props.operation === "stock_reconciliation" ? null : 0
@@ -336,7 +336,7 @@ async function stageItem() {
 	const values = {}
 	let total = 0
 	for (const value of valueKeys) {
-		if (props.operation === "stock_reconciliation" && !quantityTouched[value]) continue
+		if (props.operation === "stock_reconciliation" && (!quantityTouched[value] || [null, ""].includes(quantities[value]))) continue
 		const qty = Number(quantities[value] || 0)
 		if (qty < 0) return fail("Quantity cannot be negative.")
 		total += qty
@@ -499,7 +499,7 @@ function valueKeys(group) { return [...(group.primary_attribute_values || []), .
 function groupTotals(group) { return getUomTotals(group.items, valueKeys(group)) }
 function footerLabelSpan(group) { return (props.readOnly ? 2 : 3) + dimensions.value.length + (group.attributes || []).length + (props.operation === "purchase_order" ? 3 : 0) }
 function footerLabel(group, bucket) { return groupTotals(group).length > 1 ? `Total · ${bucket.uom || "No UOM"}` : "Total" }
-function formatQty(value) { return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 3 }) }
+function formatQty(value) { return value == null ? "—" : Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 3 }) }
 function formatMoney(value) { return `${props.currency ? `${props.currency} ` : ""}${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}` }
 const formatDate = (value) => formatDisplayDate(value)
 function resetEntryValues(source = props.entryDefaults) {
