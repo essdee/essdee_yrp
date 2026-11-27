@@ -76,6 +76,7 @@
 .pd-status--amber { color: var(--pd-amber); background: var(--pd-amber-fill); border-color: var(--pd-amber-line); }
 .pd-status--blue { color: var(--pd-blue); background: var(--pd-blue-fill); border-color: var(--pd-blue-line); }
 .pd-status--green { color: var(--pd-green); background: var(--pd-green-fill); border-color: var(--pd-green-line); }
+.pd-status--red { color: var(--pd-red); background: var(--pd-red-fill); border-color: var(--pd-red-line); }
 .pd-status--neutral { border-style: dashed; }
 .pd-status--process { color: var(--erp-text); border-color: var(--erp-border-strong); }
 .pd-status-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
@@ -86,6 +87,7 @@
 .pd-status-card--amber { background: color-mix(in srgb, var(--pd-amber-fill) 45%, var(--erp-surface)); }
 .pd-status-card--blue { background: color-mix(in srgb, var(--pd-blue-fill) 45%, var(--erp-surface)); }
 .pd-status-card--green { background: color-mix(in srgb, var(--pd-green-fill) 45%, var(--erp-surface)); }
+.pd-status-card--red { background: color-mix(in srgb, var(--pd-red-fill) 45%, var(--erp-surface)); }
 .pd-status-card--muted { border-style: dashed; background: var(--erp-surface-soft); }
 .pd-status-card.is-active { border-color: var(--erp-accent); box-shadow: 0 0 0 2px var(--erp-accent-border); }
 

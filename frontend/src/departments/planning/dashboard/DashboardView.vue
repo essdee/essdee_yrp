@@ -24,7 +24,7 @@
 		<template v-else-if="data">
 			<SummaryTiles :tiles="tiles" label="Dashboard summary" clickable @select="emit('drill', tileDrill($event, totals))" />
 			<DashboardStatusCards :totals="totals" :active="filters.status" @toggle="toggleStatus" />
-			<DashboardTable :rows="totals.rows" :ppos="data.ppos" :sewing-processes="data.sewing_processes" @drill="emit('drill', $event)" />
+			<DashboardTable :rows="totals.tableRows" :ppos="data.ppos" :sewing-processes="data.sewing_processes" @drill="emit('drill', $event)" />
 		</template>
 	</div>
 </template>
