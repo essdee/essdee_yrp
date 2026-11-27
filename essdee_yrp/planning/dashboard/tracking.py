@@ -199,6 +199,6 @@ def get_lot_row(row, details, summary, processes):
 		"dispatch": summary["dispatch"],
 		"to_alternative": summary["to_alternative"],
 		"alternatives": summary["alternatives"],
-		"balance": ladder.get_balance(ppo_quantity, summary["dispatch"], summary["to_alternative"]),
+		"balance": ladder.get_balance(ppo_quantity, summary["dispatch"]),
 		"processes": processes.get_processes(row["name"]),
 	}

@@ -31,7 +31,7 @@
 						<th class="pd-number" title="Lot order pieces; a set item counts complete sets. PPO row: sum over its lots with Work Orders">Lot</th>
 						<th class="pd-number" title="Pieces received from Cutting Work Orders; a set item counts complete sets">Cut</th>
 						<th class="pd-number" title="Pieces dispatched. PPO row: all its lots, including hidden dispatched lots">Dispatched</th>
-						<th class="pd-number" title="PPO − Dispatched − Moved to alternative. Lot: its share of the PPO">Balance</th>
+						<th class="pd-number" title="PPO Qty − Dispatched. Lot: its share of the PPO">Balance</th>
 					</tr>
 				</thead>
 				<tbody>

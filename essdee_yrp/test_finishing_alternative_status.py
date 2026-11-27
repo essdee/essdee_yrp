@@ -134,5 +134,5 @@ class TestLotSummaryCountsAlternative(TestCase):
 		self.assertEqual(summary["status"], "Dispatched")
 		self.assertEqual(summary["to_alternative"], 40)
 		self.assertEqual(summary["cut"], 100)
-		self.assertEqual(get_balance(summary["cut"], summary["dispatch"], summary["to_alternative"]), 5)
+		self.assertEqual(get_balance(summary["cut"], summary["dispatch"]), 45)
 		self.assertEqual(summary["alternatives"][0]["lot"], "LOT-1-1")

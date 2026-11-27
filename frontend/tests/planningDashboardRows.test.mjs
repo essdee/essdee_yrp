@@ -54,7 +54,7 @@ test("tiles add up exactly the table rows, with or without a filter", () => {
 
 test("every card equals the sum of its table column for each filter, sets counted once", () => {
 	const cutting = lot({ lot: "L-20", ppo: "PPO-3", item: "C", status: "In cutting", status_rank: 400, qty: 900, ppo_qty: 900, total: 900, cut: 0, balance: 900, is_set: true })
-	const moved = lot({ lot: "L-21", ppo: "PPO-3", item: "C", status: "In cutting", status_rank: 400, qty: 100, ppo_qty: 100, cut: 100, dispatch: 10, to_alternative: 30, balance: 60 })
+	const moved = lot({ lot: "L-21", ppo: "PPO-3", item: "C", status: "In cutting", status_rank: 400, qty: 100, ppo_qty: 100, cut: 100, dispatch: 10, to_alternative: 30, balance: 90 })
 	const all = { ...data, lots: [...rows, cutting, moved] }
 	const column = (list, field) => list.reduce((total, row) => total + (row[field] || 0), 0)
 	for (const filters of [empty, { ...empty, status: ["In cutting"] }, { ...empty, item: ["A"] }, { ...empty, lot: ["L-2", "L-21"] }]) {
@@ -65,13 +65,13 @@ test("every card equals the sum of its table column for each filter, sets counte
 		assert.equal(totals.cut, column(totals.rows, "cut"))
 		assert.equal(totals.dispatched + totals.moved, column(totals.rows, "dispatch") + column(totals.rows, "to_alternative"))
 		assert.equal(totals.balance, column(totals.rows, "balance"))
-		assert.equal(totals.balance, totals.ppoQty - totals.dispatched - totals.moved)
+		assert.equal(totals.balance, totals.ppoQty - totals.dispatched)
 		assert.equal(totals.notPlanned, grouped.reduce((total, row) => total + Math.max(row.ppo_qty - row.qty, 0), 0))
 	}
 	const inCutting = dashboardTotals(all, { ...empty, status: ["In cutting"] })
-	assert.deepEqual([inCutting.ppoCount, inCutting.ppoQty, inCutting.cut, inCutting.balance, inCutting.moved, inCutting.setLots], [1, 1000, 100, 960, 30, 1])
+	assert.deepEqual([inCutting.ppoCount, inCutting.ppoQty, inCutting.cut, inCutting.balance, inCutting.moved, inCutting.setLots], [1, 1000, 100, 990, 30, 1])
 	const grouped = groupDashboardRows(inCutting.rows)
-	assert.deepEqual([grouped[0].balance, grouped[0].to_alternative, grouped[0].is_set], [960, 30, true])
+	assert.deepEqual([grouped[0].balance, grouped[0].to_alternative, grouped[0].is_set], [990, 30, true])
 })
 
 test("status cards add up to the rows and use Lot pcs for lots with no Work Order", () => {
@@ -173,7 +173,7 @@ test("tiles say their formula in a hover card, name unconverted and over-planned
 	assert.ok(byKey.notPlanned.help.lines[0].startsWith("Covers only the 2 PPOs listed"))
 	assert.ok(byKey.notPlanned.help.lines.some((line) => line.includes("PPO-2 (+300 pcs)")))
 	assert.equal(byKey.balance.help.formula, "Balance = PPO Qty − Dispatched")
-	assert.equal(byKey.balance.help.lines[0], "= 1,000 pcs − 500 pcs (moved to alternative counts as dispatched).")
+	assert.equal(byKey.balance.help.lines[0], "= 1,000 pcs − 500 pcs (PPO Qty already excludes pieces moved to alternative).")
 	const withSet = dashboardTiles(dashboardTotals({ ...data, lots: [...rows, lot({ lot: "S-1", ppo: "PPO-3", item: "C", status: "In cutting", qty: 10, ppo_qty: 10, is_set: true })] }, empty))
 	const lotQty = withSet.find((tile) => tile.key === "lotQty")
 	assert.ok(lotQty.help.lines.some((line) => line.includes("1 set-item lot counted in sets")))

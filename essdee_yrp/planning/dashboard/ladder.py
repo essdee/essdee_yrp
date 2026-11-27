@@ -41,9 +41,9 @@ def get_basis(planned, cut):
 	return flt(cut) or flt(planned)
 
 
-def get_balance(ppo_quantity, dispatch, to_alternative):
-	"""The lot's share of PPO pieces not yet dispatched; pieces moved to an alternative lot count as dispatched."""
-	return flt(ppo_quantity) - flt(dispatch) - flt(to_alternative)
+def get_balance(ppo_quantity, dispatch):
+	"""The lot's share of PPO pieces not yet dispatched; the share already excludes pieces moved to an alternative lot."""
+	return flt(ppo_quantity) - flt(dispatch)
 
 
 def get_best_cutting_status(statuses):

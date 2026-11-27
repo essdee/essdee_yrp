@@ -103,5 +103,5 @@ def get_lot_row(lot, ppo, metrics, has_work_order):
 		"status_rank": summary["status_rank"],
 		"purchase_split": summary["purchase_split"],
 		**figures,
-		"balance": ladder.get_balance(ppo_quantity, figures["dispatch"], figures["to_alternative"]),
+		"balance": ladder.get_balance(ppo_quantity, figures["dispatch"]),
 	}

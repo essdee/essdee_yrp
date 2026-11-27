@@ -49,7 +49,7 @@ export function trackingSummary(data, rows, hiddenDispatched = 0) {
 	}
 }
 
-/** PPO row figures over every lot of the PPO with a Work Order, including hidden dispatched lots; moved pieces count as dispatched. */
+/** PPO row figures over every lot of the PPO with a Work Order, including hidden dispatched lots; PPO pieces already exclude moved pieces. */
 export function ppoFigures(ppo = {}) {
 	const lots = ppo.work_order_lots || []
 	const cut = sum(lots, (row) => row.cut_pcs)
@@ -58,7 +58,7 @@ export function ppoFigures(ppo = {}) {
 	return {
 		boxes: ppo.boxes, pieces: ppo.pieces, piecesPerBox: ppo.pieces_per_box, conversion: ppo.conversion,
 		lotPieces: sum(lots, (row) => row.qty), cut, dispatch, moved,
-		balance: ppo.pieces != null ? ppo.pieces - dispatch - moved : null,
+		balance: ppo.pieces != null ? ppo.pieces - dispatch : null,
 		share: ppo.pieces ? dispatch / ppo.pieces : 0,
 		isCutOver: Boolean(ppo.pieces && cut > ppo.pieces),
 	}
