@@ -139,6 +139,7 @@
 	"accounts:purchase_invoices",
 	"accounts:bill_tracking",
 	"accounts:lots",
+	"accounts:process_costs",
 	"accounts:lotwise_item_profits",
 	"accounts:reports",
 	"hr:bill_tracking",

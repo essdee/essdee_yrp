@@ -36,6 +36,7 @@ MRP_ROLE_GRANTS = {
 		"Production Planner": VIEW,
 		"Brand QA Manager": VIEW,
 		"Brand QA User": QA_VIEW,
+		"Accounts User": QA_VIEW,
 	},
 	"YRP Purchase Invoice": {"Merch User": (*ENTRY, "delete"), "Brand QA Manager": VIEW},
 	# Not a production row: Purchase users reached it there through Stock/Accounts User.

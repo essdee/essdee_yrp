@@ -11,7 +11,8 @@ def can_view_lot_cut_quantity():
 
 
 def can_run_lot_cut_quantity():
-	"""Purchase roles, or the Sewing, Finishing or Quality report access that lists this report."""
+	"""Purchase roles, or the Sewing, Finishing, Quality or Accounts report access that lists this report."""
+	from essdee_yrp.accounts.web_capabilities import can_view_accounts_reports
 	from essdee_yrp.finishing.web_workspace import has_report_access as has_finishing_report_access
 	from essdee_yrp.quality.web_workspace import has_report_access as has_quality_report_access
 	from essdee_yrp.sewing.web_workspace import has_report_access as has_sewing_report_access
@@ -21,6 +22,7 @@ def can_run_lot_cut_quantity():
 		or has_sewing_report_access()
 		or has_finishing_report_access()
 		or has_quality_report_access()
+		or can_view_accounts_reports()
 	)
 
 

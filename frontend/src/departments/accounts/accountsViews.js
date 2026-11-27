@@ -1,4 +1,5 @@
 import { departmentDeskReports } from "../../components/reports/deskReportConfig.js"
+import { lotCutQuantityProps } from "../departmentReports.js"
 import { merchLauncherItems } from "../merch/merchViews.js"
 import { pdLauncherItems } from "../pd/pdViews.js"
 import { departments } from "../registry.js"
@@ -25,7 +26,7 @@ export const ACCOUNTS_WORKSPACES = [
 	{
 		key: "reports",
 		label: "Reports",
-		description: "Stock, cutting, sewing, dispatch and ironing reports.",
+		description: "Stock, cutting, sewing, dispatch, ironing and Lot Cut Quantity reports.",
 		icon: "pi pi-chart-bar",
 		to: "/accounts/reports",
 	},
@@ -33,7 +34,7 @@ export const ACCOUNTS_WORKSPACES = [
 
 export const ACCOUNTS_COMBINED_KEYS = departments.find((department) => department.key === "accounts").combinedSections
 
-/** Accounts cards, then the Lot card from Merch and the Lotwise Item Profit card from PD, then Reports. */
+/** Accounts cards, then the Lot and Process Cost cards from Merch and the Lotwise Item Profit card from PD, then Reports. */
 export function accountsLauncherItems() {
 	const borrowed = [...merchLauncherItems(), ...pdLauncherItems()]
 	const own = ACCOUNTS_WORKSPACES.filter((item) => item.key !== "reports")
@@ -54,6 +55,7 @@ export const ACCOUNTS_REPORTS = [
 	},
 	{ key: "ironing_dpr", value: "ironing-dpr", label: "Ironing DPR", icon: "pi pi-sliders-h" },
 	{ key: "audit_pending_finishing_plans", value: "audit-pending", label: "Audit Pending", icon: "pi pi-check-square" },
+	{ key: "lot_cut_quantity", value: "lot-cut-quantity", label: "Lot Cut Quantity", icon: "pi pi-th-large", capabilityProps: lotCutQuantityProps },
 ]
 
 export const PURCHASE_INVOICE_STATUS_OPTIONS = [
@@ -115,7 +117,9 @@ const PURCHASE_INVOICE_ACTIONS = [
 const PURCHASE_INVOICE_PRIMARY_ACTIONS = ["submit", "approve", "edit"]
 
 export function accountsReportTabs(reports) {
-	return [...ACCOUNTS_REPORTS.filter((report) => reports?.[report.key]?.can_read), ...departmentDeskReports("accounts", reports)]
+	const own = ACCOUNTS_REPORTS.filter((report) => reports?.[report.key]?.can_read)
+		.map((report) => ({ ...report, componentProps: report.capabilityProps?.(reports[report.key]) }))
+	return [...own, ...departmentDeskReports("accounts", reports)]
 }
 
 /** Mirror YRPPurchaseInvoice.calculate_total: sum unrounded rows, round the totals once. */

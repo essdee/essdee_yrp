@@ -28,6 +28,7 @@ const REPORT_COMPONENTS = {
 	finishing_dispatch: defineAsyncComponent(() => import("../finishing/reports/FinishingDispatchReport.vue")),
 	ironing_dpr: defineAsyncComponent(() => import("../finishing/reports/FinishingIroningDpr.vue")),
 	audit_pending_finishing_plans: defineAsyncComponent(() => import("./reports/AuditPendingFinishingPlans.vue")),
+	lot_cut_quantity: defineAsyncComponent(() => import("../../components/reports/LotCutQuantityReport.vue")),
 }
 
 const loading = ref(true)

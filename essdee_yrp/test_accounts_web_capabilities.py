@@ -56,9 +56,41 @@ class TestAccountsHrCapabilities(TestCase):
 			sections = web_capabilities.get_capabilities()["sections"]
 
 		self.assertEqual(sections["lots"], {"label": "Lot", "can_read": True, "can_create": False})
+		self.assertEqual(sections["process_costs"], {"label": "Process Cost", "can_read": False, "can_create": False})
 		self.assertEqual(
 			sections["lotwise_item_profits"], {"label": "Lotwise Item Profit", "can_read": False, "can_create": False}
 		)
+
+	def test_process_cost_card_follows_process_cost_read(self):
+		from essdee_yrp.accounts import web_capabilities
+
+		with (
+			patch.object(web_capabilities, "can_view_accounts_reports", return_value=False),
+			patch.object(
+				frappe, "has_permission", side_effect=lambda doctype, ptype: doctype == "YRP Process Cost" and ptype == "read"
+			),
+		):
+			sections = web_capabilities.get_capabilities()["sections"]
+
+		self.assertEqual(sections["process_costs"], {"label": "Process Cost", "can_read": True, "can_create": False})
+
+	def test_accounts_roles_get_lot_cut_quantity(self):
+		from essdee_yrp.accounts import web_capabilities
+		from essdee_yrp.purchase.lot_cut_quantity import can_run_lot_cut_quantity
+
+		gates = {key: (label, lambda: False) for key, (label, _) in web_capabilities.REPORT_GATES.items()}
+		for roles, expected in ((["Accounts User"], True), (["Desk User"], False)):
+			with (
+				self.subTest(roles=roles),
+				patch.object(web_capabilities, "REPORT_GATES", gates),
+				patch.object(frappe, "get_roles", return_value=roles),
+				patch.object(frappe, "has_permission", return_value=False),
+			):
+				reports = web_capabilities.get_capabilities()["reports"]
+				self.assertEqual("lot_cut_quantity" in reports, expected)
+				self.assertEqual(can_run_lot_cut_quantity(), expected)
+				if expected:
+					self.assertFalse(reports["lot_cut_quantity"]["can_read_cutting_plan"])
 
 	def test_audit_pending_gate_is_last_and_requires_accounts_role_and_plan_read(self):
 		from essdee_yrp.accounts import web_capabilities
@@ -101,7 +133,7 @@ class TestAccountsHrCapabilities(TestCase):
 			frappe, "has_permission", return_value=True
 		), patch("essdee_yrp.desk_web_reports.can_run_desk_report", return_value=False):
 			result = web_capabilities.get_capabilities()
-		self.assertEqual(list(result["reports"]), ["stock_balance"])
+		self.assertEqual(list(result["reports"]), ["stock_balance", "lot_cut_quantity"])
 		self.assertTrue(result["sections"]["reports"]["can_read"])
 		self.assertTrue(result["sections"]["purchase_invoices"]["can_create"])
 
@@ -113,7 +145,7 @@ class TestAccountsHrCapabilities(TestCase):
 		}
 		with patch.object(web_capabilities, "REPORT_GATES", gates), patch.object(
 			frappe, "has_permission", return_value=False
-		):
+		), patch.object(frappe, "get_roles", return_value=["Desk User"]):
 			result = web_capabilities.get_capabilities()
 		self.assertEqual(result["reports"], {})
 		self.assertFalse(result["sections"]["reports"]["can_read"])
@@ -194,7 +226,15 @@ class TestAccountsReportGrants(TestCase):
 		frappe.set_user(self.user)
 		self.assertEqual(
 			list(get_capabilities()["reports"]),
-			["stock_balance", "cutting_dpr", "sewing_dpr", "finishing_dispatch", "ironing_dpr", "audit_pending_finishing_plans"],
+			[
+				"stock_balance",
+				"cutting_dpr",
+				"sewing_dpr",
+				"finishing_dispatch",
+				"ironing_dpr",
+				"audit_pending_finishing_plans",
+				"lot_cut_quantity",
+			],
 		)
 		self._assert_report_endpoints_run()
 

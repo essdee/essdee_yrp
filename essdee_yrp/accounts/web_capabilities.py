@@ -7,13 +7,15 @@ from essdee_yrp.desk_web_reports import department_report_capabilities
 from essdee_yrp.fabric_store.web_workspace import can_run_report
 from essdee_yrp.finishing.web_reports import can_view_dispatch_report
 from essdee_yrp.finishing.web_workspace import get_capabilities as get_finishing_capabilities
+from essdee_yrp.purchase.lot_cut_quantity import get_lot_cut_quantity_capability
 from essdee_yrp.sewing.web_workspace import get_capabilities as get_sewing_capabilities
 from essdee_yrp.web_common import report_access_scope
 
 ACCOUNTS_REPORT_ROLES = frozenset({"Accounts User", "Accounts Manager", "System Manager"})
-# Read-only cards that open the Merch Lot and PD Lotwise Item Profit pages.
+# Read-only cards that open the Merch Lot and Process Cost and PD Lotwise Item Profit pages.
 COMBINED_SECTIONS = {
 	"lots": ("Lot", "SD YRP Lot"),
+	"process_costs": ("Process Cost", "YRP Process Cost"),
 	"lotwise_item_profits": ("Lotwise Item Profit", "SD YRP Lotwise Item Profit"),
 }
 
@@ -55,6 +57,7 @@ def get_capabilities() -> dict:
 			for key, (label, is_allowed) in REPORT_GATES.items()
 			if is_allowed()
 		}
+		reports["lot_cut_quantity"] = get_lot_cut_quantity_capability()
 		reports.update(department_report_capabilities("accounts", True))
 	return {
 		"sections": {
