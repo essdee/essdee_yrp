@@ -405,6 +405,11 @@ def _capability_candidates(
 		"submit": {"label": _("Submit"), "permission": "submit", "eligible": docstatus == 0},
 		"cancel": {"label": _("Cancel Document"), "permission": "cancel", "eligible": docstatus == 1},
 		"amend": {"label": _("Amend"), "permission": "amend", "eligible": docstatus == 2},
+		"edit_secondary_qty": {
+			"label": _("Secondary Qty"),
+			"permission": "update_after_submit" if docstatus == 1 else "write",
+			"eligible": docstatus in (0, 1),
+		},
 		"calculate_fabric": {
 			"label": _("Calculate Fabric Deliverables"),
 			"permission": "write",
@@ -885,6 +890,8 @@ def execute_work_order_command(
 		"create_sewing_plan",
 		"get_correction_context",
 		"create_work_order_correction",
+		"get_secondary_quantities",
+		"update_secondary_quantities",
 	}
 	if command not in commands:
 		frappe.throw(_("Unsupported Work Order command: {0}").format(command))
@@ -912,6 +919,8 @@ def execute_work_order_command(
 				can_read_debits and _settings_role_allowed("debit_approval_role")
 			),
 		}
+	if command == "get_secondary_quantities":
+		return {"rows": doc.get_secondary_quantity_rows()}
 	if command == "get_correction_context":
 		return get_work_order_correction_context(name)
 	if command == "get_rework_context":
@@ -1020,6 +1029,9 @@ def execute_work_order_command(
 			payload.get("reason"),
 			_return=False,
 		)
+	elif command == "update_secondary_quantities":
+		doc.check_permission("write")
+		doc.set_secondary_quantities(payload.get("quantities") or {})
 	elif command == "change_item":
 		apply_bom_accessory_changes(name, payload.get("selected") or [])
 	elif command == "create_recut":

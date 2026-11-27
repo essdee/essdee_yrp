@@ -2,6 +2,8 @@
 
 {% macro cloth_quantity(value) %}{% if value %}{% set text = "%.3f" | format(value) %}{{ text.rstrip("0").rstrip(".") }}{% else %}—{% endif %}{% endmacro %}
 
+{% macro cloth_cell(value, secondary, cloth) %}{% if cloth.has_secondary and value and cloth.uom %}{{ cloth_quantity(value) }} <span class="wo-cloth-uom">{{ cloth.uom }}</span>{% else %}{{ cloth_quantity(value) }}{% endif %}{% for secondary_uom, qty in (secondary or {}).items() %}{% if qty %}<div class="wo-cloth-secondary">{{ cloth_quantity(qty) }} {{ secondary_uom }}</div>{% endif %}{% endfor %}{% endmacro %}
+
 {% macro cloth_program_tables(tables) %}
 <div class="wo-cloth-program">
     {% for cloth in tables %}
@@ -24,15 +26,15 @@
                     <tr>
                         {% if cloth.has_fabric_type %}<td>{{ fabric.fabric_type }}</td>{% endif %}
                         <td>{{ route.dia or "—" }}</td>
-                        {% for colour in cloth.colours %}<td class="wo-cloth-weight">{{ cloth_quantity(route.quantities.get(colour, 0)) }}</td>{% endfor %}
-                        <td class="wo-cloth-weight"><strong>{{ cloth_quantity(route.total) }}</strong></td>
+                        {% for colour in cloth.colours %}<td class="wo-cloth-weight">{{ cloth_cell(route.quantities.get(colour, 0), route.secondary.get(colour), cloth) }}</td>{% endfor %}
+                        <td class="wo-cloth-weight"><strong>{{ cloth_cell(route.total, route.secondary_total, cloth) }}</strong></td>
                     </tr>
                     {% endfor %}
                     {% if cloth.has_fabric_type %}
                     <tr class="wo-cloth-subtotal">
                         <th class="wo-cloth-label" colspan="{{ label_columns }}">Total {{ fabric.fabric_type }}</th>
-                        {% for colour in cloth.colours %}<th class="wo-cloth-weight">{{ cloth_quantity(fabric.colour_totals.get(colour, 0)) }}</th>{% endfor %}
-                        <th class="wo-cloth-weight">{{ cloth_quantity(fabric.total) }}</th>
+                        {% for colour in cloth.colours %}<th class="wo-cloth-weight">{{ cloth_cell(fabric.colour_totals.get(colour, 0), fabric.colour_secondary.get(colour), cloth) }}</th>{% endfor %}
+                        <th class="wo-cloth-weight">{{ cloth_cell(fabric.total, fabric.secondary_total, cloth) }}</th>
                     </tr>
                     {% endif %}
                 {% endfor %}
@@ -40,8 +42,8 @@
             <tfoot>
                 <tr>
                     <th class="wo-cloth-label" colspan="{{ label_columns }}">Total</th>
-                    {% for colour in cloth.colours %}<th class="wo-cloth-weight">{{ cloth_quantity(cloth.colour_totals.get(colour, 0)) }}</th>{% endfor %}
-                    <th class="wo-cloth-weight">{{ cloth_quantity(cloth.total) }}</th>
+                    {% for colour in cloth.colours %}<th class="wo-cloth-weight">{{ cloth_cell(cloth.colour_totals.get(colour, 0), cloth.colour_secondary.get(colour), cloth) }}</th>{% endfor %}
+                    <th class="wo-cloth-weight">{{ cloth_cell(cloth.total, cloth.secondary_total, cloth) }}</th>
                 </tr>
             </tfoot>
         </table>
@@ -64,6 +66,8 @@
     .wo-cloth-table .wo-cloth-weight { text-align: right; white-space: nowrap; }
     .wo-cloth-table .wo-cloth-subtotal th { background: #f3f3f3; font-weight: 700; }
     .wo-cloth-table tfoot th { background: #dedede; border-top: 2px solid #111; font-weight: 700; }
+    .wo-cloth-table .wo-cloth-uom { font-size: 10px; font-weight: 400; }
+    .wo-cloth-table .wo-cloth-secondary { color: #333; font-size: 10px; font-weight: 400; margin-top: 2px; }
 </style>
 <div class="border-style" style="text-align: center;">Particulars</div>
 {{ cloth_program_tables(program.tables) }}
