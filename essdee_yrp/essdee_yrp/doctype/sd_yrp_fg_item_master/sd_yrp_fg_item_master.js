@@ -7,6 +7,7 @@ frappe.ui.form.on("SD YRP FG Item Master", {
 		}));
 	},
 	refresh(frm) {
+		add_size_link_titles(frm);
 		if (frm.is_new() || !frm.has_perm("write")) return;
 		frm.page.add_menu_item(__("Create / Update YRP Item"), () => {
 			frappe.call({
@@ -38,3 +39,13 @@ frappe.ui.form.on("SD YRP FG Item Master", {
 		});
 	},
 });
+
+// Saved rows hold IAV ids; the save response carries no link titles, so grids showed raw ids.
+function add_size_link_titles(frm) {
+	const rows = (frm.doc.sizes || []).filter((row) => row.attribute_value?.startsWith("IAV-"));
+	for (const row of rows) {
+		const title = frappe.yrp.attribute_value(row.attribute_value);
+		frappe.utils.add_link_title("YRP Item Attribute Value", row.attribute_value, title);
+	}
+	if (rows.length) frm.refresh_field("sizes");
+}

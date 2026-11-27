@@ -154,6 +154,7 @@ def create_item(fg_item):
 	item.item_name = fg_item.name1
 	item.brand = fg_item.brand
 	item.item_group = "Products"
+	item.gst_hsn_code = fg_item.hsn
 	item.stock_uom = template.default_unit_of_measure
 	item.secondary_unit_of_measure = template.secondary_unit_of_measure
 	item.primary_attribute = template.primary_attribute
