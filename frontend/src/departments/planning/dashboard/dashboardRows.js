@@ -2,8 +2,9 @@ import { csvText, plural } from "./dashboardFormat.js"
 
 export const NO_WORK_ORDER = "No Work Order yet"
 export const PO_CREATED = "PO Created"
+export const LOT_NOT_LINKED = "Lot not linked"
 export const LADDER_TONE = {
-	[PO_CREATED]: "amber", "Yarn / Fabric Received": "blue",
+	[LOT_NOT_LINKED]: "red", [PO_CREATED]: "amber", "Yarn / Fabric Received": "blue",
 	"Fabric not received": "amber", "Waiting for cutting": "amber", "In cutting": "amber",
 	"Waiting for sewing": "blue", "In sewing": "blue", "Ready for packing": "blue",
 	"Packing in progress": "amber", Dispatched: "green",
@@ -56,13 +57,18 @@ export function filterDashboardRows(rows, filters, except = null) {
 /** `{ value, hint }` options of one filter from the rows matching the other filters. */
 export function dashboardOptions(rows, filters, kind, ppos = {}) {
 	const matching = filterDashboardRows(rows, filters, kind)
-	if (kind === "lot") return matching.map((row) => ({ value: row.lot, hint: row.item || "" }))
+	if (kind === "lot") return matching.filter((row) => row.lot).map((row) => ({ value: row.lot, hint: row.item || "" }))
 	const counts = new Map()
 	matching.flatMap((row) => (kind === "status" ? rowStatuses(row) : [row[kind]])).filter(Boolean).forEach((value) => counts.set(value, (counts.get(value) || 0) + 1))
 	const statuses = kind === "status" ? orderStatuses(matching) : null
 	const entries = [...counts.entries()].sort((a, b) => (statuses ? statuses.indexOf(a[0]) - statuses.indexOf(b[0]) : String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true })))
-	if (kind === "ppo") return entries.map(([value, count]) => ({ value, hint: `${ppos[value]?.item_name || ppos[value]?.item || ""} · ${plural(count, "lot")}` }))
-	return entries.map(([value, count]) => ({ value, hint: plural(count, "lot") }))
+	if (kind === "ppo") return entries.map(([value]) => ({ value, hint: `${ppos[value]?.item_name || ppos[value]?.item || ""} · ${ppoLotHint(matching, value)}` }))
+	return entries.map(([value, count]) => ({ value, hint: plural(count, value === LOT_NOT_LINKED ? "PPO" : "lot") }))
+}
+
+function ppoLotHint(rows, ppo) {
+	const count = rows.filter((row) => row.ppo === ppo && row.lot).length
+	return count ? plural(count, "lot") : LOT_NOT_LINKED
 }
 
 /** {PPO: {ppoQty, lotQty}} of `rows`, each PPO's share summed over its lots in `rows`. */
@@ -103,14 +109,15 @@ export function ppoConversions(names, ppos = {}) {
 	}
 }
 
-/** Tile figures over exactly the rows the table shows (the rows matching the filters). */
+/** Tile figures over the lot rows the table shows; `tableRows` adds the lot-less PPO rows. */
 export function dashboardTotals(data, filters) {
-	const rows = filterDashboardRows(data.lots || [], filters)
+	const tableRows = filterDashboardRows(data.lots || [], filters)
+	const rows = tableRows.filter((row) => row.lot)
 	const lots = rows.filter((row) => row.has_work_order)
 	const open = lots.filter(isOpen)
 	const ppoNames = [...new Set(rows.map((row) => row.ppo))]
 	return {
-		rows, lots, open, ppoNames,
+		tableRows, rows, lots, open, ppoNames,
 		allPpoCount: Object.keys(data.ppos || {}).length,
 		ppoCount: ppoNames.length,
 		ppoWithWorkOrders: new Set(lots.map((row) => row.ppo)).size,
@@ -126,7 +133,7 @@ export function statusCards(rows) {
 	const buckets = rows.flatMap(rowBuckets)
 	return orderStatuses(rows).map((status) => {
 		const matching = buckets.filter((bucket) => bucket.status === status)
-		return { status, isNoWorkOrder: status === NO_WORK_ORDER, count: matching.length, pieces: sum(matching, (bucket) => bucket.pieces) }
+		return { status, isNoWorkOrder: status === NO_WORK_ORDER, isUnlinked: status === LOT_NOT_LINKED, count: matching.length, pieces: sum(matching, (bucket) => bucket.pieces) }
 	})
 }
 
@@ -150,8 +157,8 @@ export function groupDashboardRows(rows) {
 		return {
 			ppo, isGroup: true, lots, items, mix, status, status_rank, ...sums,
 			is_set: lots.some((row) => row.is_set),
-			lot: lots.map((row) => row.lot).join(", "),
-			lotCount: lots.length,
+			lot: lots.map((row) => row.lot).filter(Boolean).join(", "),
+			lotCount: lots.filter((row) => row.lot).length,
 			item: items.length === 1 ? items[0] : `${items.length} items`,
 			product_category: categories.length > 1 ? `${categories.length} categories` : categories[0] || null,
 			otherStatuses: Object.keys(mix).length - 1,

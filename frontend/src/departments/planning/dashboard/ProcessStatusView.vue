@@ -89,7 +89,7 @@ import ProcessDetailDialog from "./ProcessDetailDialog.vue"
 import { formatQuantity, plural } from "./dashboardFormat.js"
 import { dashboardOptions, emptyDashboardFilters, filterDashboardRows, hasDashboardFilter } from "./dashboardRows.js"
 import { useRowWindow } from "./rowWindow.js"
-import { CELL_TONES, NOT_IN_IPD, cellView, processStatusRows, visibleProcesses } from "./processStatusRows.js"
+import { CELL_TONES, NOT_IN_IPD, cellView, lotRows, processStatusRows, visibleProcesses } from "./processStatusRows.js"
 
 /** Dashboard lots with one column per IPD process; a cell opens the PPO Tracking process detail. */
 const props = defineProps({
@@ -123,7 +123,7 @@ const rows = computed(() => filterDashboardRows(allRows.value, activeFilters.val
 const processes = computed(() => visibleProcesses(status.value.processes, rows.value))
 const { shown, sentinel } = useRowWindow(rows)
 const views = computed(() => shown.value.rows.map((row) => Object.fromEntries(processes.value.map(({ name }) => [name, cellView(row, name)]))))
-const options = computed(() => Object.fromEntries(FILTERS.map(({ kind }) => [kind, dashboardOptions(dashboard.value?.lots || [], activeFilters.value, kind, dashboard.value?.ppos)])))
+const options = computed(() => Object.fromEntries(FILTERS.map(({ kind }) => [kind, dashboardOptions(lotRows(dashboard.value), activeFilters.value, kind, dashboard.value?.ppos)])))
 const rangeText = computed(() => (rows.value.length ? plural(rows.value.length, "lot") : "No lots"))
 
 async function load() {

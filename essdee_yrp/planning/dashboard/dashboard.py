@@ -31,7 +31,11 @@ def get_dashboard_data():
 	ppos = get_ppo_details(
 		production_orders, lots, {lot["name"]: metrics.get_lot_quantity(lot["name"]) for lot in lots}
 	)
-	categories = get_product_categories(lot["item"] for lot in lots)
+	linked = {lot["production_order"] for lot in lots}
+	unlinked = [row["name"] for row in production_orders if row["name"] not in linked]
+	categories = get_product_categories(
+		[*(lot["item"] for lot in lots), *(ppos[name]["item"] for name in unlinked)]
+	)
 	return {
 		"as_of": today(),
 		"sewing_processes": sewing,
@@ -42,7 +46,25 @@ def get_dashboard_data():
 				"product_category": categories.get(lot["item"]),
 			}
 			for lot in lots
+		]
+		+ [
+			{**get_unlinked_row(name, ppos[name]), "product_category": categories.get(ppos[name]["item"])}
+			for name in unlinked
 		],
+	}
+
+
+def get_unlinked_row(name, ppo):
+	"""An Open PPO with no open lot: PPO item and quantity only, lot figures left empty."""
+	return {
+		"lot": None,
+		"ppo": name,
+		"item": ppo["item"],
+		"delivery": ppo["delivery"],
+		"ppo_qty": ppo["pieces"],
+		"has_work_order": False,
+		"status": ladder.LOT_NOT_LINKED,
+		"status_rank": ladder.get_status_rank(ladder.LOT_NOT_LINKED, 0),
 	}
 
 

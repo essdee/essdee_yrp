@@ -20,7 +20,8 @@
 			>
 				<LotStatusPill :status="card.status" />
 				<b>{{ formatQuantity(card.count) }}</b>
-				<small>lots · {{ formatQuantity(card.pieces) }} pcs{{ card.isNoWorkOrder ? " planned" : "" }}</small>
+				<small v-if="card.isUnlinked">open PPOs with no open lot</small>
+				<small v-else>lots · {{ formatQuantity(card.pieces) }} pcs{{ card.isNoWorkOrder ? " planned" : "" }}</small>
 			</button>
 		</div>
 		<p v-else class="pd-empty">No lots match these filters.</p>
@@ -40,5 +41,5 @@ const props = defineProps({
 	active: { type: Array, default: () => [] },
 })
 const emit = defineEmits(["toggle"])
-const cards = computed(() => statusCards(props.totals.rows))
+const cards = computed(() => statusCards(props.totals.tableRows))
 </script>

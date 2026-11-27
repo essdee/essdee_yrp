@@ -11,10 +11,14 @@ export function ppoStatuses(lots) {
 	return Object.fromEntries(groupDashboardRows(lots).map((group) => [group.ppo, group.status]))
 }
 
+/** Dashboard rows that have a lot; lot-less PPO rows have no processes. */
+export const lotRows = (dashboard) => (dashboard?.lots || []).filter((row) => row.lot)
+
 /** Dashboard lot rows with their PPO status and `{process: cell}` from the Process Status endpoint. */
 export function processStatusRows(dashboard, status) {
-	const ppos = ppoStatuses(dashboard.lots || [])
-	return (dashboard.lots || []).map((row) => ({ ...row, ppoStatus: ppos[row.ppo], cells: status.lots?.[row.lot] || {} }))
+	const lots = lotRows(dashboard)
+	const ppos = ppoStatuses(lots)
+	return lots.map((row) => ({ ...row, ppoStatus: ppos[row.ppo], cells: status.lots?.[row.lot] || {} }))
 }
 
 /** Process columns with a cell in any of `rows`, kept in the server's production order. */
