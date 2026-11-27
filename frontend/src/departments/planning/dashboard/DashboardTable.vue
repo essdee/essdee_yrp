@@ -27,9 +27,9 @@
 						<td :class="isGrouped ? 'pd-lots-cell' : 'pd-lot-cell'">
 							<template v-if="isGrouped">
 								<template v-for="(lot, lotIndex) in linkedLots(row)" :key="lot.lot"><span v-if="lotIndex" class="pd-muted">, </span><button type="button" class="pd-link" @click="emit('drill', rowDrill(lot, true))">{{ lot.lot }}</button></template>
-								<template v-if="!row.lotCount"><span class="pd-muted pd-ellipsis" :title="row.closed_lots || undefined" :data-closed-lots="row.closed_lots || undefined">{{ row.closed_lots || "—" }}</span><small v-if="row.lots[0].delivery" class="pd-sub" data-unlinked-delivery>Delivery {{ formatDisplayDate(row.lots[0].delivery) }}</small></template>
+								<template v-if="!row.lotCount"><span class="pd-muted pd-ellipsis" :data-closed-lots="row.closed_lots || undefined">{{ row.closed_lots || "—" }}</span><small v-if="row.lots[0].delivery" class="pd-sub" data-unlinked-delivery>Delivery {{ formatDisplayDate(row.lots[0].delivery) }}</small></template>
 							</template>
-							<template v-else-if="!row.lot"><span class="pd-muted pd-ellipsis" :title="row.closed_lots || undefined" :data-closed-lots="row.closed_lots || undefined">{{ row.closed_lots || "—" }}</span><small v-if="row.delivery" class="pd-sub" data-unlinked-delivery>Delivery {{ formatDisplayDate(row.delivery) }}</small></template>
+							<template v-else-if="!row.lot"><span class="pd-muted pd-ellipsis" :data-closed-lots="row.closed_lots || undefined">{{ row.closed_lots || "—" }}</span><small v-if="row.delivery" class="pd-sub" data-unlinked-delivery>Delivery {{ formatDisplayDate(row.delivery) }}</small></template>
 							<button v-else type="button" class="pd-link pd-ellipsis" :title="row.lot" @click="emit('drill', rowDrill(row, true))">{{ row.lot }}</button>
 						</td>
 						<td class="pd-item-cell" :title="row.isGroup && row.items.length > 1 ? row.items.join(', ') : row.item">{{ row.item }}<small v-if="isUnlinked(row) && itemName(row) && itemName(row) !== row.item" class="pd-sub">{{ itemName(row) }}</small></td>
