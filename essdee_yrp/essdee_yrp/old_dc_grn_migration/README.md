@@ -33,7 +33,9 @@ This one-off script moves the "Ready" lots from the old DC/GRN software into yrp
    - Ordered vs received differences are not errors. A DC sends at most what the upstream GRNs hold, and a process GRN (not Knitting) books at most the kg still pending at the supplier; each cut is noted. Later lines follow a knitted Dia that was booked on its planned Dia (for knitted Greige, in every dyed colour).
    - Pending balances stay open on the WO.
 
-Re-running skips anything that already carries the tag. If one lot fails, it is rolled back to its savepoint and reported, and the other lots continue.
+`plan.SKIPPED_DOCUMENTS` leaves out old documents by user decision (F0926-48: GRN-2526-11024 repeats GRN-2526-10862).
+
+Re-running skips anything that already carries the tag, and a re-run receives yarn only for the Knitting WOs it creates. If one lot fails, it is rolled back to its savepoint and reported, and the other lots continue.
 
 **Rates.** The script refuses to create a Material Receipt while a needed yarn rate is `None`, unless you pass `allow_zero_rate`. It refuses to create a Process Cost while a needed process rate is `None`, because the app requires a price above 0. `placeholder_rates` is allowed in a dry run only: it uses rate 1 so you can test the rest of the run. Each report lists the rates still needed.
 
@@ -54,7 +56,7 @@ Re-running skips anything that already carries the tag. If one lot fails, it is 
 bench --site <site> execute essdee_yrp.essdee_yrp.old_dc_grn_migration.run.execute --kwargs '{"sync_masters": True}'
 bench --site <site> execute essdee_yrp.essdee_yrp.old_dc_grn_migration.run.execute --kwargs '{"sync_masters": True, "commit": True}'
 
-# 2. Dry run (the default), for all lots or for some lots
+# 2. Dry run (the default), for run.RUN_LOTS (batch 2, 27-11-2026) or for the lots named
 bench --site <site> execute essdee_yrp.essdee_yrp.old_dc_grn_migration.run.execute
 bench --site <site> execute essdee_yrp.essdee_yrp.old_dc_grn_migration.run.execute --kwargs '{"lots": "F0926-49,GY0926-25"}'
 bench --site <site> execute essdee_yrp.essdee_yrp.old_dc_grn_migration.run.execute --kwargs '{"placeholder_rates": True, "allow_zero_rate": True}'

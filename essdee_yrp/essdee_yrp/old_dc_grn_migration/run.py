@@ -12,6 +12,21 @@ from essdee_yrp.essdee_yrp.old_dc_grn_migration.masters import MasterCheck, appl
 from essdee_yrp.essdee_yrp.old_dc_grn_migration.plan import PlanError, build_lot_plan_from_snapshot
 from essdee_yrp.essdee_yrp.old_dc_grn_migration.report import write_reports
 
+# Lots a run takes when `lots` is not passed: batch 2 (user decision 27-11-2026). The 17-11 lots stay in data.LOTS
+# so a re-run of one of them must name it.
+RUN_LOTS = (
+	"GY0926-11",
+	"GY0926-12",
+	"GY0926-19",
+	"GY0926-20",
+	"GY0926-22",
+	"GY0926-13",
+	"GY0926-15",
+	"GY0926-23",
+	"F0926-48",
+	"F0926-55",
+)
+
 
 @dataclass
 class LotInput:
@@ -24,7 +39,7 @@ class LotInput:
 def get_lot_inputs(lots):
 	inputs = []
 	for data in LOTS:
-		if lots and data["lot"] not in lots:
+		if data["lot"] not in lots:
 			continue
 		item = LotInput(data["lot"], data["yarn_colour_map"])
 		try:
@@ -42,15 +57,17 @@ def execute(commit=False, sync_masters=False, allow_zero_rate=False, lots=None, 
 	placeholder_rates (dry run only): Process Costs at rate 1 when PROCESS_RATES has none, to test the rest.
 
 	sync_masters=True only creates the masters this site lacks (prod lacks the Sri Pavai Knits Warehouse).
-	lots: list or comma-separated string of lot names; default all lots in data.LOTS.
+	lots: list or comma-separated string of lot names in data.LOTS; default RUN_LOTS.
 	"""
 	commit, sync_masters, allow_zero_rate = bool(commit), bool(sync_masters), bool(allow_zero_rate)
 	if commit and placeholder_rates:
 		frappe.throw("placeholder_rates is only allowed in a dry run")
-	lots = set(lots.split(",") if isinstance(lots, str) else lots or [])
+	lots = set(lots.split(",") if isinstance(lots, str) else lots or RUN_LOTS)
+	if unknown := lots - {data["lot"] for data in LOTS}:
+		frappe.throw(f"Lots not in data.LOTS: {', '.join(sorted(unknown))}")
 	frappe.set_user("Administrator")
 	frappe.db.rollback()
-	selected = [data for data in LOTS if not lots or data["lot"] in lots]
+	selected = [data for data in LOTS if data["lot"] in lots]
 	check = MasterCheck(selected).run()
 	if sync_masters:
 		return run_sync_masters(check, commit)

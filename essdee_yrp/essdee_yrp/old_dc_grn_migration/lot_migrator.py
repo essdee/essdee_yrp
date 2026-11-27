@@ -38,6 +38,7 @@ class LotMigrator:
 		self.work_orders = {}
 		self.delivery_challans = {}
 		self.reused = set()
+		self.migrated = set()
 		self.excess_yarn = {}
 		self.knit_routes = {}
 		self.dia_remaps = {}
@@ -58,7 +59,7 @@ class LotMigrator:
 		self.ensure_chains()
 		knitting = [plan for plan in self.plan.work_orders if plan.process == KNITTING]
 		names = [self.ensure_work_order(plan) for plan in knitting]
-		self.ensure_yarn(knitting, [name for name in dict.fromkeys(names) if name not in self.reused])
+		self.ensure_yarn(knitting, self.get_new_work_orders(names))
 		self.dates = get_effective_dates(self.plan, self.get_yarn_ready_dates(knitting))
 		for _stage, _date, _kind, plan, grn in self.get_events():
 			step = f"{plan.process} {grn.number if grn else plan.dc.number} ({plan.supplier}, {plan.cloth})"
@@ -169,6 +170,7 @@ class LotMigrator:
 		)
 		if name:
 			self.skipped["YRP Work Order"] += 1
+			self.migrated.add(name)
 		elif plan.process == KNITTING and (name := self.find_existing_knitting(plan)):
 			self.notes.append(
 				f"{plan.dc.number}: reused existing Knitting WO {name} (yarn already delivered in yrp)"
@@ -203,6 +205,10 @@ class LotMigrator:
 		if source:
 			self.notes.append(f"{doc.name} ({plan.process}, {plan.dc.number}) sourced from {source}")
 		return doc.name
+
+	def get_new_work_orders(self, names):
+		"""WOs created by this run: an earlier run's WO already took its yarn, a reused one has it delivered."""
+		return [name for name in dict.fromkeys(names) if name not in self.reused | self.migrated]
 
 	def get_yarn_ready_dates(self, knitting):
 		"""A new Knitting DC cannot be posted before the yarn it delivers was received for the lot."""

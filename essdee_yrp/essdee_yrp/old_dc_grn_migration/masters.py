@@ -36,9 +36,10 @@ SUPPLIERS = {
 	},
 }
 
-# Cloth Item yarn recipes the user added on prod (13-11-2026); values copied from prod.
+# Cloth Item yarn recipes the user added on prod (13-11-2026; 30'S OE BLACK 05-11-2026); values copied from prod.
 CLOTH_YARN_RECIPES = {
 	"25's OE Cloth": [{"yarn_item": "Yarn 25's OE", "ratio": 100.0}],
+	"30'S OE BLACK": [{"yarn_item": "Yarn 30's OE", "ratio": 100.0}],
 	"40's VL Interlock Cloth": [{"yarn_item": "Yarn 40's VL", "ratio": 100.0}],
 }
 

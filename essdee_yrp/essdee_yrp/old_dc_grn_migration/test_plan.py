@@ -6,7 +6,7 @@ from unittest.mock import patch
 from essdee_yrp.essdee_yrp.old_dc_grn_migration.cloth import ensure_accessory_dias, ensure_process_chain
 from essdee_yrp.essdee_yrp.old_dc_grn_migration.data import LOTS, PROCESS_RATES, YARN_RATES
 from essdee_yrp.essdee_yrp.old_dc_grn_migration.documents import cap_receipt_to_pending, fill_receipt_rows
-from essdee_yrp.essdee_yrp.old_dc_grn_migration.lot_migrator import get_booked_dia
+from essdee_yrp.essdee_yrp.old_dc_grn_migration.lot_migrator import LotMigrator, get_booked_dia
 from essdee_yrp.essdee_yrp.old_dc_grn_migration.masters import (
 	CLOTH_YARN_RECIPES,
 	IPD_CLOTHS,
@@ -31,6 +31,7 @@ from essdee_yrp.essdee_yrp.old_dc_grn_migration.plan import (
 	to_dia,
 )
 from essdee_yrp.essdee_yrp.old_dc_grn_migration.process_cost import ProcessRateMissing, ensure_process_cost
+from essdee_yrp.essdee_yrp.old_dc_grn_migration.run import RUN_LOTS
 
 DOCUMENTS = "essdee_yrp.essdee_yrp.old_dc_grn_migration.documents"
 PLAN = "essdee_yrp.essdee_yrp.old_dc_grn_migration.plan"
@@ -742,6 +743,40 @@ class OldDcGrnPlanTest(unittest.TestCase):
 		self.assertEqual([(line.dia, line.kg) for line in dyeing.grns[0].lines], [("24 Dia", 60.0)])
 		self.assertEqual([line.dia for line in other.lines], ["15 Dia", "24 Dia"])
 
+	def test_skipped_documents_are_dropped_for_the_configured_lot_only(self):
+		documents = [
+			dc(10, "Steaming", "KSM", "2026-10-15", ("BLACK", "14", 1, 20.0)),
+			grn(20, "KSM", "2026-10-20", [10], ("BLACK", "14", 1, 20.0)),
+			grn(21, "KSM", "2026-10-27", [10], ("BLACK", "14", 1, 20.0)),
+		]
+		with patch.dict(f"{PLAN}.SKIPPED_DOCUMENTS", {"L": {"GRN-21"}}):
+			(steaming,) = build_lot_plan("L", documents, MAPPINGS).work_orders
+			(other,) = build_lot_plan("L2", documents, MAPPINGS).work_orders
+			with patch.dict(f"{PLAN}.SKIPPED_DOCUMENTS", {"L": {"GRN-99"}}):
+				with self.assertRaisesRegex(PlanError, "SKIPPED_DOCUMENTS"):
+					build_lot_plan("L", documents, MAPPINGS)
+		self.assertEqual([grn.number for grn in steaming.grns], ["GRN-20"])
+		self.assertEqual([grn.number for grn in other.grns], ["GRN-20", "GRN-21"])
+
+	def test_yarn_is_needed_only_for_knitting_work_orders_this_run_creates(self):
+		migrator = LotMigrator.__new__(LotMigrator)
+		migrator.reused, migrator.migrated = {"WO-REAL"}, {"WO-TAGGED"}
+		self.assertEqual(
+			migrator.get_new_work_orders(["WO-TAGGED", "WO-NEW", "WO-REAL", "WO-NEW"]), ["WO-NEW"]
+		)
+
+	def test_batch_two_lots_plan_from_the_embedded_data(self):
+		data = {lot["lot"]: lot for lot in LOTS}
+		plans = {lot: build_lot_plan_from_snapshot(data[lot]) for lot in RUN_LOTS}
+		grns = {
+			lot: {grn.number: grn for work_order in plan.work_orders for grn in work_order.grns}
+			for lot, plan in plans.items()
+		}
+		self.assertNotIn("GRN-2526-11024", grns["F0926-48"])
+		self.assertIn("GRN-2526-10862", grns["F0926-48"])
+		self.assertNotIn("28 Dia", {line.dia for line in grns["F0926-55"]["GRN-2526-10976"].lines})
+		self.assertEqual(YARN_RATES["GY0926-11"], {"Yarn 34's-G Mel": 337.15, "Yarn 36's RL-Greige": 338})
+
 	def test_dc_cloths_and_grn_links_split_one_old_colour_over_two_cloths(self):
 		documents = [
 			dc(10, "Knitting Program", "VIJAY", "2026-10-07", ("GREY FABRIC", "26", 2, 36.0)),
@@ -822,7 +857,7 @@ class OldDcGrnPlanTest(unittest.TestCase):
 			self.accessory_lot(["36 Dia"])
 
 	def test_process_rates_cover_every_key_with_colour_wise_dyeing(self):
-		self.assertEqual(len(PROCESS_RATES), 43)
+		self.assertEqual(len(PROCESS_RATES), 45)
 		for key, rate in PROCESS_RATES.items():
 			rates = rate.values() if key.startswith("Dyeing|") else [rate]
 			self.assertIsInstance(rate, dict if key.startswith("Dyeing|") else float, key)

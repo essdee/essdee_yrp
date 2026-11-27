@@ -57,7 +57,19 @@ IPD_ACCESSORY_DIAS = {"F0826-45": ("Casual Designer vest - 5-11", "26 Dia", "24 
 # Old DC/GRN lines entered in the wrong Dia (user decision 17-11-2026): lot -> {(document number, old colour, old Dia):
 # corrected old Dia}. The line merges into the document's line of that colour and Dia. GY0926-24: Dyeing DC-2526-10946's
 # Navy 15 Dia 21 kg is Navy 24 Dia (no 15 Dia was knitted in the lot).
-LINE_DIAS = {"GY0926-24": {("DC-2526-10946", "NAVY", "15"): "24"}}
+# F0926-55 (27-11-2026): the 28 Dia Navy/Black was booked on 26 Dia on 17-11; the later Washing GRN follows it.
+LINE_DIAS = {
+	"GY0926-24": {("DC-2526-10946", "NAVY", "15"): "24"},
+	"F0926-55": {
+		("DC-2526-10717", "NAVY BLUE", "28"): "26",
+		("DC-2526-10796", "BLACK", "28"): "26",
+		("GRN-2526-10976", "NAVY BLUE", "28"): "26",
+		("GRN-2526-10976", "BLACK", "28"): "26",
+	},
+}
+# Old documents left out by user decision (27-11-2026): lot -> document numbers.
+# F0926-48: GRN-2526-11024 repeats GRN-2526-10862 (same Steaming DC, same 125.8 kg).
+SKIPPED_DOCUMENTS = {"F0926-48": {"GRN-2526-11024"}}
 
 
 @dataclass(frozen=True)
@@ -291,7 +303,7 @@ class LotPlanner:
 		return entries.pop()
 
 	def build(self, documents):
-		documents = correct_line_dias(self.lot, documents)
+		documents = correct_line_dias(self.lot, skip_documents(self.lot, documents))
 		documents = [*documents, *get_synthetic_grns(self.lot, documents)]
 		dcs = [
 			d for d in documents if d.side == "DC" and get_yrp_process(d.process) not in EXCLUDED_PROCESSES
@@ -386,6 +398,14 @@ class LotPlanner:
 			(key, PlanLine(line.colour, line.dia, roll, kg, line.old_colour, dc_line.dia, line.cloth))
 			for (key, dc_line), kg, roll in zip(targets, kgs, rolls, strict=True)
 		]
+
+
+def skip_documents(lot, documents):
+	"""SKIPPED_DOCUMENTS: drop the listed old documents; fails if one is not in the lot."""
+	skipped = SKIPPED_DOCUMENTS.get(lot, set())
+	if missing := skipped - {document.number for document in documents}:
+		raise PlanError(f"lot {lot}: SKIPPED_DOCUMENTS {sorted(missing)} not in the old documents")
+	return [document for document in documents if document.number not in skipped]
 
 
 def correct_line_dias(lot, documents):
