@@ -6,7 +6,7 @@ from essdee_yrp.planning.dashboard.lot_metrics import LotMetrics, get_sewing_pro
 from essdee_yrp.planning.dashboard.production_orders import (
 	OPEN_PPO_FILTERS,
 	PPO,
-	get_linked_production_orders,
+	get_linked_lots,
 	get_lots,
 	get_lots_with_work_orders,
 	get_ppo_details,
@@ -32,10 +32,9 @@ def get_dashboard_data():
 	ppos = get_ppo_details(
 		production_orders, lots, {lot["name"]: metrics.get_lot_quantity(lot["name"]) for lot in lots}
 	)
-	linked = get_linked_production_orders([row["name"] for row in production_orders])
-	unlinked = [row["name"] for row in production_orders if row["name"] not in linked]
+	ppo_only_rows = get_ppo_only_rows(production_orders, lots, ppos)
 	categories = get_product_categories(
-		[*(lot["item"] for lot in lots), *(ppos[name]["item"] for name in unlinked)]
+		[*(lot["item"] for lot in lots), *(row["item"] for row in ppo_only_rows)]
 	)
 	return {
 		"as_of": today(),
@@ -48,24 +47,39 @@ def get_dashboard_data():
 			}
 			for lot in lots
 		]
-		+ [
-			{**get_unlinked_row(name, ppos[name]), "product_category": categories.get(ppos[name]["item"])}
-			for name in unlinked
-		],
+		+ [{**row, "product_category": categories.get(row["item"])} for row in ppo_only_rows],
 	}
 
 
-def get_unlinked_row(name, ppo):
-	"""An Open PPO with no lot at all: PPO item and quantity only, lot figures left empty."""
+def get_ppo_only_rows(production_orders, lots, ppos):
+	"""Rows for Open PPOs with no open lot row: Lot not linked with no lot at all, Lots closed when every lot is closed."""
+	names = [row["name"] for row in production_orders]
+	with_lot_rows = {lot["production_order"] for lot in lots}
+	linked = get_linked_lots(names)
+	rows = []
+	for name in names:
+		if name in with_lot_rows:
+			continue
+		if name not in linked:
+			rows.append(get_ppo_only_row(name, ppos[name], ladder.LOT_NOT_LINKED))
+		elif "Open" not in linked[name].values():
+			closed = ", ".join(f"{lot} ({status})" for lot, status in sorted(linked[name].items()))
+			rows.append(get_ppo_only_row(name, ppos[name], ladder.LOTS_CLOSED, closed))
+	return rows
+
+
+def get_ppo_only_row(name, ppo, status, closed_lots=None):
+	"""An Open PPO row without a lot: PPO item and quantity only, lot figures left empty."""
 	return {
 		"lot": None,
+		"closed_lots": closed_lots,
 		"ppo": name,
 		"item": ppo["item"],
 		"delivery": ppo["delivery"],
 		"ppo_qty": ppo["pieces"],
 		"has_work_order": False,
-		"status": ladder.LOT_NOT_LINKED,
-		"status_rank": ladder.get_status_rank(ladder.LOT_NOT_LINKED, 0),
+		"status": status,
+		"status_rank": ladder.get_status_rank(status, 0),
 	}
 
 
