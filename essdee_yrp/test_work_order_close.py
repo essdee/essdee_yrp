@@ -9,6 +9,8 @@ from essdee_yrp.work_order_close import (
 	_get_owned_output_sle,
 	_validate_internal_transfers_complete,
 	close_work_order,
+	get_work_order_output_allocations,
+	post_close_valuation,
 )
 
 
@@ -320,7 +322,7 @@ class TestWorkOrderClose(UnitTestCase):
 			[(row["output_receipt_sle"], row["allocation_weight"]) for row in allocations],
 			[("SLE-M", 4), ("SLE-L", 5)],
 		)
-		self.assertEqual(allocations[1]["output_detail"], "GRN-ITEM-L")
+		self.assertEqual(allocations[1]["output_item"], "GARMENT-L")
 
 	def test_linked_row_allocates_to_the_matching_grn_output(self):
 		work_order = frappe._dict(name="WO-1")
@@ -346,12 +348,81 @@ class TestWorkOrderClose(UnitTestCase):
 				{
 					"output_receipt_sle": "SLE-1",
 					"output_voucher": "GRN-1",
-					"output_detail": "GRN-ITEM-1",
 					"output_item": "OUT-1",
 					"allocation_weight": 5,
 				}
 			],
 		)
+
+	def test_grn_rows_merged_into_one_receipt_sle_share_one_allocation(self):
+		work_order = frappe._dict(name="WO-1")
+		deliverable = frappe._dict(name="WOD-1", idx=4)
+		dimensions = {"lot": "LOT-1", "received_type": "Accepted"}
+		rows = [
+			frappe._dict(
+				output_receipt_sle="SLE-MERGED",
+				output_voucher="GRN-1",
+				output_detail=detail,
+				output_item="FABRIC",
+				stock_qty=qty,
+				stock_dimensions='{"lot": "LOT-1", "received_type": "Accepted"}',
+			)
+			for detail, qty in (("GRN-ITEM-1", 110.9), ("GRN-ITEM-2", 263))
+		]
+		with patch.object(frappe.db, "sql", return_value=rows):
+			allocations = _get_excess_output_allocations(work_order, deliverable, dimensions)
+
+		self.assertEqual(
+			allocations,
+			[
+				{
+					"output_receipt_sle": "SLE-MERGED",
+					"output_voucher": "GRN-1",
+					"output_item": "FABRIC",
+					"allocation_weight": 373.9,
+				}
+			],
+		)
+
+	def test_work_order_output_allocations_count_a_merged_receipt_sle_once(self):
+		with patch.object(frappe.db, "sql", return_value=[]) as sql:
+			get_work_order_output_allocations(frappe._dict(name="WO-1"))
+
+		query = sql.call_args.args[0]
+		self.assertIn("SELECT DISTINCT d.output_receipt_sle", query)
+		self.assertNotIn("goods_received_note_item", query)
+
+	def test_close_valuation_spreads_write_off_over_merged_receipt_once(self):
+		plan = {
+			"deliverable": frappe._dict(item_variant="YARN"),
+			"ledger_detail": {"sle": "SLE-WRITE-OFF", "value": 747.8},
+			"stock_quantity": 7.2,
+			"audit_row": frappe._dict(name="AUDIT-1"),
+			"dimensions": {"lot": "LOT-1"},
+			"output_allocations": [
+				{
+					"output_receipt_sle": "SLE-MERGED",
+					"output_voucher": "GRN-1",
+					"output_item": "FABRIC",
+					"allocation_weight": 373.9,
+				}
+			],
+		}
+		receipt = frappe._dict(item="FABRIC", qty=373.9, rate=100)
+		adjustment = "yrp.yrp_stock.doctype.yrp_stock_valuation_adjustment.yrp_stock_valuation_adjustment"
+		with (
+			patch.object(frappe.db, "get_value", return_value=receipt) as get_value,
+			patch(f"{adjustment}.register_production_links"),
+			patch(f"{adjustment}.create_adjustment") as create_adjustment,
+		):
+			post_close_valuation(frappe._dict(doctype="YRP Work Order", name="WO-1"), [plan], "2026-11-28")
+
+		self.assertNotIn("voucher_detail_no", get_value.call_args.args[1])
+		allocations = create_adjustment.call_args.kwargs["allocations"]
+		self.assertEqual(len(allocations), 1)
+		self.assertEqual(allocations[0]["target_sle"], "SLE-MERGED")
+		self.assertAlmostEqual(allocations[0]["quantity"], 7.2)
+		self.assertAlmostEqual(allocations[0]["new_rate"], 102)
 
 	def test_lineage_in_other_stock_dimensions_names_the_mismatch(self):
 		work_order = frappe._dict(name="WO-1")
@@ -592,7 +663,7 @@ class TestWorkOrderClose(UnitTestCase):
 		filters = get_value.call_args.args[1]
 		self.assertEqual(filters["voucher_type"], "YRP Goods Received Note")
 		self.assertEqual(filters["voucher_no"], "GRN-1")
-		self.assertEqual(filters["voucher_detail_no"], "GRN-ITEM-1")
+		self.assertNotIn("voucher_detail_no", filters)
 		self.assertEqual(filters["item"], "OUTPUT-VARIANT")
 		self.assertEqual(filters["is_cancelled"], 0)
 

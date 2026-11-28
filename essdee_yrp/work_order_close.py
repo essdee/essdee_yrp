@@ -353,7 +353,6 @@ def _get_excess_output_allocations(work_order, deliverable, dimensions):
 	rows = frappe.db.sql(
 		"""
 		SELECT d.name, d.parent AS output_voucher,
-		       d.goods_received_note_item AS output_detail,
 		       d.received_item_variant AS output_item,
 		       d.output_receipt_sle, d.stock_qty, d.stock_dimensions
 		FROM `tabSD YRP GRN Deliverable` d
@@ -375,12 +374,7 @@ def _get_excess_output_allocations(work_order, deliverable, dimensions):
 		row_dimensions = frappe.parse_json(row.stock_dimensions or "{}")
 		if any((row_dimensions.get(key) or None) != (value or None) for key, value in dimensions.items()):
 			continue
-		key = (
-			row.output_receipt_sle,
-			row.output_voucher,
-			row.output_detail,
-			row.output_item,
-		)
+		key = (row.output_receipt_sle, row.output_voucher, row.output_item)
 		grouped[key] = flt(grouped.get(key)) + flt(row.stock_qty)
 	if not rows:
 		return get_work_order_output_allocations(work_order)
@@ -390,8 +384,7 @@ def _get_excess_output_allocations(work_order, deliverable, dimensions):
 		{
 			"output_receipt_sle": key[0],
 			"output_voucher": key[1],
-			"output_detail": key[2],
-			"output_item": key[3],
+			"output_item": key[2],
 			"allocation_weight": weight,
 		}
 		for key, weight in grouped.items()
@@ -404,7 +397,6 @@ def get_work_order_output_allocations(work_order):
 	rows = frappe.db.sql(
 		"""
 		SELECT DISTINCT d.output_receipt_sle, d.parent AS output_voucher,
-		       d.goods_received_note_item AS output_detail,
 		       d.received_item_variant AS output_item, sle.qty AS allocation_weight
 		FROM `tabSD YRP GRN Deliverable` d
 		INNER JOIN `tabYRP Goods Received Note` g ON g.name = d.parent
@@ -425,7 +417,6 @@ def get_work_order_output_allocations(work_order):
 		{
 			"output_receipt_sle": row.output_receipt_sle,
 			"output_voucher": row.output_voucher,
-			"output_detail": row.output_detail,
 			"output_item": row.output_item,
 			"allocation_weight": flt(row.allocation_weight),
 		}
@@ -500,14 +491,13 @@ def _has_mapped_output_lineage(work_order):
 
 
 def _get_owned_output_sle(output):
-	"""Load only the active GRN receipt proved by mapped output lineage."""
+	"""Load the active GRN receipt proved by mapped output lineage; one SLE may merge several GRN rows."""
 	target = frappe.db.get_value(
 		"YRP Stock Ledger Entry",
 		{
 			"name": output["output_receipt_sle"],
 			"voucher_type": "YRP Goods Received Note",
 			"voucher_no": output["output_voucher"],
-			"voucher_detail_no": output["output_detail"],
 			"item": output["output_item"],
 			"qty": [">", 0],
 			"is_cancelled": 0,
