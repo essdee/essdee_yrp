@@ -86,6 +86,7 @@ class SDYRPLot(Document):
 		if self.get("fabric_program_details"):
 			save_fabric_program_details(self)
 		save_fabric_requirement_details(self)
+		self.clear_removed_ipd_rows()
 
 		if self.get("item_details"):
 			items = save_item_details(self.item_details)
@@ -127,6 +128,14 @@ class SDYRPLot(Document):
 		for item in self.lot_order_details:
 			total_qty += vars(item)["quantity"]
 		self.total_order_quantity = total_qty
+
+	def clear_removed_ipd_rows(self):
+		"""Removing the IPD drops the box and order rows built from it."""
+		previous = self.get_doc_before_save()
+		if self.production_detail or not (previous and previous.production_detail):
+			return
+		self.set("items", [])
+		self.set("lot_order_details", [])
 
 	def validate(self):
 		from essdee_yrp.folding_lot import validate_lot

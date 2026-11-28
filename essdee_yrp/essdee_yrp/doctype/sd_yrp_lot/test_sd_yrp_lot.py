@@ -66,6 +66,25 @@ class TestLot(FrappeTestCase):
 		self.assertEqual([row.qty for row in lot.items], [3, 1])
 		self.assertTrue(lot.flags.items_derived)
 
+	def test_removing_ipd_clears_ipd_built_order_rows(self):
+		rows = {"items": [frappe._dict(item_variant="BOX-S")], "lot_order_details": [frappe._dict(item_variant="PIECE-S")]}
+		lot = SimpleNamespace(production_detail="", get_doc_before_save=lambda: frappe._dict(production_detail="IPD-1"), **rows)
+		lot.set = lambda fieldname, value: setattr(lot, fieldname, value)
+
+		Lot.clear_removed_ipd_rows(lot)
+
+		self.assertEqual((lot.items, lot.lot_order_details), ([], []))
+
+	def test_lot_without_ipd_before_keeps_its_order_rows(self):
+		for previous in (None, frappe._dict(production_detail="")):
+			rows = [frappe._dict(item_variant="PIECE-S")]
+			lot = SimpleNamespace(production_detail="", get_doc_before_save=lambda previous=previous: previous, items=[], lot_order_details=rows)
+			lot.set = lambda fieldname, value: setattr(lot, fieldname, value)
+
+			Lot.clear_removed_ipd_rows(lot)
+
+			self.assertEqual(lot.lot_order_details, rows)
+
 	def test_box_table_does_not_expose_edit_actions(self):
 		source = (
 			Path(frappe.get_app_path("essdee_yrp")) / "public/js/Lot/components/LotOrder.vue"
